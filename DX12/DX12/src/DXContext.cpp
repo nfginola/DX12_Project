@@ -179,9 +179,9 @@ void append_debug_info_to_title(HWND& hwnd, bool debug_on)
 
 		std::string new_title = title;
 		if (debug_on)
-			new_title.append(" (Debug + Validation Layer Off)");
+			new_title.append(" (Debug + Validation Layer OFF)");
 		else
-			new_title.append(" (Debug + Validation Layer On)");
+			new_title.append(" (Debug + Validation Layer ON)");
 
 		SetWindowTextA(hwnd, new_title.data());
 	}

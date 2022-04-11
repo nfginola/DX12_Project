@@ -29,5 +29,7 @@ public:
 private:
 	cptr<IDXGISwapChain3> m_sc3;
 	Settings m_settings;
+
+	bool m_tearing_supported = false;
 };
 

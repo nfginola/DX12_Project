@@ -5,7 +5,8 @@ bool is_tearing_supported();
 void validate_settings(DXSwapChain::Settings& settings);
 
 DXSwapChain::DXSwapChain(DXSwapChain::Settings& settings, IDXGIFactory4* fac) :
-	m_settings(settings)
+	m_settings(settings),
+	m_tearing_supported(is_tearing_supported())
 {
 	validate_settings(settings);
 	
@@ -47,6 +48,9 @@ DXSwapChain::DXSwapChain(DXSwapChain::Settings& settings, IDXGIFactory4* fac) :
 
 void DXSwapChain::present(bool vsync, UINT flags)
 {
+	if (!vsync && m_tearing_supported)
+		flags |= DXGI_PRESENT_ALLOW_TEARING;
+
 	ThrowIfFailed(m_sc3->Present(vsync ? 1 : 0, flags), DET_ERR("Could not present to swapchain"));
 }
 

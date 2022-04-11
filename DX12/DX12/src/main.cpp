@@ -40,7 +40,6 @@ int main()
 		// initialize dxc compiler
 		auto shd_clr = std::make_unique<DXCompiler>();
 
-
 		MSG msg{};
 		while (g_app_running)
 		{
