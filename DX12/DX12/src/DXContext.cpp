@@ -47,13 +47,13 @@ DXContext::DXContext(DXContext::Settings& settings)
 	// create primary direct queue
 	D3D12_COMMAND_QUEUE_DESC desc{};
 	desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-	ThrowIfFailed(m_dev->CreateCommandQueue(&desc, IID_PPV_ARGS(m_prim_dq.GetAddressOf())), "Failed to create a direct command queue");
+	ThrowIfFailed(m_dev->CreateCommandQueue(&desc, IID_PPV_ARGS(m_direct_queue.GetAddressOf())), "Failed to create a direct command queue");
 
 	// create swapchain
 	DXSwapChain::Settings sc_settings{};
 	sc_settings.hwnd = settings.hwnd;
 	sc_settings.max_FIF = MAX_FIF;
-	sc_settings.associated_queue = m_prim_dq;
+	sc_settings.associated_queue = m_direct_queue;
 	m_sc = std::make_unique<DXSwapChain>(sc_settings, fac6.Get());
 	
 }
@@ -71,6 +71,16 @@ const DXContext::HandleSizes& DXContext::get_hdl_sizes()
 DXSwapChain* DXContext::get_sc()
 {
 	return m_sc.get();
+}
+
+ID3D12Device* DXContext::get_dev()
+{
+	return m_dev.Get();
+}
+
+ID3D12CommandQueue* DXContext::get_direct_queue()
+{
+	return m_direct_queue.Get();
 }
 
 
@@ -179,9 +189,9 @@ void append_debug_info_to_title(HWND& hwnd, bool debug_on)
 
 		std::string new_title = title;
 		if (debug_on)
-			new_title.append(" (Debug + Validation Layer OFF)");
-		else
 			new_title.append(" (Debug + Validation Layer ON)");
+		else
+			new_title.append(" (Debug + Validation Layer OFF)");
 
 		SetWindowTextA(hwnd, new_title.data());
 	}

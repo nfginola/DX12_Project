@@ -22,12 +22,15 @@ public:
 	DXSwapChain(DXSwapChain::Settings& settings, IDXGIFactory4* fac);
 	~DXSwapChain() = default;
 
-	void present(bool vsync, UINT flags);
+	void present(bool vsync, UINT flags = 0);
+	UINT get_curr_draw_surface() const;
 
+	ID3D12Resource* get_backbuffer(UINT index) const;
 	const DXSwapChain::Settings& get_settings() const;
 
 private:
 	cptr<IDXGISwapChain3> m_sc3;
+	std::vector<cptr<ID3D12Resource>> m_backbuffers;
 	Settings m_settings;
 
 	bool m_tearing_supported = false;

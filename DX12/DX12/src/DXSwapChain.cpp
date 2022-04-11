@@ -38,10 +38,13 @@ DXSwapChain::DXSwapChain(DXSwapChain::Settings& settings, IDXGIFactory4* fac) :
 	// Grab swapchain3 so that we have access to GetBackBufferIndex (which surface index to draw on next)
 	sc.As(&m_sc3);
 	
+	// Grab backbuffers
+	m_backbuffers.resize(settings.max_FIF);
+	for (auto i = 0; i < m_backbuffers.size(); ++i)
+		ThrowIfFailed(m_sc3->GetBuffer(i, IID_PPV_ARGS(m_backbuffers[i].GetAddressOf())), DET_ERR("Failed to get back buffer"));
+
 	// Update app client dimensions
-	cptr<ID3D12Resource> sample_bb;
-	ThrowIfFailed(m_sc3->GetBuffer(0, IID_PPV_ARGS(sample_bb.GetAddressOf())), DET_ERR("Failed to grab backbuffer"));
-	auto bb_desc = sample_bb->GetDesc();
+	auto bb_desc = m_backbuffers[0]->GetDesc();
 	m_settings.width = bb_desc.Width;
 	m_settings.height = bb_desc.Height;
 }
@@ -52,6 +55,16 @@ void DXSwapChain::present(bool vsync, UINT flags)
 		flags |= DXGI_PRESENT_ALLOW_TEARING;
 
 	ThrowIfFailed(m_sc3->Present(vsync ? 1 : 0, flags), DET_ERR("Could not present to swapchain"));
+}
+
+UINT DXSwapChain::get_curr_draw_surface() const
+{
+	return m_sc3->GetCurrentBackBufferIndex();
+}
+
+ID3D12Resource* DXSwapChain::get_backbuffer(UINT index) const
+{
+	return m_backbuffers[index].Get();
 }
 
 const DXSwapChain::Settings& DXSwapChain::get_settings() const

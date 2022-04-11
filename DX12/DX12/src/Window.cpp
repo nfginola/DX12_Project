@@ -9,7 +9,7 @@ Window::Window(HINSTANCE hInstance, std::function<LRESULT(HWND, UINT, WPARAM, LP
 	m_client_height(client_height),
 	m_alive(true),
 	m_fullscreen(false),
-	m_style(WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX /* | WS_MAXIMIZEBOX*/ | WS_SIZEBOX),
+	m_style(WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX /* | WS_MAXIMIZEBOX | WS_SIZEBOX*/),
 	m_ex_style(0),
 	m_screenTransitionDetails(ScreenTransitionDetails{ 0, 0, 0, 0 }),
 	m_custom_proc(winProc)

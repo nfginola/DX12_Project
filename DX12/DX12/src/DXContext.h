@@ -16,10 +16,10 @@ public:
 	// Device-based constants
 	struct HandleSizes
 	{
-		uint64_t cbv_srv_uav = -1;
-		uint64_t sampler = -1;
-		uint64_t rtv = -1;
-		uint64_t dsv = -1;
+		UINT cbv_srv_uav = -1;
+		UINT sampler = -1;
+		UINT rtv = -1;
+		UINT dsv = -1;
 
 		void init(ID3D12Device* dev);
 	};
@@ -30,11 +30,13 @@ public:
 
 	const HandleSizes& get_hdl_sizes();
 	DXSwapChain* get_sc();
+	ID3D12Device* get_dev();
+	ID3D12CommandQueue* get_direct_queue();
 
 private:
 	cptr<IDXGIAdapter> m_adapter;
 	cptr<ID3D12Device> m_dev;
-	cptr<ID3D12CommandQueue> m_prim_dq;		// primary dq
+	cptr<ID3D12CommandQueue> m_direct_queue;
 
 	HandleSizes m_hdl_sizes;
 
