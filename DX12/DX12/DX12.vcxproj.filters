@@ -15,51 +15,51 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
+    <ClCompile Include="src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="pch.cpp">
+    <ClCompile Include="src\pch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DXSwapChain.cpp">
+    <ClCompile Include="src\DXSwapChain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DXContext.cpp">
+    <ClCompile Include="src\DXContext.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DXCommon.cpp">
+    <ClCompile Include="src\DXCommon.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Window.cpp">
+    <ClCompile Include="src\Window.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DXCompiler.cpp">
+    <ClCompile Include="src\DXCompiler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="CompiledShaderBlob.cpp">
+    <ClCompile Include="src\CompiledShaderBlob.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="pch.h">
+    <ClInclude Include="src\pch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DXSwapChain.h">
+    <ClInclude Include="src\DXSwapChain.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DXContext.h">
+    <ClInclude Include="src\DXContext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DXCommon.h">
+    <ClInclude Include="src\DXCommon.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Window.h">
+    <ClInclude Include="src\Window.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DXCompiler.h">
+    <ClInclude Include="src\DXCompiler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CompiledShaderBlob.h">
+    <ClInclude Include="src\CompiledShaderBlob.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
