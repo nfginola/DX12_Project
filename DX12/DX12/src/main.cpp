@@ -17,8 +17,8 @@ LRESULT window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 int main()
 {
 	g_app_running = true;
-	const UINT CLIENT_WIDTH = 1280;
-	const UINT CLIENT_HEIGHT = 720;
+	const UINT CLIENT_WIDTH = 1600;
+	const UINT CLIENT_HEIGHT = 900;
 
 	// https://docs.microsoft.com/en-us/visualstudio/debugger/finding-memory-leaks-using-the-crt-library?view=vs-2022
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -112,6 +112,7 @@ int main()
 
 			auto surface_idx = gfx_sc->get_curr_draw_surface();
 			auto& frame_res = per_frame_res[surface_idx];
+			auto curr_bb = gfx_sc->get_backbuffer(surface_idx);
 			auto dq_ator = frame_res.dq_ator.Get();
 			auto dq_cmdl = frame_res.dq_cmdl.Get();
 
@@ -123,7 +124,7 @@ int main()
 			dq_cmdl->Reset(dq_ator, nullptr);
 
 			// transition
-			auto barr_to_rt = CD3DX12_RESOURCE_BARRIER::Transition(gfx_sc->get_backbuffer(surface_idx), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+			auto barr_to_rt = CD3DX12_RESOURCE_BARRIER::Transition(curr_bb, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 			dq_cmdl->ResourceBarrier(1, &barr_to_rt);
 
 			// clear
@@ -133,7 +134,7 @@ int main()
 			dq_cmdl->ClearRenderTargetView(rtv_hdl, clear_color, 1, &main_scissor);
 
 			// transition
-			auto barr_to_present = CD3DX12_RESOURCE_BARRIER::Transition(gfx_sc->get_backbuffer(surface_idx), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+			auto barr_to_present = CD3DX12_RESOURCE_BARRIER::Transition(curr_bb, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 			dq_cmdl->ResourceBarrier(1, &barr_to_present);
 
 			dq_cmdl->Close();
@@ -151,14 +152,13 @@ int main()
 			ThrowIfFailed(dq->Signal(
 				frame_res.sync.fence.Get(), 
 				frame_res.sync.fence_val_to_wait_for), 
-				DET_ERR("Cant add a signal request on queue"));
+				DET_ERR("Cant add a signal request to queue"));
 			frame_res.prev_surface_idx = surface_idx;
 		}
 
-		// wait for all FIFs
+		// wait for all FIFs before exiting
 		for (const auto& frame_res : per_frame_res)
 			frame_res.sync.wait();
-
 	}
 	catch (std::runtime_error& e)
 	{

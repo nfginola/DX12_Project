@@ -199,5 +199,6 @@ void append_debug_info_to_title(HWND& hwnd, bool debug_on)
 
 void validate_settings(DXContext::Settings& settings)
 {
-	// Nothing to check for now
+	if (!settings.hwnd)
+		throw std::runtime_error(DET_ERR("Headless rendering is currently not supported"));
 }
