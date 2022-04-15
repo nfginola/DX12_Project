@@ -5,7 +5,7 @@
 template <typename T>
 using cptr = Microsoft::WRL::ComPtr<T>;
 
-GPUProfiler::GPUProfiler(ID3D12Device* dev, QueueType queue_type, uint32_t max_fif, uint32_t max_profiles) :
+GPUProfiler::GPUProfiler(ID3D12Device* dev, QueueType queue_type, uint8_t max_fif, uint32_t max_profiles) :
 	m_max_fif(max_fif),
 	m_max_profiles_per_frame(max_profiles),
 	m_max_queries_per_frame(max_profiles * 2),

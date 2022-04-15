@@ -1,11 +1,13 @@
 #include "pch.h"
 #include "CPUProfiler.h"
 
-CPUProfiler::CPUProfiler() :
+CPUProfiler::CPUProfiler(uint8_t latency) :
 	m_curr_scope_profile(nullptr),
 	m_in_frame(false),
-	m_curr_frame(0)
+	m_curr_frame(0),
+	m_latency(latency)
 {
+	assert(latency <= MAX_FRAME_LATENCY);
 }
 
 void CPUProfiler::profile_begin(const std::string& name)
@@ -40,10 +42,9 @@ void CPUProfiler::profile_end(const std::string& name)
 	profile->stopwatch[m_curr_frame].stop();
 }
 
-const std::map<std::string, CPUProfiler::ProfileData>& CPUProfiler::get_profiles(uint64_t latency)
+const std::map<std::string, CPUProfiler::ProfileData>& CPUProfiler::get_profiles()
 {
-	assert(latency <= MAX_FRAME_LATENCY);
-	uint64_t stopwatch_idx = (m_curr_frame + (MAX_FRAME_LATENCY - latency)) % MAX_FRAME_LATENCY;		// Wrap around to go backwards 'latency' frames
+	uint64_t stopwatch_idx = (m_curr_frame + (MAX_FRAME_LATENCY - m_latency)) % MAX_FRAME_LATENCY;		// Wrap around to go backwards 'latency' frames
 
 	// Resolve times for given frame latency
 	for (auto& [_, profile] : m_profiles)

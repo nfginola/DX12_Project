@@ -27,7 +27,7 @@ public:
 	};
 
 public:
-	GPUProfiler(ID3D12Device* dev, QueueType queue_type, uint32_t max_fif, uint32_t max_profiles = 100);
+	GPUProfiler(ID3D12Device* dev, QueueType queue_type, uint8_t max_fif, uint32_t max_profiles = 100);
 	~GPUProfiler() = default;
 
 	void profile_begin(ID3D12GraphicsCommandList* cmdl, ID3D12CommandQueue* queue, const std::string& name);
@@ -43,7 +43,7 @@ public:
 private:
 	static constexpr size_t QUERY_SIZE = sizeof(UINT64);	// Timestamp ticks are UINT64 https://docs.microsoft.com/en-us/windows/win32/direct3d12/timing
 
-	uint32_t m_max_fif;
+	uint8_t m_max_fif;
 	uint32_t m_max_profiles_per_frame;
 	uint32_t m_max_queries_per_frame;
 	uint32_t m_curr_frame_idx;

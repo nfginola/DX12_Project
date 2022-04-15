@@ -21,13 +21,13 @@ public:
 	};
 
 public:
-	CPUProfiler();
+	CPUProfiler(uint8_t latency);
 	~CPUProfiler() = default;
 
 	void profile_begin(const std::string& name);
 	void profile_end(const std::string& name);
 
-	const std::map<std::string, ProfileData>& get_profiles(uint64_t latency);
+	const std::map<std::string, ProfileData>& get_profiles();
 
 	const CPUProfiler::ProfileData& get_curr_scope_profile();
 
@@ -39,6 +39,7 @@ private:
 	ProfileData* m_curr_scope_profile;
 	bool m_in_frame;
 	uint64_t m_curr_frame;
+	uint8_t m_latency;
 
 };
 

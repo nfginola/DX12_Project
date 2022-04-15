@@ -110,8 +110,9 @@ int main()
 		auto main_scissor = CD3DX12_RECT(0, 0, CLIENT_WIDTH, CLIENT_HEIGHT);
 
 		dev->SetStablePowerState(true);
-		GPUProfiler gpu_pf(dev, GPUProfiler::QueueType::eDirectOrCompute, max_FIF);
-		CPUProfiler cpu_pf;
+		uint8_t pf_latency = max_FIF;
+		GPUProfiler gpu_pf(dev, GPUProfiler::QueueType::eDirectOrCompute, pf_latency);
+		CPUProfiler cpu_pf(pf_latency);
 
 		MSG msg{};
 		while (g_app_running)
@@ -139,12 +140,12 @@ int main()
 			std::cout << "\n";
 
 			std::cout << "CPU:\n";
-			const auto& cpu_profiles = cpu_pf.get_profiles(max_FIF);
+			const auto& cpu_profiles = cpu_pf.get_profiles();
 			for (const auto& [_, profile] : cpu_profiles)
 			{
 				std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
 			}
-			std::cout << "\n";
+			std::cout << "========================================\n";
 			
 			// reset
 			dq_ator->Reset();
