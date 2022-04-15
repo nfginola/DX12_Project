@@ -8,6 +8,11 @@
 #include "GPUProfiler.h"
 #include "CPUProfiler.h"
 
+// ImGui
+#include "imgui.h"
+#include "imgui_impl_win32.h"
+#include "imgui_impl_dx12.h"
+
 // Check for memory leaks
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
@@ -109,10 +114,50 @@ int main()
 		auto main_vp = CD3DX12_VIEWPORT(0.f, 0.f, CLIENT_WIDTH, CLIENT_HEIGHT, D3D12_MIN_DEPTH, D3D12_MAX_DEPTH);
 		auto main_scissor = CD3DX12_RECT(0, 0, CLIENT_WIDTH, CLIENT_HEIGHT);
 
+		// Setup profiler
 		dev->SetStablePowerState(true);
 		uint8_t pf_latency = max_FIF;
 		GPUProfiler gpu_pf(dev, GPUProfiler::QueueType::eDirectOrCompute, pf_latency);
 		CPUProfiler cpu_pf(pf_latency);
+
+		// Setup ImGui
+		IMGUI_CHECKVERSION();
+		ImGui::CreateContext();
+		ImGuiIO& io = ImGui::GetIO(); (void)io;
+		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
+		//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
+		io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+		//io.ConfigViewportsNoAutoMerge = true;
+		//io.ConfigViewportsNoTaskBarIcon = true;
+
+		ImGui::StyleColorsDark();
+
+		// When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
+		ImGuiStyle& style = ImGui::GetStyle();
+		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+		{
+			style.WindowRounding = 0.0f;
+			style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+		}
+			
+		// Setup resource view for ImGUI usage
+		cptr<ID3D12DescriptorHeap> dheap_for_imgui;
+		{
+			D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+			desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+			desc.NumDescriptors = 1;
+			desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+			ThrowIfFailed(dev->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&dheap_for_imgui)), DET_ERR("Bazooka"));
+		}
+
+		ImGui_ImplWin32_Init(win->get_hwnd());
+		ImGui_ImplDX12_Init(dev, max_FIF,
+			DXGI_FORMAT_R8G8B8A8_UNORM, dheap_for_imgui.Get(),
+			dheap_for_imgui->GetCPUDescriptorHandleForHeapStart(),
+			dheap_for_imgui->GetGPUDescriptorHandleForHeapStart());
+
+
 
 		MSG msg{};
 		while (g_app_running)
@@ -131,6 +176,13 @@ int main()
 			cpu_pf.frame_begin();
 			gpu_pf.frame_begin(surface_idx);
 
+			// start imGui
+			ImGui_ImplDX12_NewFrame();
+			ImGui_ImplWin32_NewFrame();
+			ImGui::NewFrame();
+
+
+			// query profiler results
 			std::cout << "GPU:\n";
 			const auto& profiles = gpu_pf.get_profiles();
 			for (const auto& [_, profile] : profiles)
@@ -167,6 +219,28 @@ int main()
 			FLOAT clear_color[4] = { 0.5f, 0.2f, 0.2f, 1.f };
 			dq_cmdl->ClearRenderTargetView(rtv_hdl, clear_color, 1, &main_scissor);
 			gpu_pf.profile_end(dq_cmdl, "clear");
+
+
+			// draw imgui
+			bool show_demo_window = true;
+			if (show_demo_window)
+				ImGui::ShowDemoWindow(&show_demo_window);
+
+			// end imgui
+			ImGui::Render();
+			
+			// render imgui data
+			dq_cmdl->OMSetRenderTargets(1, &rtv_hdl, false, nullptr);
+			dq_cmdl->SetDescriptorHeaps(1, dheap_for_imgui.GetAddressOf());		// We should reserve a single element on our main render desc heap
+			ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), dq_cmdl);
+
+			// Update and Render additional Platform Windows
+			if (g_app_running && io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+			{
+				ImGui::UpdatePlatformWindows();
+				ImGui::RenderPlatformWindowsDefault(NULL, (void*)dq_cmdl);
+			}
+
 
 			// transition
 			gpu_pf.profile_begin(dq_cmdl, dq, "transition #2");
@@ -205,6 +279,10 @@ int main()
 		// wait for all FIFs before exiting
 		for (const auto& frame_res : per_frame_res)
 			frame_res.sync.wait();
+
+		ImGui_ImplDX12_Shutdown();
+		ImGui_ImplWin32_Shutdown();
+		ImGui::DestroyContext();
 	}
 	catch (std::runtime_error& e)
 	{
@@ -215,8 +293,15 @@ int main()
 	return 0;
 }
 
+
+// Forward declare message handler from imgui_impl_win32.cpp
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 LRESULT window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
+	if (ImGui_ImplWin32_WndProcHandler(hwnd, uMsg, wParam, lParam))
+		return true;
+
 	switch (uMsg)
 	{
 	case WM_DESTROY:

@@ -119,7 +119,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)vendor\dxshadercompiler\inc;$(ProjectDir)vendor\dxheaders\dxguids;$(ProjectDir)vendor\dxheaders\directx;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)vendor\imgui-docking\backends\;$(ProjectDir)vendor\imgui-docking\;$(ProjectDir)vendor\dxshadercompiler\inc;$(ProjectDir)vendor\dxheaders\dxguids;$(ProjectDir)vendor\dxheaders\directx;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -142,7 +142,7 @@ copy "$(ProjectDir)vendor\dxshadercompiler\bin\x64\dxil.dll" "$(TargetDir)dxil.d
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)vendor\dxshadercompiler\inc;$(ProjectDir)vendor\dxheaders\dxguids;$(ProjectDir)vendor\dxheaders\directx;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)vendor\imgui-docking\backends\;$(ProjectDir)vendor\imgui-docking\;$(ProjectDir)vendor\dxshadercompiler\inc;$(ProjectDir)vendor\dxheaders\dxguids;$(ProjectDir)vendor\dxheaders\directx;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -172,6 +172,34 @@ copy "$(ProjectDir)vendor\dxshadercompiler\bin\x64\dxil.dll" "$(TargetDir)dxil.d
     </ClCompile>
     <ClCompile Include="src\Window.cpp" />
     <ClCompile Include="src\Stopwatch.cpp" />
+    <ClCompile Include="vendor\imgui-docking\backends\imgui_impl_dx12.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="vendor\imgui-docking\backends\imgui_impl_win32.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="vendor\imgui-docking\imgui.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="vendor\imgui-docking\imgui_demo.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="vendor\imgui-docking\imgui_draw.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="vendor\imgui-docking\imgui_tables.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="vendor\imgui-docking\imgui_widgets.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\CPUProfiler.h" />
@@ -185,6 +213,14 @@ copy "$(ProjectDir)vendor\dxshadercompiler\bin\x64\dxil.dll" "$(TargetDir)dxil.d
     <ClInclude Include="src\pch.h" />
     <ClInclude Include="src\Window.h" />
     <ClInclude Include="src\Stopwatch.h" />
+    <ClInclude Include="vendor\imgui-docking\backends\imgui_impl_dx12.h" />
+    <ClInclude Include="vendor\imgui-docking\backends\imgui_impl_win32.h" />
+    <ClInclude Include="vendor\imgui-docking\imconfig.h" />
+    <ClInclude Include="vendor\imgui-docking\imgui.h" />
+    <ClInclude Include="vendor\imgui-docking\imgui_internal.h" />
+    <ClInclude Include="vendor\imgui-docking\imstb_rectpack.h" />
+    <ClInclude Include="vendor\imgui-docking\imstb_textedit.h" />
+    <ClInclude Include="vendor\imgui-docking\imstb_truetype.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
