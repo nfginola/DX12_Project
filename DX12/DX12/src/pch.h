@@ -1,6 +1,6 @@
 #pragma once
 
-#include <wrl.h>		// ComPtr
+#include <wrl/client.h>		// ComPtr
 template <typename T>
 using cptr = Microsoft::WRL::ComPtr<T>;
 
@@ -19,7 +19,6 @@ using uptr = std::unique_ptr<T>;
 #include <filesystem>
 
 #define DET_ERR(msg) std::string("Error at line: (" + std::to_string(__LINE__) + ") in file: (" + __FILE__ + ")\n") + std::string(msg)
-
 
 namespace utils
 {

@@ -44,10 +44,14 @@ DXContext::DXContext(DXContext::Settings& settings)
 	// Set info queue prefs (e.g break on various severities)
 	set_info_queue_prefs(m_dev.Get());
 	
-	// create primary direct queue
+	// create common queues
 	D3D12_COMMAND_QUEUE_DESC desc{};
 	desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
 	ThrowIfFailed(m_dev->CreateCommandQueue(&desc, IID_PPV_ARGS(m_direct_queue.GetAddressOf())), "Failed to create a direct command queue");
+	desc.Type = D3D12_COMMAND_LIST_TYPE_COMPUTE;
+	ThrowIfFailed(m_dev->CreateCommandQueue(&desc, IID_PPV_ARGS(m_compute_queue.GetAddressOf())), "Failed to create a compute command queue");
+	desc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
+	ThrowIfFailed(m_dev->CreateCommandQueue(&desc, IID_PPV_ARGS(m_copy_queue.GetAddressOf())), "Failed to create a copy command queue");
 
 	// create swapchain
 	DXSwapChain::Settings sc_settings{};
@@ -81,6 +85,16 @@ ID3D12Device* DXContext::get_dev()
 ID3D12CommandQueue* DXContext::get_direct_queue()
 {
 	return m_direct_queue.Get();
+}
+
+ID3D12CommandQueue* DXContext::get_copy_queue()
+{
+	return m_copy_queue.Get();
+}
+
+ID3D12CommandQueue* DXContext::get_compute_queue()
+{
+	return m_compute_queue.Get();
 }
 
 

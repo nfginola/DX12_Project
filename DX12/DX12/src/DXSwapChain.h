@@ -29,7 +29,7 @@ public:
 	const DXSwapChain::Settings& get_settings() const;
 
 private:
-	cptr<IDXGISwapChain3> m_sc3;
+	Microsoft::WRL::ComPtr<IDXGISwapChain3> m_sc3;
 	std::vector<cptr<ID3D12Resource>> m_backbuffers;
 	Settings m_settings;
 

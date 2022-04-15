@@ -9,7 +9,7 @@ class DXContext
 public:
 	struct Settings
 	{
-		HWND hwnd;					// Associated window (optional)
+		HWND hwnd = nullptr;
 		bool debug_on = false;
 	};
 
@@ -32,11 +32,13 @@ public:
 	DXSwapChain* get_sc();
 	ID3D12Device* get_dev();
 	ID3D12CommandQueue* get_direct_queue();
+	ID3D12CommandQueue* get_copy_queue();
+	ID3D12CommandQueue* get_compute_queue();
 
 private:
-	cptr<IDXGIAdapter> m_adapter;
-	cptr<ID3D12Device> m_dev;
-	cptr<ID3D12CommandQueue> m_direct_queue;
+	Microsoft::WRL::ComPtr<IDXGIAdapter> m_adapter;
+	Microsoft::WRL::ComPtr<ID3D12Device> m_dev;
+	Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_direct_queue, m_compute_queue, m_copy_queue;
 
 	HandleSizes m_hdl_sizes;
 
