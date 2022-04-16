@@ -25,9 +25,9 @@ public:
 	void process_mouse(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 	// Use in frame loop
-	void begin();	// Called at the beginning of every frame
-	void end();		// Called at the end of every frame
-
+	void frame_begin();	
+	void frame_end();
+	
 	// Mouse
 	void set_mouse_mode(MouseMode mode);
 

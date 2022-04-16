@@ -186,7 +186,7 @@ int main()
 		{
 			win->pump_messages();
 
-			g_input->begin();
+			g_input->frame_begin();
 
 			auto surface_idx = gfx_sc->get_curr_draw_surface();
 			auto& frame_res = per_frame_res[surface_idx];
@@ -326,7 +326,7 @@ int main()
 				DET_ERR("Cant add a signal request to queue"));
 			frame_res.prev_surface_idx = surface_idx;
 
-			g_input->end();
+			g_input->frame_end();
 		}
 
 		// wait for all FIFs before exiting

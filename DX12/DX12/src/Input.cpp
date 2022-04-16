@@ -84,7 +84,7 @@ void Input::process_mouse(UINT uMsg, WPARAM wParam, LPARAM lParam)
 	}
 }
 
-void Input::begin()
+void Input::frame_begin()
 {
 	// We cant update this on process_mouse. Otherwise some functionality dont work properly (e.g PRESSED)
 	m_mouse_state = m_mouse->GetState();
@@ -112,7 +112,7 @@ void Input::begin()
 	}
 }
 
-void Input::end()
+void Input::frame_end()
 {
 	// reset dt
 	/*
