@@ -1,0 +1,2 @@
+When it comes to .dll, we only need to copy it to the directory in which the .exe file resides.
+(e.g x64/Debug or x64/Release)

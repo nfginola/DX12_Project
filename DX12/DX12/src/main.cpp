@@ -13,14 +13,17 @@
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx12.h"
 
-#include "DXTK/Mouse.h"
-
 // Check for memory leaks
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
 #include <crtdbg.h>
 
+#include "DXTK/DirectXHelpers.h"
+
+#include "Input.h"
+
 static bool g_app_running = false;
+Input* g_input = nullptr;
 
 LRESULT window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
@@ -31,6 +34,7 @@ int main()
 	const UINT CLIENT_WIDTH = 1600;
 	const UINT CLIENT_HEIGHT = 900;
 
+
 	// https://docs.microsoft.com/en-us/visualstudio/debugger/finding-memory-leaks-using-the-crt-library?view=vs-2022
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 	try
@@ -39,6 +43,8 @@ int main()
 		auto win_proc = [](HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) -> LRESULT { return window_procedure(hwnd, uMsg, wParam, lParam); };
 		auto win = std::make_unique<Window>(GetModuleHandle(NULL), win_proc, CLIENT_WIDTH, CLIENT_HEIGHT);
 	
+		g_input = new Input(win->get_hwnd());
+
 		// initialize dx context
 		DXContext::Settings ctx_set{};
 		ctx_set.debug_on = debug_on;
@@ -159,12 +165,28 @@ int main()
 			dheap_for_imgui->GetCPUDescriptorHandleForHeapStart(),
 			dheap_for_imgui->GetGPUDescriptorHandleForHeapStart());
 
+		/*
+			Idea:
+
+			nGUI::init(..)
+			nGUI::destroy();
+
+			nGUI::imgui_submit([]()
+				{
+			
+				});
+			
+			Maybe do same to Mouse/Kb? Don't know yet..
+
+		*/
 
 
 		MSG msg{};
 		while (g_app_running)
 		{
 			win->pump_messages();
+
+			g_input->begin();
 
 			auto surface_idx = gfx_sc->get_curr_draw_surface();
 			auto& frame_res = per_frame_res[surface_idx];
@@ -185,22 +207,28 @@ int main()
 
 
 			// query profiler results
-			std::cout << "GPU:\n";
-			const auto& profiles = gpu_pf.get_profiles();
-			for (const auto& [_, profile] : profiles)
-			{
-				std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
-			}
-			std::cout << "\n";
+			//std::cout << "GPU:\n";
+			//const auto& profiles = gpu_pf.get_profiles();
+			//for (const auto& [_, profile] : profiles)
+			//{
+			//	std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
+			//}
+			//std::cout << "\n";
 
-			std::cout << "CPU:\n";
-			const auto& cpu_profiles = cpu_pf.get_profiles();
-			for (const auto& [_, profile] : cpu_profiles)
-			{
-				std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
-			}
-			std::cout << "========================================\n";
-			
+			//std::cout << "CPU:\n";
+			//const auto& cpu_profiles = cpu_pf.get_profiles();
+			//for (const auto& [_, profile] : cpu_profiles)
+			//{
+			//	std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
+			//}
+			//std::cout << "========================================\n";
+
+			if (g_input->lmb_down())
+				std::cout << g_input->get_mouse_position().first << ", " << g_input->get_mouse_position().second << "\n";
+
+			if (g_input->key_released(Keys::A))
+				std::cout << "A released\n";
+
 			// reset
 			dq_ator->Reset();
 			dq_cmdl->Reset(dq_ator, nullptr);
@@ -297,6 +325,8 @@ int main()
 				frame_res.sync.fence_val_to_wait_for), 
 				DET_ERR("Cant add a signal request to queue"));
 			frame_res.prev_surface_idx = surface_idx;
+
+			g_input->end();
 		}
 
 		// wait for all FIFs before exiting
@@ -306,6 +336,8 @@ int main()
 		ImGui_ImplDX12_Shutdown();
 		ImGui_ImplWin32_Shutdown();
 		ImGui::DestroyContext();
+
+		delete g_input;
 	}
 	catch (std::runtime_error& e)
 	{
@@ -327,6 +359,48 @@ LRESULT window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 	switch (uMsg)
 	{
+		// DirectXTK Mouse and Keyboard (Input)
+	case WM_ACTIVATEAPP:
+	{
+		if (g_input)
+		{
+			g_input->process_keyboard(uMsg, wParam, lParam);
+			g_input->process_mouse(uMsg, wParam, lParam);
+		}
+	}
+	case WM_INPUT:
+	case WM_MOUSEMOVE:
+	case WM_LBUTTONDOWN:
+	case WM_LBUTTONUP:
+	case WM_RBUTTONDOWN:
+	case WM_RBUTTONUP:
+	case WM_MBUTTONDOWN:
+	case WM_MBUTTONUP:
+	case WM_MOUSEWHEEL:
+	case WM_XBUTTONDOWN:
+	case WM_XBUTTONUP:
+	case WM_MOUSEHOVER:
+	{
+		if (g_input)
+			g_input->process_mouse(uMsg, wParam, lParam);
+
+		break;
+	}
+
+	case WM_KEYDOWN:
+		if (wParam == VK_ESCAPE)
+		{
+			g_app_running = false;
+		}
+	case WM_KEYUP:
+	case WM_SYSKEYUP:
+		if (g_input)
+			g_input->process_keyboard(uMsg, wParam, lParam);
+		break;
+
+
+
+
 	case WM_DESTROY:
 		g_app_running = false;
 		PostQuitMessage(0);

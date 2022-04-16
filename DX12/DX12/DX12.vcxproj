@@ -124,11 +124,11 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxguid.lib;$(ProjectDir)vendor\dxshadercompiler\lib\$(Platform)\dxcompiler.lib;$(ProjectDir)vendor\DirectXTK\lib\$(Platform)\$(Configuration)\DirectXTK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxguid.lib;$(ProjectDir)vendor\dxshadercompiler\lib\$(Platform)\dxcompiler.lib;$(ProjectDir)vendor\DirectXTK\lib\$(Platform)\$(Configuration)\DirectXTK12.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(ProjectDir)vendor\dxshadercompiler\bin\x64\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
-copy "$(ProjectDir)vendor\dxshadercompiler\bin\x64\dxil.dll" "$(TargetDir)dxil.dll" </Command>
+      <Command>copy "$(ProjectDir)vendor\dxshadercompiler\bin\$(Platform)\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
+copy "$(ProjectDir)vendor\dxshadercompiler\bin\$(Platform)\dxil.dll" "$(TargetDir)dxil.dll" </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -149,14 +149,15 @@ copy "$(ProjectDir)vendor\dxshadercompiler\bin\x64\dxil.dll" "$(TargetDir)dxil.d
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxguid.lib;$(ProjectDir)vendor\dxshadercompiler\lib\$(Platform)\dxcompiler.lib;$(ProjectDir)vendor\DirectXTK\lib\$(Platform)\$(Configuration)\DirectXTK.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxguid.lib;$(ProjectDir)vendor\dxshadercompiler\lib\$(Platform)\dxcompiler.lib;$(ProjectDir)vendor\DirectXTK\lib\$(Platform)\$(Configuration)\DirectXTK12.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(ProjectDir)vendor\dxshadercompiler\bin\x64\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
-copy "$(ProjectDir)vendor\dxshadercompiler\bin\x64\dxil.dll" "$(TargetDir)dxil.dll" </Command>
+      <Command>copy "$(ProjectDir)vendor\dxshadercompiler\bin\$(Platform)\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
+copy "$(ProjectDir)vendor\dxshadercompiler\bin\$(Platform)\dxil.dll" "$(TargetDir)dxil.dll" </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Input.cpp" />
     <ClCompile Include="src\CPUProfiler.cpp" />
     <ClCompile Include="src\CompiledShaderBlob.cpp" />
     <ClCompile Include="src\DXCommon.cpp" />
@@ -202,6 +203,7 @@ copy "$(ProjectDir)vendor\dxshadercompiler\bin\x64\dxil.dll" "$(TargetDir)dxil.d
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Input.h" />
     <ClInclude Include="src\CPUProfiler.h" />
     <ClInclude Include="src\CompiledShaderBlob.h" />
     <ClInclude Include="src\DXCommon.h" />

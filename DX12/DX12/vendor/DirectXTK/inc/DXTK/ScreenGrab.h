@@ -11,16 +11,17 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 //
-// http://go.microsoft.com/fwlink/?LinkId=248926
-// http://go.microsoft.com/fwlink/?LinkId=248929
+// http://go.microsoft.com/fwlink/?LinkID=615561
 //--------------------------------------------------------------------------------------
 
 #pragma once
 
-#if defined(_XBOX_ONE) && defined(_TITLE)
-#include <d3d11_x.h>
+#ifdef _GAMING_XBOX_SCARLETT
+#include <d3d12_xs.h>
+#elif (defined(_XBOX_ONE) && defined(_TITLE)) || defined(_GAMING_XBOX)
+#include <d3d12_x.h>
 #else
-#include <d3d11_1.h>
+#include <d3d12.h>
 #endif
 
 #include <functional>
@@ -37,16 +38,20 @@
 namespace DirectX
 {
     HRESULT __cdecl SaveDDSTextureToFile(
-        _In_ ID3D11DeviceContext* pContext,
-        _In_ ID3D11Resource* pSource,
-        _In_z_ const wchar_t* fileName) noexcept;
+        _In_ ID3D12CommandQueue* pCommandQueue,
+        _In_ ID3D12Resource* pSource,
+        _In_z_ const wchar_t* fileName,
+        D3D12_RESOURCE_STATES beforeState = D3D12_RESOURCE_STATE_RENDER_TARGET,
+        D3D12_RESOURCE_STATES afterState = D3D12_RESOURCE_STATE_RENDER_TARGET) noexcept;
 
     HRESULT __cdecl SaveWICTextureToFile(
-        _In_ ID3D11DeviceContext* pContext,
-        _In_ ID3D11Resource* pSource,
-        _In_ REFGUID guidContainerFormat,
+        _In_ ID3D12CommandQueue* pCommandQ,
+        _In_ ID3D12Resource* pSource,
+        REFGUID guidContainerFormat,
         _In_z_ const wchar_t* fileName,
+        D3D12_RESOURCE_STATES beforeState = D3D12_RESOURCE_STATE_RENDER_TARGET,
+        D3D12_RESOURCE_STATES afterState = D3D12_RESOURCE_STATE_RENDER_TARGET,
         _In_opt_ const GUID* targetFormat = nullptr,
         _In_opt_ std::function<void __cdecl(IPropertyBag2*)> setCustomProps = nullptr,
-        _In_ bool forceSRGB = false);
+        bool forceSRGB = false);
 }

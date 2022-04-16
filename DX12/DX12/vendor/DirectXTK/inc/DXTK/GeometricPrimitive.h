@@ -4,7 +4,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 //
-// http://go.microsoft.com/fwlink/?LinkId=248929
+// http://go.microsoft.com/fwlink/?LinkID=615561
 //--------------------------------------------------------------------------------------
 
 #pragma once
@@ -13,16 +13,14 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <functional>
 #include <memory>
 #include <vector>
-
-#include <DirectXColors.h>
 
 
 namespace DirectX
 {
     class IEffect;
+    class ResourceUploadBatch;
 
     class GeometricPrimitive
     {
@@ -33,26 +31,26 @@ namespace DirectX
         GeometricPrimitive(GeometricPrimitive const&) = delete;
         GeometricPrimitive& operator= (GeometricPrimitive const&) = delete;
 
+        virtual ~GeometricPrimitive();
+
         using VertexType = VertexPositionNormalTexture;
         using VertexCollection = std::vector<VertexType>;
         using IndexCollection = std::vector<uint16_t>;
 
-        virtual ~GeometricPrimitive();
-
         // Factory methods.
-        static std::unique_ptr<GeometricPrimitive> __cdecl CreateCube(_In_ ID3D11DeviceContext* deviceContext, float size = 1, bool rhcoords = true);
-        static std::unique_ptr<GeometricPrimitive> __cdecl CreateBox(_In_ ID3D11DeviceContext* deviceContext, const XMFLOAT3& size, bool rhcoords = true, bool invertn = false);
-        static std::unique_ptr<GeometricPrimitive> __cdecl CreateSphere(_In_ ID3D11DeviceContext* deviceContext, float diameter = 1, size_t tessellation = 16, bool rhcoords = true, bool invertn = false);
-        static std::unique_ptr<GeometricPrimitive> __cdecl CreateGeoSphere(_In_ ID3D11DeviceContext* deviceContext, float diameter = 1, size_t tessellation = 3, bool rhcoords = true);
-        static std::unique_ptr<GeometricPrimitive> __cdecl CreateCylinder(_In_ ID3D11DeviceContext* deviceContext, float height = 1, float diameter = 1, size_t tessellation = 32, bool rhcoords = true);
-        static std::unique_ptr<GeometricPrimitive> __cdecl CreateCone(_In_ ID3D11DeviceContext* deviceContext, float diameter = 1, float height = 1, size_t tessellation = 32, bool rhcoords = true);
-        static std::unique_ptr<GeometricPrimitive> __cdecl CreateTorus(_In_ ID3D11DeviceContext* deviceContext, float diameter = 1, float thickness = 0.333f, size_t tessellation = 32, bool rhcoords = true);
-        static std::unique_ptr<GeometricPrimitive> __cdecl CreateTetrahedron(_In_ ID3D11DeviceContext* deviceContext, float size = 1, bool rhcoords = true);
-        static std::unique_ptr<GeometricPrimitive> __cdecl CreateOctahedron(_In_ ID3D11DeviceContext* deviceContext, float size = 1, bool rhcoords = true);
-        static std::unique_ptr<GeometricPrimitive> __cdecl CreateDodecahedron(_In_ ID3D11DeviceContext* deviceContext, float size = 1, bool rhcoords = true);
-        static std::unique_ptr<GeometricPrimitive> __cdecl CreateIcosahedron(_In_ ID3D11DeviceContext* deviceContext, float size = 1, bool rhcoords = true);
-        static std::unique_ptr<GeometricPrimitive> __cdecl CreateTeapot(_In_ ID3D11DeviceContext* deviceContext, float size = 1, size_t tessellation = 8, bool rhcoords = true);
-        static std::unique_ptr<GeometricPrimitive> __cdecl CreateCustom(_In_ ID3D11DeviceContext* deviceContext, const VertexCollection& vertices, const IndexCollection& indices);
+        static std::unique_ptr<GeometricPrimitive> __cdecl CreateCube(float size = 1, bool rhcoords = true, _In_opt_ ID3D12Device* device = nullptr);
+        static std::unique_ptr<GeometricPrimitive> __cdecl CreateBox(const XMFLOAT3& size, bool rhcoords = true, bool invertn = false, _In_opt_ ID3D12Device* device = nullptr);
+        static std::unique_ptr<GeometricPrimitive> __cdecl CreateSphere(float diameter = 1, size_t tessellation = 16, bool rhcoords = true, bool invertn = false, _In_opt_ ID3D12Device* device = nullptr);
+        static std::unique_ptr<GeometricPrimitive> __cdecl CreateGeoSphere(float diameter = 1, size_t tessellation = 3, bool rhcoords = true, _In_opt_ ID3D12Device* device = nullptr);
+        static std::unique_ptr<GeometricPrimitive> __cdecl CreateCylinder(float height = 1, float diameter = 1, size_t tessellation = 32, bool rhcoords = true, _In_opt_ ID3D12Device* device = nullptr);
+        static std::unique_ptr<GeometricPrimitive> __cdecl CreateCone(float diameter = 1, float height = 1, size_t tessellation = 32, bool rhcoords = true, _In_opt_ ID3D12Device* device = nullptr);
+        static std::unique_ptr<GeometricPrimitive> __cdecl CreateTorus(float diameter = 1, float thickness = 0.333f, size_t tessellation = 32, bool rhcoords = true, _In_opt_ ID3D12Device* device = nullptr);
+        static std::unique_ptr<GeometricPrimitive> __cdecl CreateTetrahedron(float size = 1, bool rhcoords = true, _In_opt_ ID3D12Device* device = nullptr);
+        static std::unique_ptr<GeometricPrimitive> __cdecl CreateOctahedron(float size = 1, bool rhcoords = true, _In_opt_ ID3D12Device* device = nullptr);
+        static std::unique_ptr<GeometricPrimitive> __cdecl CreateDodecahedron(float size = 1, bool rhcoords = true, _In_opt_ ID3D12Device* device = nullptr);
+        static std::unique_ptr<GeometricPrimitive> __cdecl CreateIcosahedron(float size = 1, bool rhcoords = true, _In_opt_ ID3D12Device* device = nullptr);
+        static std::unique_ptr<GeometricPrimitive> __cdecl CreateTeapot(float size = 1, size_t tessellation = 8, bool rhcoords = true, _In_opt_ ID3D12Device* device = nullptr);
+        static std::unique_ptr<GeometricPrimitive> __cdecl CreateCustom(const VertexCollection& vertices, const IndexCollection& indices, _In_opt_ ID3D12Device* device = nullptr);
 
         static void __cdecl CreateCube(VertexCollection& vertices, IndexCollection& indices, float size = 1, bool rhcoords = true);
         static void __cdecl CreateBox(VertexCollection& vertices, IndexCollection& indices, const XMFLOAT3& size, bool rhcoords = true, bool invertn = false);
@@ -67,37 +65,25 @@ namespace DirectX
         static void __cdecl CreateIcosahedron(VertexCollection& vertices, IndexCollection& indices, float size = 1, bool rhcoords = true);
         static void __cdecl CreateTeapot(VertexCollection& vertices, IndexCollection& indices, float size = 1, size_t tessellation = 8, bool rhcoords = true);
 
+        // Load VB/IB resources for static geometry.
+        void __cdecl LoadStaticBuffers(
+            _In_ ID3D12Device* device,
+            ResourceUploadBatch& resourceUploadBatch);
+
+        // Transition VB/IB resources for static geometry.
+        void __cdecl Transition(
+            _In_ ID3D12GraphicsCommandList* commandList,
+            D3D12_RESOURCE_STATES stateBeforeVB,
+            D3D12_RESOURCE_STATES stateAfterVB,
+            D3D12_RESOURCE_STATES stateBeforeIB,
+            D3D12_RESOURCE_STATES stateAfterIB);
+
         // Draw the primitive.
-        void XM_CALLCONV Draw(FXMMATRIX world, CXMMATRIX view, CXMMATRIX projection,
-            FXMVECTOR color = Colors::White,
-            _In_opt_ ID3D11ShaderResourceView* texture = nullptr,
-            bool wireframe = false,
-            _In_opt_ std::function<void __cdecl()> setCustomState = nullptr) const;
+        void __cdecl Draw(_In_ ID3D12GraphicsCommandList* commandList) const;
 
-        // Draw the primitive using a custom effect.
-        void __cdecl Draw(_In_ IEffect* effect,
-            _In_ ID3D11InputLayout* inputLayout,
-            bool alpha = false, bool wireframe = false,
-            _In_opt_ std::function<void __cdecl()> setCustomState = nullptr) const;
-
-        void __cdecl DrawInstanced(_In_ IEffect* effect,
-            _In_ ID3D11InputLayout* inputLayout,
-            uint32_t instanceCount,
-            bool alpha = false, bool wireframe = false,
-            uint32_t startInstanceLocation = 0,
-            _In_opt_ std::function<void __cdecl()> setCustomState = nullptr) const;
-
-       // Create input layout for drawing with a custom effect.
-        void __cdecl CreateInputLayout(_In_ IEffect* effect, _Outptr_ ID3D11InputLayout** inputLayout) const;
-
-        static void SetDepthBufferMode(bool reverseZ)
-        {
-            s_reversez = reverseZ;
-        }
+        void __cdecl DrawInstanced(_In_ ID3D12GraphicsCommandList* commandList, uint32_t instanceCount, uint32_t startInstanceLocation = 0) const;
 
     private:
-        static bool s_reversez;
-
         GeometricPrimitive() noexcept(false);
 
         // Private implementation.

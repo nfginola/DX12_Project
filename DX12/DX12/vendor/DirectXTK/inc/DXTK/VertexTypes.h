@@ -4,18 +4,18 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 //
-// http://go.microsoft.com/fwlink/?LinkId=248929
+// http://go.microsoft.com/fwlink/?LinkID=615561
 //--------------------------------------------------------------------------------------
 
 #pragma once
 
-#if defined(_XBOX_ONE) && defined(_TITLE)
-#include <d3d11_x.h>
+#ifdef _GAMING_XBOX_SCARLETT
+#include <d3d12_xs.h>
+#elif (defined(_XBOX_ONE) && defined(_TITLE)) || defined(_GAMING_XBOX)
+#include <d3d12_x.h>
 #else
-#include <d3d11_1.h>
+#include <d3d12.h>
 #endif
-
-#include <cstdint>
 
 #include <DirectXMath.h>
 
@@ -44,8 +44,11 @@ namespace DirectX
 
         XMFLOAT3 position;
 
+        static const D3D12_INPUT_LAYOUT_DESC InputLayout;
+
+    private:
         static constexpr unsigned int InputElementCount = 1;
-        static const D3D11_INPUT_ELEMENT_DESC InputElements[InputElementCount];
+        static const D3D12_INPUT_ELEMENT_DESC InputElements[InputElementCount];
     };
 
 
@@ -74,8 +77,11 @@ namespace DirectX
         XMFLOAT3 position;
         XMFLOAT4 color;
 
+        static const D3D12_INPUT_LAYOUT_DESC InputLayout;
+
+    private:
         static constexpr unsigned int InputElementCount = 2;
-        static const D3D11_INPUT_ELEMENT_DESC InputElements[InputElementCount];
+        static const D3D12_INPUT_ELEMENT_DESC InputElements[InputElementCount];
     };
 
 
@@ -104,8 +110,11 @@ namespace DirectX
         XMFLOAT3 position;
         XMFLOAT2 textureCoordinate;
 
+        static const D3D12_INPUT_LAYOUT_DESC InputLayout;
+
+    private:
         static constexpr unsigned int InputElementCount = 2;
-        static const D3D11_INPUT_ELEMENT_DESC InputElements[InputElementCount];
+        static const D3D12_INPUT_ELEMENT_DESC InputElements[InputElementCount];
     };
 
 
@@ -143,8 +152,11 @@ namespace DirectX
         XMFLOAT2 textureCoordinate0;
         XMFLOAT2 textureCoordinate1;
 
+        static const D3D12_INPUT_LAYOUT_DESC InputLayout;
+
+    private:
         static constexpr unsigned int InputElementCount = 3;
-        static const D3D11_INPUT_ELEMENT_DESC InputElements[InputElementCount];
+        static const D3D12_INPUT_ELEMENT_DESC InputElements[InputElementCount];
     };
 
 
@@ -173,8 +185,11 @@ namespace DirectX
         XMFLOAT3 position;
         XMFLOAT3 normal;
 
+        static const D3D12_INPUT_LAYOUT_DESC InputLayout;
+
+    private:
         static constexpr unsigned int InputElementCount = 2;
-        static const D3D11_INPUT_ELEMENT_DESC InputElements[InputElementCount];
+        static const D3D12_INPUT_ELEMENT_DESC InputElements[InputElementCount];
     };
 
 
@@ -206,8 +221,11 @@ namespace DirectX
         XMFLOAT4 color;
         XMFLOAT2 textureCoordinate;
 
+        static const D3D12_INPUT_LAYOUT_DESC InputLayout;
+
+    private:
         static constexpr unsigned int InputElementCount = 3;
-        static const D3D11_INPUT_ELEMENT_DESC InputElements[InputElementCount];
+        static const D3D12_INPUT_ELEMENT_DESC InputElements[InputElementCount];
     };
 
 
@@ -239,8 +257,11 @@ namespace DirectX
         XMFLOAT3 normal;
         XMFLOAT4 color;
 
+        static const D3D12_INPUT_LAYOUT_DESC InputLayout;
+
+    private:
         static constexpr unsigned int InputElementCount = 3;
-        static const D3D11_INPUT_ELEMENT_DESC InputElements[InputElementCount];
+        static const D3D12_INPUT_ELEMENT_DESC InputElements[InputElementCount];
     };
 
 
@@ -272,8 +293,11 @@ namespace DirectX
         XMFLOAT3 normal;
         XMFLOAT2 textureCoordinate;
 
+        static const D3D12_INPUT_LAYOUT_DESC InputLayout;
+
+    private:
         static constexpr unsigned int InputElementCount = 3;
-        static const D3D11_INPUT_ELEMENT_DESC InputElements[InputElementCount];
+        static const D3D12_INPUT_ELEMENT_DESC InputElements[InputElementCount];
     };
 
 
@@ -296,7 +320,7 @@ namespace DirectX
                 : position(iposition),
                   normal(inormal),
                   color(icolor),
-                 textureCoordinate(itextureCoordinate)
+                  textureCoordinate(itextureCoordinate)
         { }
 
         VertexPositionNormalColorTexture(FXMVECTOR iposition, FXMVECTOR inormal, FXMVECTOR icolor, CXMVECTOR itextureCoordinate) noexcept
@@ -312,181 +336,10 @@ namespace DirectX
         XMFLOAT4 color;
         XMFLOAT2 textureCoordinate;
 
+        static const D3D12_INPUT_LAYOUT_DESC InputLayout;
+
+    private:
         static constexpr unsigned int InputElementCount = 4;
-        static const D3D11_INPUT_ELEMENT_DESC InputElements[InputElementCount];
-    };
-
-
-    // Vertex struct for Visual Studio Shader Designer (DGSL) holding position, normal,
-    // tangent, color (RGBA), and texture mapping information
-    struct VertexPositionNormalTangentColorTexture
-    {
-        VertexPositionNormalTangentColorTexture() = default;
-
-        VertexPositionNormalTangentColorTexture(const VertexPositionNormalTangentColorTexture&) = default;
-        VertexPositionNormalTangentColorTexture& operator=(const VertexPositionNormalTangentColorTexture&) = default;
-
-        VertexPositionNormalTangentColorTexture(VertexPositionNormalTangentColorTexture&&) = default;
-        VertexPositionNormalTangentColorTexture& operator=(VertexPositionNormalTangentColorTexture&&) = default;
-
-        XMFLOAT3 position;
-        XMFLOAT3 normal;
-        XMFLOAT4 tangent;
-        uint32_t color;
-        XMFLOAT2 textureCoordinate;
-
-        VertexPositionNormalTangentColorTexture(
-            XMFLOAT3 const& iposition,
-            XMFLOAT3 const& inormal,
-            XMFLOAT4 const& itangent,
-            uint32_t irgba,
-            XMFLOAT2 const& itextureCoordinate) noexcept
-                : position(iposition),
-                  normal(inormal),
-                  tangent(itangent),
-                  color(irgba),
-                  textureCoordinate(itextureCoordinate)
-        {
-        }
-
-        VertexPositionNormalTangentColorTexture(
-            FXMVECTOR iposition,
-            FXMVECTOR inormal,
-            FXMVECTOR itangent,
-            uint32_t irgba,
-            CXMVECTOR itextureCoordinate) noexcept
-            : color(irgba)
-        {
-            XMStoreFloat3(&this->position, iposition);
-            XMStoreFloat3(&this->normal, inormal);
-            XMStoreFloat4(&this->tangent, itangent);
-            XMStoreFloat2(&this->textureCoordinate, itextureCoordinate);
-        }
-
-        VertexPositionNormalTangentColorTexture(
-            XMFLOAT3 const& iposition,
-            XMFLOAT3 const& inormal,
-            XMFLOAT4 const& itangent,
-            XMFLOAT4 const& icolor,
-            XMFLOAT2 const& itextureCoordinate) noexcept
-                : position(iposition),
-                  normal(inormal),
-                  tangent(itangent),
-                  color{},
-                  textureCoordinate(itextureCoordinate)
-        {
-            SetColor(icolor);
-        }
-
-        VertexPositionNormalTangentColorTexture(
-            FXMVECTOR iposition,
-            FXMVECTOR inormal,
-            FXMVECTOR itangent,
-            CXMVECTOR icolor,
-            CXMVECTOR itextureCoordinate) noexcept
-            : color{}
-        {
-            XMStoreFloat3(&this->position, iposition);
-            XMStoreFloat3(&this->normal, inormal);
-            XMStoreFloat4(&this->tangent, itangent);
-            XMStoreFloat2(&this->textureCoordinate, itextureCoordinate);
-
-            SetColor(icolor);
-        }
-
-        void __cdecl SetColor(XMFLOAT4 const& icolor) noexcept { SetColor(XMLoadFloat4(&icolor)); }
-        void XM_CALLCONV SetColor(FXMVECTOR icolor) noexcept;
-
-        static constexpr unsigned int InputElementCount = 5;
-        static const D3D11_INPUT_ELEMENT_DESC InputElements[InputElementCount];
-    };
-
-
-    // Vertex struct for Visual Studio Shader Designer (DGSL) holding position, normal,
-    // tangent, color (RGBA), texture mapping information, and skinning weights
-    struct VertexPositionNormalTangentColorTextureSkinning : public VertexPositionNormalTangentColorTexture
-    {
-        VertexPositionNormalTangentColorTextureSkinning() = default;
-
-        VertexPositionNormalTangentColorTextureSkinning(const VertexPositionNormalTangentColorTextureSkinning&) = default;
-        VertexPositionNormalTangentColorTextureSkinning& operator=(const VertexPositionNormalTangentColorTextureSkinning&) = default;
-
-        VertexPositionNormalTangentColorTextureSkinning(VertexPositionNormalTangentColorTextureSkinning&&) = default;
-        VertexPositionNormalTangentColorTextureSkinning& operator=(VertexPositionNormalTangentColorTextureSkinning&&) = default;
-
-        uint32_t indices;
-        uint32_t weights;
-
-        VertexPositionNormalTangentColorTextureSkinning(
-            XMFLOAT3 const& iposition,
-            XMFLOAT3 const& inormal,
-            XMFLOAT4 const& itangent,
-            uint32_t irgba,
-            XMFLOAT2 const& itextureCoordinate,
-            XMUINT4 const& iindices,
-            XMFLOAT4 const& iweights) noexcept
-            : VertexPositionNormalTangentColorTexture(iposition, inormal, itangent, irgba, itextureCoordinate),
-            indices{},
-            weights{}
-        {
-            SetBlendIndices(iindices);
-            SetBlendWeights(iweights);
-        }
-
-        VertexPositionNormalTangentColorTextureSkinning(
-            FXMVECTOR iposition,
-            FXMVECTOR inormal,
-            FXMVECTOR itangent,
-            uint32_t irgba,
-            CXMVECTOR itextureCoordinate,
-            XMUINT4 const& iindices,
-            CXMVECTOR iweights) noexcept
-            : VertexPositionNormalTangentColorTexture(iposition, inormal, itangent, irgba, itextureCoordinate),
-            indices{},
-            weights{}
-        {
-            SetBlendIndices(iindices);
-            SetBlendWeights(iweights);
-        }
-
-        VertexPositionNormalTangentColorTextureSkinning(
-            XMFLOAT3 const& iposition,
-            XMFLOAT3 const& inormal,
-            XMFLOAT4 const& itangent,
-            XMFLOAT4 const& icolor,
-            XMFLOAT2 const& itextureCoordinate,
-            XMUINT4 const& iindices,
-            XMFLOAT4 const& iweights) noexcept
-            : VertexPositionNormalTangentColorTexture(iposition, inormal, itangent, icolor, itextureCoordinate),
-            indices{},
-            weights{}
-        {
-            SetBlendIndices(iindices);
-            SetBlendWeights(iweights);
-        }
-
-        VertexPositionNormalTangentColorTextureSkinning(
-            FXMVECTOR iposition,
-            FXMVECTOR inormal,
-            FXMVECTOR itangent,
-            CXMVECTOR icolor,
-            CXMVECTOR itextureCoordinate,
-            XMUINT4 const& iindices,
-            CXMVECTOR iweights) noexcept
-            : VertexPositionNormalTangentColorTexture(iposition, inormal, itangent, icolor, itextureCoordinate),
-            indices{},
-            weights{}
-        {
-            SetBlendIndices(iindices);
-            SetBlendWeights(iweights);
-        }
-
-        void __cdecl SetBlendIndices(XMUINT4 const& iindices) noexcept;
-
-        void __cdecl SetBlendWeights(XMFLOAT4 const& iweights) noexcept { SetBlendWeights(XMLoadFloat4(&iweights)); }
-        void XM_CALLCONV SetBlendWeights(FXMVECTOR iweights) noexcept;
-
-        static constexpr unsigned int InputElementCount = 7;
-        static const D3D11_INPUT_ELEMENT_DESC InputElements[InputElementCount];
+        static const D3D12_INPUT_ELEMENT_DESC InputElements[InputElementCount];
     };
 }

@@ -4,15 +4,17 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 //
-// http://go.microsoft.com/fwlink/?LinkId=248929
+// http://go.microsoft.com/fwlink/?LinkID=615561
 //--------------------------------------------------------------------------------------
 
 #pragma once
 
-#if defined(_XBOX_ONE) && defined(_TITLE)
-#include <d3d11_x.h>
+#ifdef _GAMING_XBOX_SCARLETT
+#include <d3d12_xs.h>
+#elif (defined(_XBOX_ONE) && defined(_TITLE)) || defined(_GAMING_XBOX)
+#include <d3d12_x.h>
 #else
-#include <d3d11_1.h>
+#include <d3d12.h>
 #endif
 
 #include <memory>
@@ -23,47 +25,68 @@ namespace DirectX
     class CommonStates
     {
     public:
-        explicit CommonStates(_In_ ID3D11Device* device);
+        explicit CommonStates(_In_ ID3D12Device* device);
 
         CommonStates(CommonStates&&) noexcept;
-        CommonStates& operator= (CommonStates&&) noexcept;
+        CommonStates& operator = (CommonStates&&) noexcept;
 
-        CommonStates(CommonStates const&) = delete;
-        CommonStates& operator= (CommonStates const&) = delete;
+        CommonStates(const CommonStates&) = delete;
+        CommonStates& operator = (const CommonStates&) = delete;
 
         virtual ~CommonStates();
 
         // Blend states.
-        ID3D11BlendState* __cdecl Opaque() const;
-        ID3D11BlendState* __cdecl AlphaBlend() const;
-        ID3D11BlendState* __cdecl Additive() const;
-        ID3D11BlendState* __cdecl NonPremultiplied() const;
+        static const D3D12_BLEND_DESC Opaque;
+        static const D3D12_BLEND_DESC AlphaBlend;
+        static const D3D12_BLEND_DESC Additive;
+        static const D3D12_BLEND_DESC NonPremultiplied;
 
         // Depth stencil states.
-        ID3D11DepthStencilState* __cdecl DepthNone() const;
-        ID3D11DepthStencilState* __cdecl DepthDefault() const;
-        ID3D11DepthStencilState* __cdecl DepthRead() const;
-        ID3D11DepthStencilState* __cdecl DepthReverseZ() const;
-        ID3D11DepthStencilState* __cdecl DepthReadReverseZ() const;
+        static const D3D12_DEPTH_STENCIL_DESC DepthNone;
+        static const D3D12_DEPTH_STENCIL_DESC DepthDefault;
+        static const D3D12_DEPTH_STENCIL_DESC DepthRead;
+        static const D3D12_DEPTH_STENCIL_DESC DepthReverseZ;
+        static const D3D12_DEPTH_STENCIL_DESC DepthReadReverseZ;
 
         // Rasterizer states.
-        ID3D11RasterizerState* __cdecl CullNone() const;
-        ID3D11RasterizerState* __cdecl CullClockwise() const;
-        ID3D11RasterizerState* __cdecl CullCounterClockwise() const;
-        ID3D11RasterizerState* __cdecl Wireframe() const;
+        static const D3D12_RASTERIZER_DESC CullNone;
+        static const D3D12_RASTERIZER_DESC CullClockwise;
+        static const D3D12_RASTERIZER_DESC CullCounterClockwise;
+        static const D3D12_RASTERIZER_DESC Wireframe;
+
+        // Static sampler states.
+        static const D3D12_STATIC_SAMPLER_DESC StaticPointWrap(unsigned int shaderRegister, D3D12_SHADER_VISIBILITY shaderVisibility = D3D12_SHADER_VISIBILITY_ALL, unsigned int registerSpace = 0) noexcept;
+        static const D3D12_STATIC_SAMPLER_DESC StaticPointClamp(unsigned int shaderRegister, D3D12_SHADER_VISIBILITY shaderVisibility = D3D12_SHADER_VISIBILITY_ALL, unsigned int registerSpace = 0) noexcept;
+        static const D3D12_STATIC_SAMPLER_DESC StaticLinearWrap(unsigned int shaderRegister, D3D12_SHADER_VISIBILITY shaderVisibility = D3D12_SHADER_VISIBILITY_ALL, unsigned int registerSpace = 0) noexcept;
+        static const D3D12_STATIC_SAMPLER_DESC StaticLinearClamp(unsigned int shaderRegister, D3D12_SHADER_VISIBILITY shaderVisibility = D3D12_SHADER_VISIBILITY_ALL, unsigned int registerSpace = 0) noexcept;
+        static const D3D12_STATIC_SAMPLER_DESC StaticAnisotropicWrap(unsigned int shaderRegister, D3D12_SHADER_VISIBILITY shaderVisibility = D3D12_SHADER_VISIBILITY_ALL, unsigned int registerSpace = 0) noexcept;
+        static const D3D12_STATIC_SAMPLER_DESC StaticAnisotropicClamp(unsigned int shaderRegister, D3D12_SHADER_VISIBILITY shaderVisibility = D3D12_SHADER_VISIBILITY_ALL, unsigned int registerSpace = 0) noexcept;
 
         // Sampler states.
-        ID3D11SamplerState* __cdecl PointWrap() const;
-        ID3D11SamplerState* __cdecl PointClamp() const;
-        ID3D11SamplerState* __cdecl LinearWrap() const;
-        ID3D11SamplerState* __cdecl LinearClamp() const;
-        ID3D11SamplerState* __cdecl AnisotropicWrap() const;
-        ID3D11SamplerState* __cdecl AnisotropicClamp() const;
+        D3D12_GPU_DESCRIPTOR_HANDLE PointWrap() const;
+        D3D12_GPU_DESCRIPTOR_HANDLE PointClamp() const;
+        D3D12_GPU_DESCRIPTOR_HANDLE LinearWrap() const;
+        D3D12_GPU_DESCRIPTOR_HANDLE LinearClamp() const;
+        D3D12_GPU_DESCRIPTOR_HANDLE AnisotropicWrap() const;
+        D3D12_GPU_DESCRIPTOR_HANDLE AnisotropicClamp() const;
+
+        // These index into the heap returned by SamplerDescriptorHeap
+        enum class SamplerIndex
+        {
+            PointWrap,
+            PointClamp,
+            LinearWrap,
+            LinearClamp,
+            AnisotropicWrap,
+            AnisotropicClamp,
+            Count
+        };
+
+        ID3D12DescriptorHeap* Heap() const noexcept;
 
     private:
-        // Private implementation.
         class Impl;
 
-        std::shared_ptr<Impl> pImpl;
+        std::unique_ptr<Impl> pImpl;
     };
 }

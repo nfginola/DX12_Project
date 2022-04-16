@@ -4,15 +4,17 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 //
-// http://go.microsoft.com/fwlink/?LinkId=248929
+// http://go.microsoft.com/fwlink/?LinkID=615561
 //--------------------------------------------------------------------------------------
 
 #pragma once
 
-#if defined(_XBOX_ONE) && defined(_TITLE)
-#include <d3d11_x.h>
+#ifdef _GAMING_XBOX_SCARLETT
+#include <d3d12_xs.h>
+#elif (defined(_XBOX_ONE) && defined(_TITLE)) || defined(_GAMING_XBOX)
+#include <d3d12_x.h>
 #else
-#include <d3d11_1.h>
+#include <d3d12.h>
 #endif
 
 #include <cstddef>
@@ -30,7 +32,7 @@ namespace DirectX
         class PrimitiveBatchBase
         {
         protected:
-            PrimitiveBatchBase(_In_ ID3D11DeviceContext* deviceContext, size_t maxIndices, size_t maxVertices, size_t vertexSize);
+            PrimitiveBatchBase(_In_ ID3D12Device* device, size_t maxIndices, size_t maxVertices, size_t vertexSize);
 
             PrimitiveBatchBase(PrimitiveBatchBase&&) noexcept;
             PrimitiveBatchBase& operator= (PrimitiveBatchBase&&) noexcept;
@@ -42,12 +44,12 @@ namespace DirectX
 
         public:
             // Begin/End a batch of primitive drawing operations.
-            void __cdecl Begin();
+            void __cdecl Begin(_In_ ID3D12GraphicsCommandList* cmdList);
             void __cdecl End();
 
         protected:
             // Internal, untyped drawing method.
-            void __cdecl Draw(D3D11_PRIMITIVE_TOPOLOGY topology, bool isIndexed, _In_opt_count_(indexCount) uint16_t const* indices, size_t indexCount, size_t vertexCount, _Out_ void** pMappedVertices);
+            void __cdecl Draw(D3D_PRIMITIVE_TOPOLOGY topology, bool isIndexed, _In_opt_count_(indexCount) uint16_t const* indices, size_t indexCount, size_t vertexCount, _Outptr_ void** pMappedVertices);
 
         private:
             // Private implementation.
@@ -62,11 +64,13 @@ namespace DirectX
     template<typename TVertex>
     class PrimitiveBatch : public Internal::PrimitiveBatchBase
     {
-        static constexpr size_t DefaultBatchSize = 2048;
+        static constexpr size_t DefaultBatchSize = 4096;
 
     public:
-        explicit PrimitiveBatch(_In_ ID3D11DeviceContext* deviceContext, size_t maxIndices = DefaultBatchSize * 3, size_t maxVertices = DefaultBatchSize)
-            : PrimitiveBatchBase(deviceContext, maxIndices, maxVertices, sizeof(TVertex))
+        explicit PrimitiveBatch(_In_ ID3D12Device* device,
+            size_t maxIndices = DefaultBatchSize * 3,
+            size_t maxVertices = DefaultBatchSize)
+            : PrimitiveBatchBase(device, maxIndices, maxVertices, sizeof(TVertex))
         { }
 
         PrimitiveBatch(PrimitiveBatch&&) = default;
@@ -76,7 +80,7 @@ namespace DirectX
         PrimitiveBatch& operator= (PrimitiveBatch const&) = delete;
 
         // Similar to the D3D9 API DrawPrimitiveUP.
-        void Draw(D3D11_PRIMITIVE_TOPOLOGY topology, _In_reads_(vertexCount) TVertex const* vertices, size_t vertexCount)
+        void Draw(D3D_PRIMITIVE_TOPOLOGY topology, _In_reads_(vertexCount) TVertex const* vertices, size_t vertexCount)
         {
             void* mappedVertices;
 
@@ -87,7 +91,7 @@ namespace DirectX
 
 
         // Similar to the D3D9 API DrawIndexedPrimitiveUP.
-        void DrawIndexed(D3D11_PRIMITIVE_TOPOLOGY topology, _In_reads_(indexCount) uint16_t const* indices, size_t indexCount, _In_reads_(vertexCount) TVertex const* vertices, size_t vertexCount)
+        void DrawIndexed(D3D_PRIMITIVE_TOPOLOGY topology, _In_reads_(indexCount) uint16_t const* indices, size_t indexCount, _In_reads_(vertexCount) TVertex const* vertices, size_t vertexCount)
         {
             void* mappedVertices;
 
@@ -101,7 +105,7 @@ namespace DirectX
         {
             TVertex* mappedVertices;
 
-            PrimitiveBatchBase::Draw(D3D11_PRIMITIVE_TOPOLOGY_LINELIST, false, nullptr, 0, 2, reinterpret_cast<void**>(&mappedVertices));
+            PrimitiveBatchBase::Draw(D3D_PRIMITIVE_TOPOLOGY_LINELIST, false, nullptr, 0, 2, reinterpret_cast<void**>(&mappedVertices));
 
             mappedVertices[0] = v1;
             mappedVertices[1] = v2;
@@ -112,7 +116,7 @@ namespace DirectX
         {
             TVertex* mappedVertices;
 
-            PrimitiveBatchBase::Draw(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, false, nullptr, 0, 3, reinterpret_cast<void**>(&mappedVertices));
+            PrimitiveBatchBase::Draw(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST, false, nullptr, 0, 3, reinterpret_cast<void**>(&mappedVertices));
 
             mappedVertices[0] = v1;
             mappedVertices[1] = v2;
@@ -126,7 +130,7 @@ namespace DirectX
 
             TVertex* mappedVertices;
 
-            PrimitiveBatchBase::Draw(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, true, quadIndices, 6, 4, reinterpret_cast<void**>(&mappedVertices));
+            PrimitiveBatchBase::Draw(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST, true, quadIndices, 6, 4, reinterpret_cast<void**>(&mappedVertices));
 
             mappedVertices[0] = v1;
             mappedVertices[1] = v2;

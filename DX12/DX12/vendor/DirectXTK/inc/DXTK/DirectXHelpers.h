@@ -4,152 +4,277 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 //
-// http://go.microsoft.com/fwlink/?LinkId=248929
+// http://go.microsoft.com/fwlink/?LinkID=615561
 //--------------------------------------------------------------------------------------
 
 #pragma once
 
-#if defined(_XBOX_ONE) && defined(_TITLE)
-#include <d3d11_x.h>
+#ifdef _GAMING_XBOX_SCARLETT
+#include <d3d12_xs.h>
+#elif (defined(_XBOX_ONE) && defined(_TITLE)) || defined(_GAMING_XBOX)
+#include <d3d12_x.h>
 #else
-#include <d3d11_1.h>
+#include <d3d12.h>
 #endif
 
-#if !defined(NO_D3D11_DEBUG_NAME) && ( defined(_DEBUG) || defined(PROFILE) )
-#if !defined(_XBOX_ONE) || !defined(_TITLE)
+#include <cassert>
+#include <cstddef>
+#include <initializer_list>
+#include <utility>
+#include <vector>
+
+#include <wrl/client.h>
+
+#include <DirectXMath.h>
+
+#ifndef _GAMING_XBOX
 #pragma comment(lib,"dxguid.lib")
-#endif
 #endif
 
 #ifndef IID_GRAPHICS_PPV_ARGS
 #define IID_GRAPHICS_PPV_ARGS(x) IID_PPV_ARGS(x)
 #endif
 
-#include <cassert>
-#include <cstddef>
-#include <cstdint>
-#include <exception>
-
 //
-// The core Direct3D headers provide the following helper C++ classes
-//  CD3D11_RECT
-//  CD3D11_BOX
-//  CD3D11_DEPTH_STENCIL_DESC
-//  CD3D11_BLEND_DESC, CD3D11_BLEND_DESC1
-//  CD3D11_RASTERIZER_DESC, CD3D11_RASTERIZER_DESC1
-//  CD3D11_BUFFER_DESC
-//  CD3D11_TEXTURE1D_DESC
-//  CD3D11_TEXTURE2D_DESC
-//  CD3D11_TEXTURE3D_DESC
-//  CD3D11_SHADER_RESOURCE_VIEW_DESC
-//  CD3D11_RENDER_TARGET_VIEW_DESC
-//  CD3D11_VIEWPORT
-//  CD3D11_DEPTH_STENCIL_VIEW_DESC
-//  CD3D11_UNORDERED_ACCESS_VIEW_DESC
-//  CD3D11_SAMPLER_DESC
-//  CD3D11_QUERY_DESC
-//  CD3D11_COUNTER_DESC
+// The d3dx12.h header includes the following helper C++ classes and functions
+//  CD3DX12_RECT
+//  CD3DX12_VIEWPORT
+//  CD3DX12_BOX
+//  CD3DX12_DEPTH_STENCIL_DESC / CD3DX12_DEPTH_STENCIL_DESC1
+//  CD3DX12_BLEND_DESC
+//  CD3DX12_RASTERIZER_DESC
+//  CD3DX12_RESOURCE_ALLOCATION_INFO
+//  CD3DX12_HEAP_PROPERTIES
+//  CD3DX12_HEAP_DESC
+//  CD3DX12_CLEAR_VALUE
+//  CD3DX12_RANGE
+//  CD3DX12_RANGE_UINT64
+//  CD3DX12_SUBRESOURCE_RANGE_UINT64
+//  CD3DX12_SHADER_BYTECODE
+//  CD3DX12_TILED_RESOURCE_COORDINATE
+//  CD3DX12_TILE_REGION_SIZE
+//  CD3DX12_SUBRESOURCE_TILING
+//  CD3DX12_TILE_SHAPE
+//  CD3DX12_RESOURCE_BARRIER
+//  CD3DX12_PACKED_MIP_INFO
+//  CD3DX12_SUBRESOURCE_FOOTPRINT
+//  CD3DX12_TEXTURE_COPY_LOCATION
+//  CD3DX12_DESCRIPTOR_RANGE / CD3DX12_DESCRIPTOR_RANGE1
+//  CD3DX12_ROOT_DESCRIPTOR_TABLE / CD3DX12_ROOT_DESCRIPTOR_TABLE1
+//  CD3DX12_ROOT_CONSTANTS
+//  CD3DX12_ROOT_DESCRIPTOR / CD3DX12_ROOT_DESCRIPTOR1
+//  CD3DX12_ROOT_PARAMETER / CD3DX12_ROOT_PARAMETER1
+//  CD3DX12_STATIC_SAMPLER_DESC
+//  CD3DX12_ROOT_SIGNATURE_DESC
+//  CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC
+//  CD3DX12_CPU_DESCRIPTOR_HANDLE
+//  CD3DX12_GPU_DESCRIPTOR_HANDLE
+//  CD3DX12_RESOURCE_DESC / CD3DX12_RESOURCE_DESC1
+//  CD3DX12_VIEW_INSTANCING_DESC
+//  CD3DX12_RT_FORMAT_ARRAY
+//  CD3DX12_MESH_SHADER_PIPELINE_STATE_DESC
+//  CD3DX12_PIPELINE_STATE_STREAM / CD3DX12_PIPELINE_STATE_STREAM1 / CD3DX12_PIPELINE_STATE_STREAM2
+//  CD3DX12_PIPELINE_MESH_STATE_STREAM
+//  CD3DX12_PIPELINE_STATE_STREAM_PARSE_HELPER / CD3DX12_PIPELINE_STATE_STREAM2_PARSE_HELPER
+//  D3D12CalcSubresource
+//  D3D12DecomposeSubresource
+//  D3D12GetFormatPlaneCount
+//  MemcpySubresource
+//  GetRequiredIntermediateSize
+//  UpdateSubresources
+//  D3D12IsLayoutOpaque
+//  CommandListCast
+//  D3DX12SerializeVersionedRootSignature
+//  D3DX12GetBaseSubobjectType
+//  D3DX12ParsePipelineStream
 //
-
+//  CD3DX12_STATE_OBJECT_DESC
+//  CD3DX12_DXIL_LIBRARY_SUBOBJECT
+//  CD3DX12_EXISTING_COLLECTION_SUBOBJECT
+//  CD3DX12_SUBOBJECT_TO_EXPORTS_ASSOCIATION_SUBOBJECT
+//  CD3DX12_DXIL_SUBOBJECT_TO_EXPORTS_ASSOCIATION
+//  CD3DX12_HIT_GROUP_SUBOBJECT
+//  CD3DX12_RAYTRACING_SHADER_CONFIG_SUBOBJECT
+//  CD3DX12_RAYTRACING_PIPELINE_CONFIG_SUBOBJECT // CD3DX12_RAYTRACING_PIPELINE_CONFIG1_SUBOBJECT
+//  CD3DX12_GLOBAL_ROOT_SIGNATURE_SUBOBJECT
+//  CD3DX12_LOCAL_ROOT_SIGNATURE_SUBOBJECT
+//  CD3DX12_STATE_OBJECT_CONFIG_SUBOBJECT
+//  CD3DX12_NODE_MASK_SUBOBJECT
+//
+//  CD3DX12FeatureSupport
+//
 
 namespace DirectX
 {
-    class IEffect;
+    constexpr D3D12_CPU_DESCRIPTOR_HANDLE D3D12_CPU_DESCRIPTOR_HANDLE_ZERO = {};
 
-    // simliar to std::lock_guard for exception-safe Direct3D resource locking
-    class MapGuard : public D3D11_MAPPED_SUBRESOURCE
+    // Creates a shader resource view from an arbitrary resource
+    void __cdecl CreateShaderResourceView(
+        _In_ ID3D12Device* device,
+        _In_ ID3D12Resource* tex,
+        D3D12_CPU_DESCRIPTOR_HANDLE srvDescriptor,
+        bool isCubeMap = false);
+
+    // Shorthand for creating a root signature
+    inline HRESULT CreateRootSignature(
+        _In_ ID3D12Device* device,
+        _In_ const D3D12_ROOT_SIGNATURE_DESC* rootSignatureDesc,
+        _Out_ ID3D12RootSignature** rootSignature) noexcept
+    {
+        Microsoft::WRL::ComPtr<ID3DBlob> pSignature;
+        Microsoft::WRL::ComPtr<ID3DBlob> pError;
+        HRESULT hr = D3D12SerializeRootSignature(rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, pSignature.GetAddressOf(), pError.GetAddressOf());
+        if (SUCCEEDED(hr))
+        {
+            hr = device->CreateRootSignature(0, pSignature->GetBufferPointer(), pSignature->GetBufferSize(),
+                IID_GRAPHICS_PPV_ARGS(rootSignature)
+                );
+        }
+        return hr;
+    }
+
+    // Helper for obtaining texture size
+    inline XMUINT2 GetTextureSize(_In_ ID3D12Resource* tex) noexcept
+    {
+        const auto desc = tex->GetDesc();
+        return XMUINT2(static_cast<uint32_t>(desc.Width), static_cast<uint32_t>(desc.Height));
+    }
+
+#if defined(_PIX_H_) || defined(_PIX3_H_)
+    // Scoped PIX event.
+    class ScopedPixEvent
     {
     public:
-        MapGuard(_In_ ID3D11DeviceContext* context,
-            _In_ ID3D11Resource *resource,
-            _In_ unsigned int subresource,
-            _In_ D3D11_MAP mapType,
-            _In_ unsigned int mapFlags) noexcept(false)
-            : mContext(context), mResource(resource), mSubresource(subresource)
+        ScopedPixEvent(_In_ ID3D12GraphicsCommandList* pCommandList, UINT64 /*metadata*/, PCWSTR pFormat) noexcept
+            : mCommandList(pCommandList)
         {
-            HRESULT hr = mContext->Map(resource, subresource, mapType, mapFlags, this);
-            if (FAILED(hr))
-            {
-                throw std::exception();
-            }
+            PIXBeginEvent(pCommandList, 0, pFormat);
         }
-
-        MapGuard(MapGuard&&) = default;
-        MapGuard& operator= (MapGuard&&) = default;
-
-        MapGuard(MapGuard const&) = delete;
-        MapGuard& operator= (MapGuard const&) = delete;
-
-        ~MapGuard()
+        ~ScopedPixEvent()
         {
-            mContext->Unmap(mResource, mSubresource);
-        }
-
-        uint8_t* get() const noexcept
-        {
-            return static_cast<uint8_t*>(pData);
-        }
-        uint8_t* get(size_t slice) const noexcept
-        {
-            return static_cast<uint8_t*>(pData) + (slice * DepthPitch);
-        }
-
-        uint8_t* scanline(size_t row) const noexcept
-        {
-            return static_cast<uint8_t*>(pData) + (row * RowPitch);
-        }
-        uint8_t* scanline(size_t slice, size_t row) const noexcept
-        {
-            return static_cast<uint8_t*>(pData) + (slice * DepthPitch) + (row * RowPitch);
+            PIXEndEvent(mCommandList);
         }
 
     private:
-        ID3D11DeviceContext*    mContext;
-        ID3D11Resource*         mResource;
-        unsigned int            mSubresource;
+        ID3D12GraphicsCommandList* mCommandList;
     };
-
+#endif
 
     // Helper sets a D3D resource name string (used by PIX and debug layer leak reporting).
     template<UINT TNameLength>
-    inline void SetDebugObjectName(_In_ ID3D11DeviceChild* resource, _In_z_ const char(&name)[TNameLength]) noexcept
+    inline void SetDebugObjectName(_In_ ID3D12DeviceChild* resource, _In_z_ const char(&name)[TNameLength]) noexcept
     {
-#if !defined(NO_D3D11_DEBUG_NAME) && ( defined(_DEBUG) || defined(PROFILE) )
-#if defined(_XBOX_ONE) && defined(_TITLE)
+    #if !defined(NO_D3D12_DEBUG_NAME) && (defined(_DEBUG) || defined(PROFILE))
         wchar_t wname[MAX_PATH];
         int result = MultiByteToWideChar(CP_UTF8, 0, name, TNameLength, wname, MAX_PATH);
         if (result > 0)
         {
             resource->SetName(wname);
         }
-#else
-        resource->SetPrivateData(WKPDID_D3DDebugObjectName, TNameLength - 1, name);
-#endif
-#else
+    #else
         UNREFERENCED_PARAMETER(resource);
         UNREFERENCED_PARAMETER(name);
-#endif
+    #endif
     }
 
     template<UINT TNameLength>
-    inline void SetDebugObjectName(_In_ ID3D11DeviceChild* resource, _In_z_ const wchar_t(&name)[TNameLength])
+    inline void SetDebugObjectName(_In_ ID3D12DeviceChild* resource, _In_z_ const wchar_t(&name)[TNameLength]) noexcept
     {
-#if !defined(NO_D3D11_DEBUG_NAME) && ( defined(_DEBUG) || defined(PROFILE) )
-#if defined(_XBOX_ONE) && defined(_TITLE)
+    #if !defined(NO_D3D12_DEBUG_NAME) && (defined(_DEBUG) || defined(PROFILE))
         resource->SetName(name);
-#else
-        char aname[MAX_PATH];
-        int result = WideCharToMultiByte(CP_UTF8, 0, name, TNameLength, aname, MAX_PATH, nullptr, nullptr);
-        if (result > 0)
-        {
-            resource->SetPrivateData(WKPDID_D3DDebugObjectName, TNameLength - 1, aname);
-        }
-#endif
-#else
+    #else
         UNREFERENCED_PARAMETER(resource);
         UNREFERENCED_PARAMETER(name);
-#endif
+    #endif
     }
+
+    // Helper for resource barrier.
+    inline void TransitionResource(
+        _In_ ID3D12GraphicsCommandList* commandList,
+        _In_ ID3D12Resource* resource,
+        D3D12_RESOURCE_STATES stateBefore,
+        D3D12_RESOURCE_STATES stateAfter) noexcept
+    {
+        assert(commandList != nullptr);
+        assert(resource != nullptr);
+
+        if (stateBefore == stateAfter)
+            return;
+
+        D3D12_RESOURCE_BARRIER desc = {};
+        desc.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        desc.Transition.pResource = resource;
+        desc.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        desc.Transition.StateBefore = stateBefore;
+        desc.Transition.StateAfter = stateAfter;
+
+        commandList->ResourceBarrier(1, &desc);
+    }
+
+    // Helper which applies one or more resources barriers and then reverses them on destruction.
+    class ScopedBarrier
+    {
+    public:
+        ScopedBarrier(
+            _In_ ID3D12GraphicsCommandList* commandList,
+            std::initializer_list<D3D12_RESOURCE_BARRIER> barriers) noexcept(false)
+            : mCommandList(commandList),
+            mBarriers(barriers)
+        {
+            assert(mBarriers.size() <= UINT32_MAX);
+
+            // Set barriers
+            mCommandList->ResourceBarrier(static_cast<UINT>(mBarriers.size()), mBarriers.data());
+        }
+
+        ScopedBarrier(
+            _In_ ID3D12GraphicsCommandList* commandList,
+            _In_reads_(count) const D3D12_RESOURCE_BARRIER *barriers,
+            size_t count) noexcept(false)
+            : mCommandList(commandList),
+            mBarriers(barriers, barriers + count)
+        {
+            assert(count <= UINT32_MAX);
+
+            // Set barriers
+            mCommandList->ResourceBarrier(static_cast<UINT>(mBarriers.size()), mBarriers.data());
+        }
+
+        template<size_t TBarrierLength>
+        ScopedBarrier(
+            _In_ ID3D12GraphicsCommandList* commandList,
+            const D3D12_RESOURCE_BARRIER(&barriers)[TBarrierLength]) noexcept(false)
+            : mCommandList(commandList),
+            mBarriers(barriers, barriers + TBarrierLength)
+        {
+            assert(TBarrierLength <= UINT32_MAX);
+
+            // Set barriers
+            mCommandList->ResourceBarrier(static_cast<UINT>(mBarriers.size()), mBarriers.data());
+        }
+
+        ScopedBarrier(ScopedBarrier&&) = default;
+        ScopedBarrier& operator= (ScopedBarrier&&) = default;
+
+        ScopedBarrier(ScopedBarrier const&) = delete;
+        ScopedBarrier& operator= (ScopedBarrier const&) = delete;
+
+        ~ScopedBarrier()
+        {
+            // reverse barrier inputs and outputs
+            for (auto& b : mBarriers)
+            {
+                std::swap(b.Transition.StateAfter, b.Transition.StateBefore);
+            }
+
+            // Set barriers
+            mCommandList->ResourceBarrier(static_cast<UINT>(mBarriers.size()), mBarriers.data());
+        }
+
+    private:
+        ID3D12GraphicsCommandList* mCommandList;
+        std::vector<D3D12_RESOURCE_BARRIER> mBarriers;
+    };
 
     // Helper to check for power-of-2
     template<typename T>
@@ -178,20 +303,5 @@ namespace DirectX
             return (size + mask) & ~mask;
         }
         return size;
-    }
-
-    // Helper for creating a Direct3D input layout to match a shader from an IEffect
-    HRESULT __cdecl CreateInputLayoutFromEffect(_In_ ID3D11Device* device,
-        _In_ IEffect* effect,
-        _In_reads_(count) const D3D11_INPUT_ELEMENT_DESC* desc,
-        size_t count,
-        _COM_Outptr_ ID3D11InputLayout** pInputLayout) noexcept;
-
-    template<typename T>
-    HRESULT CreateInputLayoutFromEffect(_In_ ID3D11Device* device,
-        _In_ IEffect* effect,
-        _COM_Outptr_ ID3D11InputLayout** pInputLayout) noexcept
-    {
-        return CreateInputLayoutFromEffect(device, effect, T::InputElements, T::InputElementCount, pInputLayout);
     }
 }
