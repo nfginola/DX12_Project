@@ -13,6 +13,8 @@
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx12.h"
 
+#include "DXTK/Mouse.h"
+
 // Check for memory leaks
 #define _CRTDBG_MAP_ALLOC
 #include <stdlib.h>
@@ -225,6 +227,27 @@ int main()
 			bool show_demo_window = true;
 			if (show_demo_window)
 				ImGui::ShowDemoWindow(&show_demo_window);
+
+			// Main menu
+			if (ImGui::BeginMainMenuBar())
+			{
+				if (ImGui::BeginMenu("File"))
+				{
+					ImGui::EndMenu();
+				}
+				if (ImGui::BeginMenu("Edit"))
+				{
+					if (ImGui::MenuItem("Undo", "CTRL+Z")) { std::cout << "haha!\n"; }
+					if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {}  // Disabled item
+					ImGui::Separator();
+					if (ImGui::MenuItem("Cut", "CTRL+X")) {}
+					if (ImGui::MenuItem("Copy", "CTRL+C")) {}
+					if (ImGui::MenuItem("Paste", "CTRL+V")) {}
+					ImGui::EndMenu();
+				}
+				ImGui::EndMainMenuBar();
+			}
+
 
 			// end imgui
 			ImGui::Render();

@@ -1,0 +1,8 @@
+grabbed from https://github.com/microsoft/DirectXTK/releases/tag/mar2022 with March 24, 2022 Release
+- solution built manually for x64 debug + release with the included default project settings
+- link to DirectXTK.lib (set to diff. directory depending on debug/release)
+- extracted the headers manually
+- extracted the .lib + .pdb file manually (for x64 debug + release) for static linking
+
+include folder padded with an extra folder (DXTK) to avoid potential ambiguous name clashes when including headers
+

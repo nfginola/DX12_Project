@@ -1,0 +1,5 @@
+dx shader compiler grabbed from https://github.com/microsoft/DirectXShaderCompiler/releases with the "08 Dec 2021" release
+specifically grabbing "dxc_2021_12_08.zip"
+- linking to the supplied dxcompiler.lib is required
+- supplying dxcompiler.dll + dxil.dll is required
+- interface provided by dxcapi.h
