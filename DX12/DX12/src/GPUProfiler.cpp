@@ -102,6 +102,7 @@ void GPUProfiler::profile_end(ID3D12GraphicsCommandList* cmdl, const std::string
 
 const std::map<std::string, GPUProfiler::ProfileData>& GPUProfiler::get_profiles()
 {
+	assert(m_in_frame);
 	return m_profiles;
 }
 

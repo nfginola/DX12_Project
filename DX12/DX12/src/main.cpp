@@ -9,16 +9,14 @@
 #include "DXContext.h"
 #include "DXSwapChain.h"
 #include "DXCompiler.h"
-#include "DXHelper.h"
 #include "GPUProfiler.h"
 #include "CPUProfiler.h"
 #include "Input.h"
 #include "GUIContext.h"
+#include "AssimpLoader.h"
 
 #include "../shaders/ShaderInterop_Renderer.h"
 
-// DXTK
-#include "DXTK/DirectXHelpers.h"
 
 static bool g_app_running = false;
 Input* g_input = nullptr;
@@ -28,6 +26,7 @@ LRESULT window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 int main()
 {
+
 	g_app_running = true;
 	constexpr auto debug_on = true;
 	const UINT CLIENT_WIDTH = 1600;
@@ -247,8 +246,10 @@ int main()
 			dq_cmdl->OMSetRenderTargets(1, &rtv_hdl, false, nullptr);
 
 			// render imgui data
+			gpu_pf.profile_begin(dq_cmdl, dq, "imgui");
 			dq_cmdl->SetDescriptorHeaps(1, dheap_for_imgui.GetAddressOf());		// We should reserve a single descriptor element on our main render desc heap
 			g_gui_ctx->render(dq_cmdl);
+			gpu_pf.profile_end(dq_cmdl, "imgui");
 
 			// transition
 			gpu_pf.profile_begin(dq_cmdl, dq, "transition #2");
