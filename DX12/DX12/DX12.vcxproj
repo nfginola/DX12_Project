@@ -157,6 +157,7 @@ copy "$(ProjectDir)vendor\dxshadercompiler\bin\$(Platform)\dxil.dll" "$(TargetDi
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\GUIContext.cpp" />
     <ClCompile Include="src\Input.cpp" />
     <ClCompile Include="src\CPUProfiler.cpp" />
     <ClCompile Include="src\CompiledShaderBlob.cpp" />
@@ -203,6 +204,7 @@ copy "$(ProjectDir)vendor\dxshadercompiler\bin\$(Platform)\dxil.dll" "$(TargetDi
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\GUIContext.h" />
     <ClInclude Include="src\Input.h" />
     <ClInclude Include="src\CPUProfiler.h" />
     <ClInclude Include="src\CompiledShaderBlob.h" />

@@ -21,6 +21,7 @@
 #include "DXTK/DirectXHelpers.h"
 
 #include "Input.h"
+#include "GUIContext.h"
 
 static bool g_app_running = false;
 Input* g_input = nullptr;
@@ -128,26 +129,6 @@ int main()
 		GPUProfiler gpu_pf(dev, GPUProfiler::QueueType::eDirectOrCompute, pf_latency);
 		CPUProfiler cpu_pf(pf_latency);
 
-		// Setup ImGui
-		IMGUI_CHECKVERSION();
-		ImGui::CreateContext();
-		ImGuiIO& io = ImGui::GetIO(); (void)io;
-		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
-		//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
-		io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
-		//io.ConfigViewportsNoAutoMerge = true;
-		//io.ConfigViewportsNoTaskBarIcon = true;
-
-		ImGui::StyleColorsDark();
-
-		// When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
-		ImGuiStyle& style = ImGui::GetStyle();
-		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-		{
-			style.WindowRounding = 0.0f;
-			style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-		}
 			
 		// Setup resource view for ImGUI usage
 		cptr<ID3D12DescriptorHeap> dheap_for_imgui;
@@ -159,99 +140,21 @@ int main()
 			ThrowIfFailed(dev->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&dheap_for_imgui)), DET_ERR("Bazooka"));
 		}
 
-		ImGui_ImplWin32_Init(win->get_hwnd());
-		ImGui_ImplDX12_Init(dev, max_FIF,
-			DXGI_FORMAT_R8G8B8A8_UNORM, dheap_for_imgui.Get(),
+
+		// Setup ImGUI
+		auto gui_ctx = std::make_unique<GUIContext>(win->get_hwnd(), dev, max_FIF,
+			dheap_for_imgui.Get(),
 			dheap_for_imgui->GetCPUDescriptorHandleForHeapStart(),
 			dheap_for_imgui->GetGPUDescriptorHandleForHeapStart());
 
-		/*
-			Idea:
-
-			nGUI::init(..)
-			nGUI::destroy();
-
-			nGUI::imgui_submit([]()
-				{
-			
-				});
-			
-			Maybe do same to Mouse/Kb? Don't know yet..
-
-		*/
-
-
-		MSG msg{};
-		while (g_app_running)
+		// Setup test UI
+		bool show_pf = true;
+		auto ui_cb = [&]()
 		{
-			win->pump_messages();
+			ImGui::Begin("HelloBox");
+			ImGui::Checkbox("Show Profiler Data", &show_pf);
+			ImGui::End();
 
-			g_input->frame_begin();
-
-			auto surface_idx = gfx_sc->get_curr_draw_surface();
-			auto& frame_res = per_frame_res[surface_idx];
-			auto curr_bb = gfx_sc->get_backbuffer(surface_idx);
-			auto dq_ator = frame_res.dq_ator.Get();
-			auto dq_cmdl = frame_res.dq_cmdl.Get();
-
-			// wait for FIF
-			frame_res.sync.wait();
-			
-			cpu_pf.frame_begin();
-			gpu_pf.frame_begin(surface_idx);
-
-			// start imGui
-			ImGui_ImplDX12_NewFrame();
-			ImGui_ImplWin32_NewFrame();
-			ImGui::NewFrame();
-
-
-			// query profiler results
-			//std::cout << "GPU:\n";
-			//const auto& profiles = gpu_pf.get_profiles();
-			//for (const auto& [_, profile] : profiles)
-			//{
-			//	std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
-			//}
-			//std::cout << "\n";
-
-			//std::cout << "CPU:\n";
-			//const auto& cpu_profiles = cpu_pf.get_profiles();
-			//for (const auto& [_, profile] : cpu_profiles)
-			//{
-			//	std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
-			//}
-			//std::cout << "========================================\n";
-
-			if (g_input->lmb_down())
-				std::cout << g_input->get_mouse_position().first << ", " << g_input->get_mouse_position().second << "\n";
-
-			if (g_input->key_released(Keys::A))
-				std::cout << "A released\n";
-
-			// reset
-			dq_ator->Reset();
-			dq_cmdl->Reset(dq_ator, nullptr);
-
-			gpu_pf.profile_begin(dq_cmdl, dq, "frame");
-			cpu_pf.profile_begin("cpu frame");
-
-			// transition
-			gpu_pf.profile_begin(dq_cmdl, dq, "transition #1");
-			auto barr_to_rt = CD3DX12_RESOURCE_BARRIER::Transition(curr_bb, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
-			dq_cmdl->ResourceBarrier(1, &barr_to_rt);
-			gpu_pf.profile_end(dq_cmdl, "transition #1");
-
-			// clear
-			gpu_pf.profile_begin(dq_cmdl, dq, "clear");
-			auto rtv_hdl = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtv_dheap->GetCPUDescriptorHandleForHeapStart())
-				.Offset(surface_idx, rtv_hdl_size);
-			FLOAT clear_color[4] = { 0.5f, 0.2f, 0.2f, 1.f };
-			dq_cmdl->ClearRenderTargetView(rtv_hdl, clear_color, 1, &main_scissor);
-			gpu_pf.profile_end(dq_cmdl, "clear");
-
-
-			// draw imgui
 			bool show_demo_window = true;
 			if (show_demo_window)
 				ImGui::ShowDemoWindow(&show_demo_window);
@@ -275,23 +178,80 @@ int main()
 				}
 				ImGui::EndMainMenuBar();
 			}
+		};
+
+		gui_ctx->add_persistent_ui("test", ui_cb);
 
 
-			// end imgui
-			ImGui::Render();
+		MSG msg{};
+		while (g_app_running)
+		{
+			win->pump_messages();
+			if (!g_app_running)		// Early exit if WMs see exit request
+				break;
+
+			g_input->frame_begin();
+
+			auto surface_idx = gfx_sc->get_curr_draw_surface();
+			auto& frame_res = per_frame_res[surface_idx];
+			auto curr_bb = gfx_sc->get_backbuffer(surface_idx);
+			auto dq_ator = frame_res.dq_ator.Get();
+			auto dq_cmdl = frame_res.dq_cmdl.Get();
+
+			// wait for FIF
+			frame_res.sync.wait();
 			
-			// render imgui data
-			dq_cmdl->OMSetRenderTargets(1, &rtv_hdl, false, nullptr);
-			dq_cmdl->SetDescriptorHeaps(1, dheap_for_imgui.GetAddressOf());		// We should reserve a single element on our main render desc heap
-			ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), dq_cmdl);
+			cpu_pf.frame_begin();
+			gpu_pf.frame_begin(surface_idx);
+			gui_ctx->frame_begin();
 
-			// Update and Render additional Platform Windows
-			if (g_app_running && io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+			if (show_pf)
 			{
-				ImGui::UpdatePlatformWindows();
-				ImGui::RenderPlatformWindowsDefault(NULL, (void*)dq_cmdl);
+
+				// query profiler results
+				std::cout << "GPU:\n";
+				const auto& profiles = gpu_pf.get_profiles();
+				for (const auto& [_, profile] : profiles)
+				{
+					std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
+				}
+				std::cout << "\n";
+
+				std::cout << "CPU:\n";
+				const auto& cpu_profiles = cpu_pf.get_profiles();
+				for (const auto& [_, profile] : cpu_profiles)
+				{
+					std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
+				}
+				std::cout << "========================================\n";
 			}
 
+			// reset
+			dq_ator->Reset();
+			dq_cmdl->Reset(dq_ator, nullptr);
+
+			gpu_pf.profile_begin(dq_cmdl, dq, "frame");
+			cpu_pf.profile_begin("cpu frame");
+
+			// transition
+			gpu_pf.profile_begin(dq_cmdl, dq, "transition #1");
+			auto barr_to_rt = CD3DX12_RESOURCE_BARRIER::Transition(curr_bb, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+			dq_cmdl->ResourceBarrier(1, &barr_to_rt);
+			gpu_pf.profile_end(dq_cmdl, "transition #1");
+
+			// clear
+			gpu_pf.profile_begin(dq_cmdl, dq, "clear");
+			auto rtv_hdl = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtv_dheap->GetCPUDescriptorHandleForHeapStart())
+				.Offset(surface_idx, rtv_hdl_size);
+			FLOAT clear_color[4] = { 0.5f, 0.2f, 0.2f, 1.f };
+			dq_cmdl->ClearRenderTargetView(rtv_hdl, clear_color, 1, &main_scissor);
+			gpu_pf.profile_end(dq_cmdl, "clear");
+
+			dq_cmdl->OMSetRenderTargets(1, &rtv_hdl, false, nullptr);
+
+			// render imgui data
+			dq_cmdl->SetDescriptorHeaps(1, dheap_for_imgui.GetAddressOf());		// We should reserve a single descriptor element on our main render desc heap
+			gui_ctx->render(dq_cmdl);
 
 			// transition
 			gpu_pf.profile_begin(dq_cmdl, dq, "transition #2");
@@ -313,7 +273,6 @@ int main()
 			ID3D12CommandList* cmdls[] = { dq_cmdl };
 			dq->ExecuteCommandLists(_countof(cmdls), cmdls);
 
-
 			// present
 			constexpr auto vsync = true;
 			gfx_sc->present(vsync);
@@ -327,15 +286,12 @@ int main()
 			frame_res.prev_surface_idx = surface_idx;
 
 			g_input->frame_end();
+			gui_ctx->frame_end();
 		}
 
 		// wait for all FIFs before exiting
 		for (const auto& frame_res : per_frame_res)
 			frame_res.sync.wait();
-
-		ImGui_ImplDX12_Shutdown();
-		ImGui_ImplWin32_Shutdown();
-		ImGui::DestroyContext();
 
 		delete g_input;
 	}
