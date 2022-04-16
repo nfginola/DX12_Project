@@ -26,6 +26,8 @@ public:
 	void add_persistent_ui(const std::string& name, const std::function<void()> callback);
 	void remove_persistent_ui(const std::string& name);
 
+	bool win_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
 
 private:
 	std::unordered_map<std::string, std::function<void()>> m_persistent_ui_callbacks;

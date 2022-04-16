@@ -54,6 +54,7 @@ GPUProfiler::GPUProfiler(ID3D12Device* dev, QueueType queue_type, uint8_t max_fi
 
 void GPUProfiler::profile_begin(ID3D12GraphicsCommandList* cmdl, ID3D12CommandQueue* queue, const std::string& name)
 {
+	assert(m_profiles.size() < m_max_profiles_per_frame);
 	assert(m_in_frame);
 	GPUProfiler::ProfileData* profile = nullptr;
 	if (auto it = m_profiles.find(name); it == m_profiles.cend())

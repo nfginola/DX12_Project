@@ -143,5 +143,11 @@
     <ClInclude Include="src\GUIContext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="shaders\ShaderInterop_Common.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="shaders\ShaderInterop_Renderer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

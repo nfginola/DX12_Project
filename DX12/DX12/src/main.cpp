@@ -1,5 +1,10 @@
 #include "pch.h"
 
+// Check for memory leaks
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+
 #include "Window.h"
 #include "DXContext.h"
 #include "DXSwapChain.h"
@@ -7,24 +12,17 @@
 #include "DXHelper.h"
 #include "GPUProfiler.h"
 #include "CPUProfiler.h"
-
-// ImGui
-#include "imgui.h"
-#include "imgui_impl_win32.h"
-#include "imgui_impl_dx12.h"
-
-// Check for memory leaks
-#define _CRTDBG_MAP_ALLOC
-#include <stdlib.h>
-#include <crtdbg.h>
-
-#include "DXTK/DirectXHelpers.h"
-
 #include "Input.h"
 #include "GUIContext.h"
 
+#include "../shaders/ShaderInterop_Renderer.h"
+
+// DXTK
+#include "DXTK/DirectXHelpers.h"
+
 static bool g_app_running = false;
 Input* g_input = nullptr;
+GUIContext* g_gui_ctx = nullptr;
 
 LRESULT window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
@@ -34,7 +32,6 @@ int main()
 	constexpr auto debug_on = true;
 	const UINT CLIENT_WIDTH = 1600;
 	const UINT CLIENT_HEIGHT = 900;
-
 
 	// https://docs.microsoft.com/en-us/visualstudio/debugger/finding-memory-leaks-using-the-crt-library?view=vs-2022
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -142,7 +139,7 @@ int main()
 
 
 		// Setup ImGUI
-		auto gui_ctx = std::make_unique<GUIContext>(win->get_hwnd(), dev, max_FIF,
+		g_gui_ctx = new GUIContext(win->get_hwnd(), dev, max_FIF,
 			dheap_for_imgui.Get(),
 			dheap_for_imgui->GetCPUDescriptorHandleForHeapStart(),
 			dheap_for_imgui->GetGPUDescriptorHandleForHeapStart());
@@ -180,7 +177,7 @@ int main()
 			}
 		};
 
-		gui_ctx->add_persistent_ui("test", ui_cb);
+		g_gui_ctx->add_persistent_ui("test", ui_cb);
 
 
 		MSG msg{};
@@ -203,7 +200,7 @@ int main()
 			
 			cpu_pf.frame_begin();
 			gpu_pf.frame_begin(surface_idx);
-			gui_ctx->frame_begin();
+			g_gui_ctx->frame_begin();
 
 			if (show_pf)
 			{
@@ -251,7 +248,7 @@ int main()
 
 			// render imgui data
 			dq_cmdl->SetDescriptorHeaps(1, dheap_for_imgui.GetAddressOf());		// We should reserve a single descriptor element on our main render desc heap
-			gui_ctx->render(dq_cmdl);
+			g_gui_ctx->render(dq_cmdl);
 
 			// transition
 			gpu_pf.profile_begin(dq_cmdl, dq, "transition #2");
@@ -286,7 +283,7 @@ int main()
 			frame_res.prev_surface_idx = surface_idx;
 
 			g_input->frame_end();
-			gui_ctx->frame_end();
+			g_gui_ctx->frame_end();
 		}
 
 		// wait for all FIFs before exiting
@@ -294,6 +291,7 @@ int main()
 			frame_res.sync.wait();
 
 		delete g_input;
+		delete g_gui_ctx;
 	}
 	catch (std::runtime_error& e)
 	{
@@ -305,12 +303,11 @@ int main()
 }
 
 
-// Forward declare message handler from imgui_impl_win32.cpp
-extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 
 LRESULT window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	if (ImGui_ImplWin32_WndProcHandler(hwnd, uMsg, wParam, lParam))
+	if (g_gui_ctx && g_gui_ctx->win_proc(hwnd, uMsg, wParam, lParam))
 		return true;
 
 	switch (uMsg)

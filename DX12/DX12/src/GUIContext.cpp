@@ -84,3 +84,13 @@ void GUIContext::remove_persistent_ui(const std::string& name)
 {
 	m_persistent_ui_callbacks.erase(name);
 }
+
+// Forward declare message handler from imgui_impl_win32.cpp
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+bool GUIContext::win_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	if (ImGui_ImplWin32_WndProcHandler(hwnd, uMsg, wParam, lParam))
+		return true;
+	return false;
+}

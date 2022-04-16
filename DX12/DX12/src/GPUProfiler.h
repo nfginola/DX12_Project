@@ -34,11 +34,11 @@ public:
 	void profile_end(ID3D12GraphicsCommandList* cmdl, const std::string& name);
 
 	const std::map<std::string, ProfileData>& get_profiles();
+	const GPUProfiler::ProfileData& get_curr_scope_profile();
 
 	void frame_begin(uint32_t frame_idx);
 	void frame_end(ID3D12GraphicsCommandList* cmdl);
 
-	const GPUProfiler::ProfileData& get_curr_scope_profile();
 
 private:
 	static constexpr size_t QUERY_SIZE = sizeof(UINT64);	// Timestamp ticks are UINT64 https://docs.microsoft.com/en-us/windows/win32/direct3d12/timing
