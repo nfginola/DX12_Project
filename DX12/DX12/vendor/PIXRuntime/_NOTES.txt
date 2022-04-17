@@ -1,0 +1,2 @@
+We manually consume this library 
+https://devblogs.microsoft.com/pix/winpixeventruntime/

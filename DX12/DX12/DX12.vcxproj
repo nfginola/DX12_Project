@@ -119,17 +119,18 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)vendor\imgui-docking\backends\;$(ProjectDir)vendor\imgui-docking\;$(ProjectDir)vendor\dxshadercompiler\inc\;$(ProjectDir)vendor\dxheaders\dxguids\;$(ProjectDir)vendor\dxheaders\directx\;$(ProjectDir)vendor\DirectXTK\inc\;$(ProjectDir)vendor\assimp-5.2.3\inc\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)vendor\PIXRuntime\inc\;$(ProjectDir)vendor\imgui-docking\backends\;$(ProjectDir)vendor\imgui-docking\;$(ProjectDir)vendor\dxshadercompiler\inc\;$(ProjectDir)vendor\dxheaders\dxguids\;$(ProjectDir)vendor\dxheaders\directx\;$(ProjectDir)vendor\DirectXTK\inc\;$(ProjectDir)vendor\assimp-5.2.3\inc\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxguid.lib;$(ProjectDir)vendor\dxshadercompiler\lib\$(Platform)\dxcompiler.lib;$(ProjectDir)vendor\DirectXTK\lib\$(Platform)\$(Configuration)\DirectXTK12.lib;$(ProjectDir)vendor\assimp-5.2.3\lib\$(Platform)\$(Configuration)\assimp-vc143-mtd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxguid.lib;$(ProjectDir)vendor\dxshadercompiler\lib\$(Platform)\dxcompiler.lib;$(ProjectDir)vendor\DirectXTK\lib\$(Platform)\$(Configuration)\DirectXTK12.lib;$(ProjectDir)vendor\assimp-5.2.3\lib\$(Platform)\Release\assimp-vc143-mt.lib;$(ProjectDir)vendor\PIXRuntime\lib\$(Platform)\WinPixEventRuntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>copy "$(ProjectDir)vendor\dxshadercompiler\bin\$(Platform)\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
 copy "$(ProjectDir)vendor\dxshadercompiler\bin\$(Platform)\dxil.dll" "$(TargetDir)dxil.dll"
-copy "$(ProjectDir)vendor\assimp-5.2.3\bin\$(Configuration)\assimp-vc143-mtd.dll" "$(TargetDir)assimp-vc143-mtd.dll"</Command>
+copy "$(ProjectDir)vendor\assimp-5.2.3\bin\Release\assimp-vc143-mt.dll" "$(TargetDir)assimp-vc143-mt.dll"
+copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(TargetDir)WinPixEventRuntime.dll"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -143,19 +144,20 @@ copy "$(ProjectDir)vendor\assimp-5.2.3\bin\$(Configuration)\assimp-vc143-mtd.dll
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)vendor\imgui-docking\backends\;$(ProjectDir)vendor\imgui-docking\;$(ProjectDir)vendor\dxshadercompiler\inc\;$(ProjectDir)vendor\dxheaders\dxguids\;$(ProjectDir)vendor\dxheaders\directx\;$(ProjectDir)vendor\DirectXTK\inc\;$(ProjectDir)vendor\assimp-5.2.3\inc\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)vendor\PIXRuntime\inc\;$(ProjectDir)vendor\imgui-docking\backends\;$(ProjectDir)vendor\imgui-docking\;$(ProjectDir)vendor\dxshadercompiler\inc\;$(ProjectDir)vendor\dxheaders\dxguids\;$(ProjectDir)vendor\dxheaders\directx\;$(ProjectDir)vendor\DirectXTK\inc\;$(ProjectDir)vendor\assimp-5.2.3\inc\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxguid.lib;$(ProjectDir)vendor\dxshadercompiler\lib\$(Platform)\dxcompiler.lib;$(ProjectDir)vendor\DirectXTK\lib\$(Platform)\$(Configuration)\DirectXTK12.lib;$(ProjectDir)vendor\assimp-5.2.3\lib\$(Platform)\$(Configuration)\assimp-vc143-mt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;dxguid.lib;$(ProjectDir)vendor\dxshadercompiler\lib\$(Platform)\dxcompiler.lib;$(ProjectDir)vendor\DirectXTK\lib\$(Platform)\$(Configuration)\DirectXTK12.lib;$(ProjectDir)vendor\assimp-5.2.3\lib\$(Platform)\Release\assimp-vc143-mt.lib;$(ProjectDir)vendor\PIXRuntime\lib\$(Platform)\WinPixEventRuntime.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>copy "$(ProjectDir)vendor\dxshadercompiler\bin\$(Platform)\dxcompiler.dll" "$(TargetDir)dxcompiler.dll"
 copy "$(ProjectDir)vendor\dxshadercompiler\bin\$(Platform)\dxil.dll" "$(TargetDir)dxil.dll"
-copy "$(ProjectDir)vendor\assimp-5.2.3\bin\$(Configuration)\assimp-vc143-mt.dll" "$(TargetDir)assimp-vc143-mt.dll"</Command>
+copy "$(ProjectDir)vendor\assimp-5.2.3\bin\Release\assimp-vc143-mt.dll" "$(TargetDir)assimp-vc143-mt.dll"
+copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(TargetDir)WinPixEventRuntime.dll"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -206,11 +208,12 @@ copy "$(ProjectDir)vendor\assimp-5.2.3\bin\$(Configuration)\assimp-vc143-mt.dll"
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\AssimpLoader.h" />
     <ClInclude Include="shaders\ShaderInterop_Common.h" />
     <ClInclude Include="shaders\ShaderInterop_Renderer.h" />
+    <ClInclude Include="src\AssimpLoader.h" />
     <ClInclude Include="src\AssimpTypes.h" />
     <ClInclude Include="src\GUIContext.h" />
+    <ClInclude Include="src\HandlePool.h" />
     <ClInclude Include="src\Input.h" />
     <ClInclude Include="src\CPUProfiler.h" />
     <ClInclude Include="src\CompiledShaderBlob.h" />
@@ -220,6 +223,7 @@ copy "$(ProjectDir)vendor\assimp-5.2.3\bin\$(Configuration)\assimp-vc143-mt.dll"
     <ClInclude Include="src\DXSwapChain.h" />
     <ClInclude Include="src\GPUProfiler.h" />
     <ClInclude Include="src\pch.h" />
+    <ClInclude Include="src\ResourceHandlePool.h" />
     <ClInclude Include="src\Window.h" />
     <ClInclude Include="src\Stopwatch.h" />
     <ClInclude Include="vendor\imgui-docking\backends\imgui_impl_dx12.h" />

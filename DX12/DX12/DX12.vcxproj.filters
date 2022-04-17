@@ -146,10 +146,16 @@
     <ClInclude Include="shaders\ShaderInterop_Renderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\AssimpTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\AssimpLoader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\AssimpTypes.h">
+    <ClInclude Include="src\ResourceHandlePool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\HandlePool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

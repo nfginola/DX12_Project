@@ -2,8 +2,8 @@
 
 // Check for memory leaks
 #define _CRTDBG_MAP_ALLOC
-#include <stdlib.h>
 #include <crtdbg.h>
+#include <stdlib.h>
 
 #include "Window.h"
 #include "DXContext.h"
@@ -15,8 +15,13 @@
 #include "GUIContext.h"
 #include "AssimpLoader.h"
 
+#include "HandlePool.h"
+
 #include "../shaders/ShaderInterop_Renderer.h"
 
+#include "WinPixEventRuntime/pix3.h"
+
+#include <numeric>
 
 static bool g_app_running = false;
 Input* g_input = nullptr;
@@ -24,13 +29,41 @@ GUIContext* g_gui_ctx = nullptr;
 
 LRESULT window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
+
+struct SomeResource
+{
+	uint64_t handle;
+
+	void destroy()
+	{
+		//std::cout << "I am destruction\n";
+	}
+};
+
+
 int main()
 {
-
 	g_app_running = true;
-	constexpr auto debug_on = true;
+	constexpr auto debug_on = false;
 	const UINT CLIENT_WIDTH = 1600;
 	const UINT CLIENT_HEIGHT = 900;
+
+	{
+		HandlePool<SomeResource> pool;
+
+		Stopwatch stopwatch;
+		stopwatch.start();
+		for (int i = 0; i < std::numeric_limits<uint32_t>::max(); ++i)
+		{
+			auto [handle1, res1] = pool.get_next_free_handle();
+		}
+		stopwatch.stop();
+
+		//double avg_alloc_time = std::reduce(times.begin(), times.end()) / (double)times.size();
+		std::cout << "alloc time: " << stopwatch.elapsed() * 1000.0 << " ms \n";
+	}
+
+
 
 	// https://docs.microsoft.com/en-us/visualstudio/debugger/finding-memory-leaks-using-the-crt-library?view=vs-2022
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -201,6 +234,8 @@ int main()
 			gpu_pf.frame_begin(surface_idx);
 			g_gui_ctx->frame_begin();
 
+			PIXBeginEvent(dq_cmdl, PIX_COLOR(0, 200, 200), "Hey");
+
 			if (show_pf)
 			{
 
@@ -246,10 +281,8 @@ int main()
 			dq_cmdl->OMSetRenderTargets(1, &rtv_hdl, false, nullptr);
 
 			// render imgui data
-			gpu_pf.profile_begin(dq_cmdl, dq, "imgui");
 			dq_cmdl->SetDescriptorHeaps(1, dheap_for_imgui.GetAddressOf());		// We should reserve a single descriptor element on our main render desc heap
 			g_gui_ctx->render(dq_cmdl);
-			gpu_pf.profile_end(dq_cmdl, "imgui");
 
 			// transition
 			gpu_pf.profile_begin(dq_cmdl, dq, "transition #2");
@@ -263,6 +296,9 @@ int main()
 			// done with profiling
 			gpu_pf.frame_end(dq_cmdl);
 			cpu_pf.frame_end();
+
+
+			PIXEndEvent(dq_cmdl);
 
 			// done with cmds
 			dq_cmdl->Close();
@@ -293,6 +329,9 @@ int main()
 
 		delete g_input;
 		delete g_gui_ctx;
+
+		g_input = nullptr;
+		g_gui_ctx = nullptr;
 	}
 	catch (std::runtime_error& e)
 	{

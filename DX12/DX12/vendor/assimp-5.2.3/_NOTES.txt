@@ -1,0 +1,6 @@
+grabbed from https://github.com/assimp/assimp/releases with ver 5.2.3 
+- project generated with CMake for VS 2022
+- release x64 build compiled with default settings
+- manually grabbed includes + libs and dlls for linking
+
+- we only use the Release build so we use the fast 'deployment' build
