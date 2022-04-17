@@ -162,6 +162,7 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\AssimpLoader.cpp" />
+    <ClCompile Include="src\DXConstantMemPool.cpp" />
     <ClCompile Include="src\GUIContext.cpp" />
     <ClCompile Include="src\Input.cpp" />
     <ClCompile Include="src\CPUProfiler.cpp" />
@@ -208,6 +209,7 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\DXConstantMemPool.h" />
     <ClInclude Include="shaders\ShaderInterop_Common.h" />
     <ClInclude Include="shaders\ShaderInterop_Renderer.h" />
     <ClInclude Include="src\AssimpLoader.h" />
@@ -223,7 +225,6 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     <ClInclude Include="src\DXSwapChain.h" />
     <ClInclude Include="src\GPUProfiler.h" />
     <ClInclude Include="src\pch.h" />
-    <ClInclude Include="src\ResourceHandlePool.h" />
     <ClInclude Include="src\Window.h" />
     <ClInclude Include="src\Stopwatch.h" />
     <ClInclude Include="vendor\imgui-docking\backends\imgui_impl_dx12.h" />

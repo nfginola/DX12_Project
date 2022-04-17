@@ -78,6 +78,9 @@
     <ClCompile Include="src\AssimpLoader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\DXConstantMemPool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.h">
@@ -155,7 +158,7 @@
     <ClInclude Include="src\HandlePool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\ResourceHandlePool.h">
+    <ClInclude Include="src\DXConstantMemPool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

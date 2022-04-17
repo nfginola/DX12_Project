@@ -97,6 +97,11 @@ ID3D12CommandQueue* DXContext::get_compute_queue()
 	return m_compute_queue.Get();
 }
 
+uint64_t DXContext::get_next_fence_value()
+{
+	return m_running_fence_value++;
+}
+
 
 
 

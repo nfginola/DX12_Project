@@ -35,14 +35,16 @@ public:
 	ID3D12CommandQueue* get_copy_queue();
 	ID3D12CommandQueue* get_compute_queue();
 
+	uint64_t get_next_fence_value();
+
 private:
 	Microsoft::WRL::ComPtr<IDXGIAdapter> m_adapter;
 	Microsoft::WRL::ComPtr<ID3D12Device> m_dev;
 	Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_direct_queue, m_compute_queue, m_copy_queue;
 
 	HandleSizes m_hdl_sizes;
-
 	uptr<DXSwapChain> m_sc;
+	uint64_t m_running_fence_value = 1;
 	
 };
 

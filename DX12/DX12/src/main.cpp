@@ -14,14 +14,11 @@
 #include "Input.h"
 #include "GUIContext.h"
 #include "AssimpLoader.h"
-
 #include "HandlePool.h"
-#include "ResourceHandlePool.h"
+#include "WinPixEventRuntime/pix3.h"
+#include "DXConstantMemPool.h"
 
 #include "../shaders/ShaderInterop_Renderer.h"
-
-#include "WinPixEventRuntime/pix3.h"
-
 
 static bool g_app_running = false;
 Input* g_input = nullptr;
@@ -29,91 +26,12 @@ GUIContext* g_gui_ctx = nullptr;
 
 LRESULT window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
-
-struct SomeResource
-{
-	uint64_t handle;
-
-	void destroy()
-	{
-		//std::cout << "I am destruction\n";
-	}
-};
-
-
-
-
-
 int main()
 {
-
 	g_app_running = true;
 	constexpr auto debug_on = false;
 	const UINT CLIENT_WIDTH = 1600;
 	const UINT CLIENT_HEIGHT = 900;
-
-	{
-		HandlePool<SomeResource> pool;
-
-		Stopwatch stopwatch;
-		stopwatch.start();
-		for (int i = 1; i < std::numeric_limits<uint16_t>::max(); ++i)
-		{
-			auto [handle1, res1] = pool.get_next_free_handle();
-		}
-		stopwatch.stop();
-
-		//double avg_alloc_time = std::reduce(times.begin(), times.end()) / (double)times.size();
-		std::cout << "alloc time: " << stopwatch.elapsed() * 1000.0 << " ms \n";
-
-		for (uint64_t i = 1; i < std::numeric_limits<uint16_t>::max() - 1; ++i)
-			pool.free_handle(i);
-
-
-		stopwatch.start();
-		for (int i = 0; i < std::numeric_limits<uint16_t>::max() - 1; ++i)
-		{
-			auto [handle1, res1] = pool.get_next_free_handle();
-			//pool.free_handle(handle1);
-		}
-		stopwatch.stop();
-		std::cout << "alloc time 2: " << stopwatch.elapsed() * 1000.0 << " ms \n";
-	}
-
-	std::cout << "\n\n\n";
-
-	{
-		ResourceHandlePool<SomeResource> pool;
-
-		Stopwatch stopwatch;
-		stopwatch.start();
-		for (int i = 0; i < std::numeric_limits<uint16_t>::max() - 1; ++i)
-		{
-			auto [handle1, res1] = pool.get_next_free_handle();
-			res1->handle = handle1;
-		}
-		stopwatch.stop();
-
-		//double avg_alloc_time = std::reduce(times.begin(), times.end()) / (double)times.size();
-		std::cout << "alloc time: " << stopwatch.elapsed() * 1000.0 << " ms \n";
-
-		for (uint64_t i = 0; i < std::numeric_limits<uint16_t>::max() - 1; ++i)
-			pool.free_handle(i);
-
-
-		stopwatch.start();
-		for (int i = 0; i < std::numeric_limits<uint16_t>::max() - 1; ++i)
-		{
-			auto [handle1, res1] = pool.get_next_free_handle();
-			//pool.free_handle(handle1);
-		}
-		stopwatch.stop();
-		std::cout << "alloc time 2: " << stopwatch.elapsed() * 1000.0 << " ms \n";
-	}
-
-	return 0;
-
-
 
 	// https://docs.microsoft.com/en-us/visualstudio/debugger/finding-memory-leaks-using-the-crt-library?view=vs-2022
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -168,7 +86,6 @@ int main()
 		};
 
 		// create sync primitives
-		UINT running_fence_val = 1;
 		const auto& max_FIF = gfx_sc->get_settings().max_FIF;
 		std::vector<PerFrameResource> per_frame_res;
 		per_frame_res.resize(max_FIF);
@@ -260,6 +177,12 @@ int main()
 		};
 
 		g_gui_ctx->add_persistent_ui("test", ui_cb);
+
+
+		//DXConstantMemPool mem_pool(dev, 256, 100, gfx_ctx->get_hdl_sizes().cbv_srv_uav);
+		//auto alloc = mem_pool.allocate();
+		//mem_pool.deallocate(*alloc);
+
 
 
 		MSG msg{};
@@ -362,7 +285,7 @@ int main()
 			gfx_sc->present(vsync);
 
 			// signal when this frame is no longer in flight
-			frame_res.sync.fence_val_to_wait_for = running_fence_val++;
+			frame_res.sync.fence_val_to_wait_for = gfx_ctx->get_next_fence_value();
 			ThrowIfFailed(dq->Signal(
 				frame_res.sync.fence.Get(), 
 				frame_res.sync.fence_val_to_wait_for), 
