@@ -1,10 +1,7 @@
 #pragma once
 #include <vector>
-#include <queue>
-#include <stack>
-
-
-
+//#include <queue>
+//#include <stack>
 
 /*
 	uint64_t handle pool which utilizes 32-bit key + 32-bit generational counter.
@@ -136,10 +133,10 @@ private:
 	std::vector<ResourceT> m_resources;								// Only as large as handles 'in play' + invalid
 	std::vector<half_key> m_generational_counters{ INVALID_HANDLE };				// Only as large as handles 'in play' + invalid
 
-	//PrivateQueue<half_key> m_reusable_keys;			// Fast
 	//std::queue<half_key> m_reusable_keys;			// Slow			
-	//std::stack<half_key> m_reusable_keys;
-	PrivateStack<half_key> m_reusable_keys;
+	//std::stack<half_key> m_reusable_keys;			// Slow
+	//PrivateQueue<half_key> m_reusable_keys;		// Fast
+	PrivateStack<half_key> m_reusable_keys;			// Fastest
 
 };
 

@@ -182,10 +182,10 @@ int main()
 		// e.g dynamic ring buffer
 		DXFixedBufferMemPool mem_pool(dev, 256, 100, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
 		auto alloc = mem_pool.allocate();
-
 		auto size = alloc->get_size();
-
 		mem_pool.deallocate(*alloc);
+		// detect free-after-free
+		//mem_pool.deallocate(*alloc);
 
 
 

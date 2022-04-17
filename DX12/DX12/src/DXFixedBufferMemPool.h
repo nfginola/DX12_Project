@@ -15,7 +15,7 @@
 	Example uses..:
 		- For dynamic and static constant buffer management
 			- Pools of 256, 512, 1024
-			- Ring-buffer, persistent on default heap, immutable
+			- Ring-buffer for discard-after-frame, persistent on default heap, immutable
 
 		- Array of structured buffers
 			- Light data
@@ -31,6 +31,7 @@ class DXFixedBufferMemPool
 public:
 	using allocation_id_t = uint32_t;
 
+	// Not guaranteed to be mappable, calling app must check before use
 	class Allocation
 	{
 	public:
@@ -44,6 +45,7 @@ public:
 
 	private:
 		friend class DXFixedBufferMemPool;
+		Allocation() = default;								// protect calling app from constructing a bogus allocation
 
 		// For internal verification
 		allocation_id_t m_allocation_id = 0;
@@ -53,7 +55,7 @@ public:
 		uint32_t m_offset_from_base = 0;
 		uint32_t m_size = 0;
 
-		uint8_t* m_mapped_memory = nullptr;					// CPU update
+		uint8_t* m_mapped_memory = nullptr;					// CPU updateable memory (optional)
 		D3D12_GPU_VIRTUAL_ADDRESS m_gpu_address{};			// GPU address to bind as immediate root argument
 	};
 
@@ -64,13 +66,11 @@ public:
 	void deallocate(Allocation& alloc);
 
 private:
-	cptr<ID3D12DescriptorHeap> m_descriptors;		// Non-shader visible descriptor heap!
-
 	cptr<ID3D12Resource> m_constant_buffer;
 	uint8_t* m_base_cpu_adr = nullptr;
 	D3D12_GPU_VIRTUAL_ADDRESS m_base_gpu_adr{};
 
-	std::set<allocation_id_t> m_allocations_in_use;			//	to verify that we are deallocating something that we should (e.g covering for free-after-free)
+	std::set<allocation_id_t> m_allocations_in_use;			// for internal verification (e.g handle free-after-free)
 	std::queue<Allocation> m_free_allocations;
 
 
