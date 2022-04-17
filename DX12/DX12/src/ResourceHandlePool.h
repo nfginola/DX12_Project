@@ -4,15 +4,14 @@
 #include <vector>
 #include <assert.h>
 
-template <typename T, uint64_t total_elements = std::numeric_limits<uint16_t>::max()>
+
+// Do NOT change the value. You are free to change the name if any collision arises in your program.
+static constexpr uint8_t RES_INVALID_HANDLE = 0;
+
+// Uses ~2 MB when max_usable_elements = UINT16_MAX - 1 (default)
+template <typename T, uint64_t max_usable_elements = std::numeric_limits<uint16_t>::max() - 1>
 class ResourceHandlePool
 {
-	static_assert(total_elements <= std::numeric_limits<uint32_t>::max());
-	static_assert(total_elements > 3);
-
-public:
-	static constexpr uint8_t INVALID_HANDLE = 0;
-
 private:
 	using half_key = uint32_t;
 	using full_key = uint64_t;
@@ -24,17 +23,8 @@ private:
 		Resource is REQUIRED to have a
 			- .destroy() function for deallocating the underlying resource
 			- A stored "handle" which is used to validate for uniqueness upon usage
-				- handle = 0 indicates INVALID resource!
-				- Should be as large as uin64_t
-
-		struct SomeResource
-		{
-			...
-			...
-
-			uint64_t handle;
-			void destroy() { resource freeing impl. }
-		}
+				- Handle = 0 indicates INVALID resource!
+				- Should be as large as 'full_key'
 
 		Refer to the called functions on the underlying resource in the 'free_handle(..)' function.
 	*/
@@ -42,31 +32,30 @@ private:
 public:
 	ResourceHandlePool()
 	{
-		// check static constexprs ( breakpoint here to check, they are not visible in debugger :/ )
-		//auto tmp1 = INDEX_SHIFT;
-		//auto tmp2 = SLOT_MASK;
+		assert(max_usable_elements > 3);
 
-		m_resources.resize(3);
-		m_free_indices.resize(3);
+		// More indices than the key allows (half_key) is not allowed!
+		assert(max_usable_elements <= std::numeric_limits<half_key>::max() - 1);
+
+		resources.resize(total_elements);
+		free_indices.resize(total_elements);
 
 		// Reserve 0 for invalid handle
-		//for (half_key i = 1; i < total_elements; ++i)
-		//	m_free_indices[i] = i;
+		for (uint16_t i = 1; i < total_elements; ++i)
+			free_indices[i] = i;
 
-		m_gen_counter.resize(total_elements);
-		std::fill(m_gen_counter.begin(), m_gen_counter.end(), 0);
+		gen_counter.resize(total_elements);
+		std::fill(gen_counter.begin(), gen_counter.end(), 0);
 
-		m_slots_enabled.resize(total_elements);
-		m_slots_enabled[0] = false;	// reserved
-		std::fill(m_slots_enabled.begin() + 1, m_slots_enabled.end(), true);
+		slots_enabled.resize(total_elements);
+		slots_enabled[0] = false;	// reserved
+		std::fill(slots_enabled.begin() + 1, slots_enabled.end(), true);
 	}
 	~ResourceHandlePool()
 	{
-		// Automatically free all remaining m_resources on destruction
-		for (auto& res : m_resources)
+		// Automatically free all remaining resources on destruction
+		for (auto& res : resources)
 		{
-			if (res.handle == 0)
-				continue;
 			res.destroy();
 			res.handle = 0;
 		}
@@ -82,21 +71,21 @@ public:
 		// get next free index from top of stack
 		// should be a guarantee that no disabled slots are ever popped from stack and received here
 		// (due to the fact that we never push a disabled slot onto the stack upon freeing)
-		half_key idx = m_free_indices[top++];
+		half_key idx = free_indices[top++];
 
 		// get next generation counter for this index
-		half_key ctr = m_gen_counter[idx]++;
+		half_key ctr = gen_counter[idx]++;
 
 		// disable slot when there are no unique patterns left (overflow)
-		if (m_gen_counter[idx] < ctr)
-			m_slots_enabled[idx] = false;
+		if (gen_counter[idx] < ctr)
+			slots_enabled[idx] = false;
 
 		// calculate handle (higher bits reserved for generational counter, lower bits for index)
 		full_key hdl = (((full_key)ctr) << INDEX_SHIFT) | (((full_key)idx) & SLOT_MASK);
 
-		m_resources[idx].handle = hdl;
+		resources[idx].handle = hdl;
 
-		return { hdl, &m_resources[idx] };
+		return { hdl, &resources[idx] };
 	}
 
 	// Free the handle AND free the underlying resource
@@ -105,11 +94,11 @@ public:
 		half_key idx = (half_key)(hdl & SLOT_MASK);
 
 		// handle free-after-free
-		assert(m_resources[idx].handle == hdl);
+		assert(resources[idx].handle == hdl);
 
 		// free resource
-		m_resources[idx].destroy();
-		m_resources[idx].handle = 0;
+		resources[idx].destroy();
+		resources[idx].handle = RES_INVALID_HANDLE;
 
 		/*
 			observe that we always prioritize re-using freed indices over new indices using the stack.
@@ -117,8 +106,8 @@ public:
 		*/
 
 		// put back index to top of stack only if slot is still enabled
-		if (m_slots_enabled[idx])
-			m_free_indices[--top] = idx;
+		if (slots_enabled[idx])
+			free_indices[--top] = idx;
 		/*
 			otherwise, top position is kept thus valid indices are kept on top.
 			there will never be a disabled slot in the stack of free indices.
@@ -131,36 +120,24 @@ public:
 		half_key idx = (half_key)(hdl & SLOT_MASK);
 
 		// check that we are in range
-		assert(idx < total_elements && hdl > 0);
+		assert(idx < total_elements&& hdl > 0);
 
 		// check that the buffer handle is identical to the one at index
 		// handle use-after-free
-		assert(m_resources[idx].handle == hdl);
+		assert(resources[idx].handle == hdl);
 
-		return &m_resources[idx];
+		return &resources[idx];
 	}
 
-	//uint64_t get_memory_footprint()
-	//{
-	//	return m_resources.size() * sizeof(m_resources[0]) +
-	//		m_free_indices.size() * sizeof(m_free_indices[0]) +
-	//		m_gen_counter.size() * sizeof(m_gen_counter[0]) +
-	//		m_slots_enabled.size() * sizeof(m_slots_enabled[0]);
-	//}
 
 private:
-	const uint64_t max_usable_elements = total_elements - 1;
-
-	// Total number of elements including the reserved 0 index
-	// Stored as a member variable just so we can easily check size in debugger, otherwise static constexpr
-	//const uint64_t total_resource_bytes = total_elements * sizeof(T);
-	//const uint64_t total_bookkeeping_bytes = total_elements * (sizeof(half_key) * 2 + sizeof(bool));
+	const uint64_t total_elements = max_usable_elements + 1;
 
 	// Always assumes that 0 is an invalid handle
 	half_key top = 1;
 
-	std::vector<T> m_resources;
-	std::vector<half_key> m_free_indices;
-	std::vector<half_key> m_gen_counter;
-	std::vector<bool> m_slots_enabled;
+	std::vector<T> resources;
+	std::vector<half_key> free_indices;
+	std::vector<half_key> gen_counter;
+	std::vector<bool> slots_enabled;
 };

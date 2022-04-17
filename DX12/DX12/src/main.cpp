@@ -16,12 +16,12 @@
 #include "AssimpLoader.h"
 
 #include "HandlePool.h"
+#include "ResourceHandlePool.h"
 
 #include "../shaders/ShaderInterop_Renderer.h"
 
 #include "WinPixEventRuntime/pix3.h"
 
-#include <numeric>
 
 static bool g_app_running = false;
 Input* g_input = nullptr;
@@ -41,8 +41,12 @@ struct SomeResource
 };
 
 
+
+
+
 int main()
 {
+
 	g_app_running = true;
 	constexpr auto debug_on = false;
 	const UINT CLIENT_WIDTH = 1600;
@@ -53,7 +57,7 @@ int main()
 
 		Stopwatch stopwatch;
 		stopwatch.start();
-		for (int i = 0; i < std::numeric_limits<uint32_t>::max(); ++i)
+		for (int i = 1; i < std::numeric_limits<uint16_t>::max(); ++i)
 		{
 			auto [handle1, res1] = pool.get_next_free_handle();
 		}
@@ -61,7 +65,53 @@ int main()
 
 		//double avg_alloc_time = std::reduce(times.begin(), times.end()) / (double)times.size();
 		std::cout << "alloc time: " << stopwatch.elapsed() * 1000.0 << " ms \n";
+
+		for (uint64_t i = 1; i < std::numeric_limits<uint16_t>::max() - 1; ++i)
+			pool.free_handle(i);
+
+
+		stopwatch.start();
+		for (int i = 0; i < std::numeric_limits<uint16_t>::max() - 1; ++i)
+		{
+			auto [handle1, res1] = pool.get_next_free_handle();
+			//pool.free_handle(handle1);
+		}
+		stopwatch.stop();
+		std::cout << "alloc time 2: " << stopwatch.elapsed() * 1000.0 << " ms \n";
 	}
+
+	std::cout << "\n\n\n";
+
+	{
+		ResourceHandlePool<SomeResource> pool;
+
+		Stopwatch stopwatch;
+		stopwatch.start();
+		for (int i = 0; i < std::numeric_limits<uint16_t>::max() - 1; ++i)
+		{
+			auto [handle1, res1] = pool.get_next_free_handle();
+			res1->handle = handle1;
+		}
+		stopwatch.stop();
+
+		//double avg_alloc_time = std::reduce(times.begin(), times.end()) / (double)times.size();
+		std::cout << "alloc time: " << stopwatch.elapsed() * 1000.0 << " ms \n";
+
+		for (uint64_t i = 0; i < std::numeric_limits<uint16_t>::max() - 1; ++i)
+			pool.free_handle(i);
+
+
+		stopwatch.start();
+		for (int i = 0; i < std::numeric_limits<uint16_t>::max() - 1; ++i)
+		{
+			auto [handle1, res1] = pool.get_next_free_handle();
+			//pool.free_handle(handle1);
+		}
+		stopwatch.stop();
+		std::cout << "alloc time 2: " << stopwatch.elapsed() * 1000.0 << " ms \n";
+	}
+
+	return 0;
 
 
 

@@ -152,10 +152,10 @@
     <ClInclude Include="src\AssimpLoader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\ResourceHandlePool.h">
+    <ClInclude Include="src\HandlePool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\HandlePool.h">
+    <ClInclude Include="src\ResourceHandlePool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
