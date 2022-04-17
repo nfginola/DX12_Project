@@ -1,14 +1,15 @@
 #include "pch.h"
-#include "DXConstantMemPool.h"
+#include "DXBufferMemPool.h"
 #include "d3dx12.h"
 
-DXConstantMemPool::DXConstantMemPool(ID3D12Device* dev, uint16_t element_size, uint32_t num_elements, uint64_t handle_size)
+DXBufferMemPool::DXBufferMemPool(ID3D12Device* dev, uint16_t element_size, uint32_t num_elements, D3D12_HEAP_TYPE heap_type)
 {
 	assert(element_size % 256 == 0);
-		
+	const auto handle_size = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
 	// Create buffer
 	D3D12_HEAP_PROPERTIES h_prop{};
-	h_prop.Type = D3D12_HEAP_TYPE_UPLOAD;
+	h_prop.Type = heap_type;
 
 	D3D12_RESOURCE_DESC r_desc{};
 	r_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
@@ -36,44 +37,23 @@ DXConstantMemPool::DXConstantMemPool(ID3D12Device* dev, uint16_t element_size, u
 	m_constant_buffer->Map(0, &no_read, (void**)&m_base_cpu_adr);
 	m_base_gpu_adr = m_constant_buffer->GetGPUVirtualAddress();
 
-	// Create non shader visible descriptor heap
-	D3D12_DESCRIPTOR_HEAP_DESC dh_desc{};
-	dh_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	dh_desc.NumDescriptors = num_elements;
-	dh_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
-	hr = dev->CreateDescriptorHeap(&dh_desc, IID_PPV_ARGS(m_descriptors.GetAddressOf()));
-	if (FAILED(hr))
-		assert(false);
-
-	m_base_cpu_desc_handle = m_descriptors->GetCPUDescriptorHandleForHeapStart();
-
-
 	// Initialize descriptors and allocations
-	auto desc_handle = CD3DX12_CPU_DESCRIPTOR_HANDLE(m_base_cpu_desc_handle);
 	for (uint64_t alloc_id = 0; alloc_id < num_elements; ++alloc_id)
 	{
-		DXConstantMemPool::Allocation allocation{};
+		DXBufferMemPool::Allocation allocation{};
 		allocation.allocation_id = alloc_id;
 		allocation.mapped_memory = m_base_cpu_adr + alloc_id * element_size;
 		allocation.gpu_address = m_base_gpu_adr + alloc_id * element_size;
 
-		// create descriptor
-		auto new_desc_handle = desc_handle;
-		new_desc_handle.ptr += alloc_id * (UINT)handle_size;
-
-		D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc{};
-		cbv_desc.BufferLocation = allocation.gpu_address;
-		cbv_desc.SizeInBytes = element_size;
-		dev->CreateConstantBufferView(&cbv_desc, desc_handle);
-
-		// finalize allocation
-		allocation.cpu_desc_handle = desc_handle;
+		allocation.base_buffer = m_constant_buffer.Get();
+		allocation.offset_from_base = alloc_id * element_size;
+		allocation.size = element_size;
 
 		m_free_allocations.push(allocation);
 	}
 }
 
-std::optional<DXConstantMemPool::Allocation> DXConstantMemPool::allocate()
+std::optional<DXBufferMemPool::Allocation> DXBufferMemPool::allocate()
 {
 	if (m_free_allocations.empty())
 		return {};
@@ -85,7 +65,7 @@ std::optional<DXConstantMemPool::Allocation> DXConstantMemPool::allocate()
 	return new_allocation;
 }
 
-void DXConstantMemPool::deallocate(Allocation& alloc)
+void DXBufferMemPool::deallocate(Allocation& alloc)
 {
 	const auto& alloc_id = alloc.allocation_id;
 

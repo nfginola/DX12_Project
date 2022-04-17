@@ -16,7 +16,7 @@
 #include "AssimpLoader.h"
 #include "HandlePool.h"
 #include "WinPixEventRuntime/pix3.h"
-#include "DXConstantMemPool.h"
+#include "DXBufferMemPool.h"
 
 #include "../shaders/ShaderInterop_Renderer.h"
 
@@ -29,7 +29,7 @@ LRESULT window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 int main()
 {
 	g_app_running = true;
-	constexpr auto debug_on = false;
+	constexpr auto debug_on = true;
 	const UINT CLIENT_WIDTH = 1600;
 	const UINT CLIENT_HEIGHT = 900;
 
@@ -178,10 +178,12 @@ int main()
 
 		g_gui_ctx->add_persistent_ui("test", ui_cb);
 
+		// designed to be consumed by some higher level algorithm for allocation
+		// e.g dynamic ring buffer
+		DXBufferMemPool mem_pool(dev, 256, 100, D3D12_HEAP_TYPE_UPLOAD);
+		auto alloc = mem_pool.allocate();
+		mem_pool.deallocate(*alloc);
 
-		//DXConstantMemPool mem_pool(dev, 256, 100, gfx_ctx->get_hdl_sizes().cbv_srv_uav);
-		//auto alloc = mem_pool.allocate();
-		//mem_pool.deallocate(*alloc);
 
 
 
@@ -207,7 +209,6 @@ int main()
 			gpu_pf.frame_begin(surface_idx);
 			g_gui_ctx->frame_begin();
 
-			PIXBeginEvent(dq_cmdl, PIX_COLOR(0, 200, 200), "Hey");
 
 			if (show_pf)
 			{
@@ -233,6 +234,8 @@ int main()
 			// reset
 			dq_ator->Reset();
 			dq_cmdl->Reset(dq_ator, nullptr);
+
+			PIXBeginEvent(dq_cmdl, PIX_COLOR(0, 200, 200), "Hey");
 
 			gpu_pf.profile_begin(dq_cmdl, dq, "frame");
 			cpu_pf.profile_begin("cpu frame");
@@ -310,6 +313,10 @@ int main()
 	{
 		std::cerr << e.what() << std::endl;
 	}
+
+
+
+
 	_CrtDumpMemoryLeaks();
 
 	return 0;

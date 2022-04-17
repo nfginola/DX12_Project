@@ -38,8 +38,16 @@ public:
 	uint64_t get_next_fence_value();
 
 private:
-	Microsoft::WRL::ComPtr<IDXGIAdapter> m_adapter;
+	struct FinalDebug
+	{
+		~FinalDebug();
+	};
+
+private:
 	Microsoft::WRL::ComPtr<ID3D12Device> m_dev;
+	FinalDebug m_debug_print;		// Utilizing reverse destruction order to print remaining unreleased resources (only Device should be left, which we need or debug printing, but will be released right after)
+
+	Microsoft::WRL::ComPtr<IDXGIAdapter> m_adapter;
 	Microsoft::WRL::ComPtr<ID3D12CommandQueue> m_direct_queue, m_compute_queue, m_copy_queue;
 
 	HandleSizes m_hdl_sizes;

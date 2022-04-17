@@ -65,6 +65,8 @@ DXContext::DXContext(DXContext::Settings& settings)
 // Needed for smart ptr forward decls.
 DXContext::~DXContext()
 {
+
+
 }
 
 const DXContext::HandleSizes& DXContext::get_hdl_sizes()
@@ -220,4 +222,22 @@ void validate_settings(DXContext::Settings& settings)
 {
 	if (!settings.hwnd)
 		throw std::runtime_error(DET_ERR("Headless rendering is currently not supported"));
+}
+
+DXContext::FinalDebug::~FinalDebug()
+{
+	// Using DXGI debug device for reporting
+
+	// Placed outside of try-block to ensure that all used resources except for Device have been properly dealt with
+	// If good, we should only have the Device reference left
+	cptr<IDXGIDebug1> dxgi_debug;
+	if (SUCCEEDED(DXGIGetDebugInterface1(0, IID_PPV_ARGS(dxgi_debug.GetAddressOf()))))
+	{
+		// https://docs.microsoft.com/en-us/windows/win32/direct3ddxgi/dxgi-debug-id
+		// Need to link to dxguid.lib for DXGI_DEBUG_ALL
+		auto hr = dxgi_debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_FLAGS(DXGI_DEBUG_RLO_SUMMARY | DXGI_DEBUG_RLO_IGNORE_INTERNAL));
+
+		if (FAILED(hr))
+			assert(false);
+	}
 }
