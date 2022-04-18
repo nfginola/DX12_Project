@@ -239,9 +239,9 @@ int main()
 			ring_buffer.frame_begin(surface_idx);
 			
 			cpu_pf.profile_begin("allocation");
-			auto alloc1 = ring_buffer.allocate(200);
-			auto alloc2 = ring_buffer.allocate(480);
-			auto alloc3 = ring_buffer.allocate(580);
+			DXConstantSuballocation* alloc1 = ring_buffer.allocate(200);
+			DXConstantSuballocation* alloc2 = ring_buffer.allocate(480);
+			DXConstantSuballocation* alloc3 = ring_buffer.allocate(580);
 			cpu_pf.profile_end("allocation");
 
 

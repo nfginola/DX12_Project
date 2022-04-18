@@ -161,6 +161,7 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\DXConstantStaticBuffer.cpp" />
     <ClCompile Include="src\DXConstantRingBuffer.cpp" />
     <ClCompile Include="src\AssimpLoader.cpp" />
     <ClCompile Include="src\DXBufferMemPool.cpp" />
@@ -210,14 +211,18 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\DXConstantStaticBuffer.h" />
+    <ClInclude Include="src\DXBufferSuballocation.h" />
     <ClInclude Include="src\DXConstantRingBuffer.h" />
     <ClInclude Include="src\DXBufferMemPool.h" />
     <ClInclude Include="shaders\ShaderInterop_Common.h" />
     <ClInclude Include="shaders\ShaderInterop_Renderer.h" />
     <ClInclude Include="src\AssimpLoader.h" />
     <ClInclude Include="src\AssimpTypes.h" />
+    <ClInclude Include="src\DXConstantSuballocation.h" />
     <ClInclude Include="src\GUIContext.h" />
     <ClInclude Include="src\HandlePool.h" />
+    <ClInclude Include="src\helperthing.h" />
     <ClInclude Include="src\Input.h" />
     <ClInclude Include="src\CPUProfiler.h" />
     <ClInclude Include="src\CompiledShaderBlob.h" />

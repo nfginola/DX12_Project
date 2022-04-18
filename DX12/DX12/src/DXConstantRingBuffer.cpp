@@ -5,23 +5,32 @@
 DXConstantRingBuffer::DXConstantRingBuffer(cptr<ID3D12Device> dev) :
 	m_dev(dev.Get())
 {
-	D3D12_DESCRIPTOR_HEAP_DESC dhd{};
-	dhd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	dhd.NumDescriptors = 100 + 50 + 25;
-	auto hr = dev->CreateDescriptorHeap(&dhd, IID_PPV_ARGS(m_desc_heap.GetAddressOf()));
-	if (FAILED(hr))
-		assert(false);
+	//constexpr auto element_count_256 = 100;
+	//constexpr auto element_count_512 = element_count_256 / 2;
+	//constexpr auto element_count_1024 = element_count_512 / 2;
+	//m_all_allocations.reserve(element_count_256 + element_count_512 + element_count_1024);
 
-	constexpr auto element_count_256 = 100;
-	constexpr auto element_count_512 = element_count_256 / 2;
-	constexpr auto element_count_1024 = element_count_512 / 2;
+	//D3D12_DESCRIPTOR_HEAP_DESC dhd{};
+	//dhd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	//dhd.NumDescriptors = element_count_256 + element_count_512 + element_count_1024;
+	//auto hr = dev->CreateDescriptorHeap(&dhd, IID_PPV_ARGS(m_desc_heap.GetAddressOf()));
+	//if (FAILED(hr))
+	//	assert(false);
 
-	m_all_allocations.reserve(element_count_256 + element_count_512 + element_count_1024);
+	//D3D12_CPU_DESCRIPTOR_HANDLE descriptor_start = m_desc_heap->GetCPUDescriptorHandleForHeapStart();
+	//m_pools.push_back(init_pool(dev.Get(), 256, element_count_256, descriptor_start));
+	//m_pools.push_back(init_pool(dev.Get(), 512, element_count_512, descriptor_start));
+	//m_pools.push_back(init_pool(dev.Get(), 1024, element_count_1024, descriptor_start));
 
-	D3D12_CPU_DESCRIPTOR_HANDLE descriptor_start = m_desc_heap->GetCPUDescriptorHandleForHeapStart();
-	m_pool_256 = init_pool(dev.Get(), 256, element_count_256, descriptor_start);
-	m_pool_512 = init_pool(dev.Get(), 512, element_count_512, descriptor_start);
-	m_pool_1024 = init_pool(dev.Get(), 1024, element_count_1024, descriptor_start);
+
+	auto pool_infos = 
+	{
+			thingy::PoolInfo(1, 256, 100),
+			thingy::PoolInfo(1, 512, 50),
+			thingy::PoolInfo(1, 1024, 25),
+	};
+	m_thingy = std::make_unique<thingy>(dev.Get(), pool_infos);
+	std::cout << "yay!\n";
 }
 
 void DXConstantRingBuffer::frame_begin(uint32_t frame_idx)
@@ -41,19 +50,38 @@ void DXConstantRingBuffer::frame_begin(uint32_t frame_idx)
 		No disjoint allocations! This should be ensured by this API given that a queue is used and the nature of asking for a memory chunk from this class
 	*/
 
+	//// invalidate memory previoiusly used for the frame index and return memory to free list
+	//while (!m_allocations_in_use.empty())
+	//{
+	//	auto alloc_in_use = m_allocations_in_use.front();
+	//	if (alloc_in_use->m_frame_idx == frame_idx)
+	//	{
+	//		// invalidate handle to block user from accidental re-use
+	//		alloc_in_use->m_valid = false;
+
+	//		// return this allocation to the corresponding pool
+	//		auto& allocations = m_pools_and_available_allocations[alloc_in_use->m_pool_idx].second;
+	//		allocations.push(alloc_in_use);
+	//		m_allocations_in_use.pop();
+	//	}
+	//	else
+	//		break;
+	//}
+
+
 	// invalidate memory previoiusly used for the frame index and return memory to free list
-	while (!m_allocations_in_use.empty())
+	while (!m_thingy->allocations_in_use.empty())
 	{
-		auto alloc_in_use = m_allocations_in_use.front();
+		auto alloc_in_use = m_thingy->allocations_in_use.front();
 		if (alloc_in_use->m_frame_idx == frame_idx)
 		{
 			// invalidate handle to block user from accidental re-use
 			alloc_in_use->m_valid = false;
 
 			// return this allocation to the corresponding pool
-			auto& allocations = m_pools_and_available_allocations[alloc_in_use->m_pool_idx].second;
+			auto& allocations = m_thingy->pools_and_available_allocations[alloc_in_use->m_pool_idx].second;
 			allocations.push(alloc_in_use);
-			m_allocations_in_use.pop();
+			m_thingy->allocations_in_use.pop();
 		}
 		else
 			break;
@@ -62,9 +90,9 @@ void DXConstantRingBuffer::frame_begin(uint32_t frame_idx)
 
 DXConstantSuballocation* DXConstantRingBuffer::allocate(uint32_t requested_size)
 {
-	for (auto i = 0; i < m_pools_and_available_allocations.size(); ++i)
+	for (auto i = 0; i < m_thingy->pools_and_available_allocations.size(); ++i)
 	{
-		auto& [pool, available_allocs] = m_pools_and_available_allocations[i];
+		auto& [pool, available_allocs] = m_thingy->pools_and_available_allocations[i];
 		if (pool->get_allocation_size() < requested_size)
 			continue;	// move on to find another pool which fits size
 		
@@ -73,10 +101,11 @@ DXConstantSuballocation* DXConstantRingBuffer::allocate(uint32_t requested_size)
 		available_allocs.pop();
 	
 		// track allocation internally
-		m_allocations_in_use.push(alloc);
+		m_thingy->allocations_in_use.push(alloc);
 
 		return alloc;
 	}
+
 	assert(false);		// we'll handle this later (e.g adding a new pool)
 	return nullptr;
 }
@@ -87,8 +116,9 @@ uptr<DXBufferMemPool>  DXConstantRingBuffer::init_pool(ID3D12Device* dev, uint16
 	auto handle_size = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	// initialize new pool + container for allocations entry
-	m_pools_and_available_allocations.push_back({ pool.get(), std::queue<DXConstantSuballocation*>() });
-	auto& [_, available_allocs] = m_pools_and_available_allocations.back();
+	// (SPECIFIC TO RING BUFFER)
+	m_thingy->pools_and_available_allocations.push_back({ pool.get(), std::queue<DXConstantSuballocation*>() });
+	auto& [_, available_allocs] = m_thingy->pools_and_available_allocations.back();
 
 	// create descriptor for each allocation and fill free allocations
 	for (uint32_t i = 0; i < num_elements; ++i)
@@ -113,13 +143,14 @@ uptr<DXBufferMemPool>  DXConstantRingBuffer::init_pool(ID3D12Device* dev, uint16
 		constant_suballoc.m_memory = buf_suballoc;
 		constant_suballoc.m_valid = false;
 		constant_suballoc.m_cpu_descriptor = hdl;
-		constant_suballoc.m_pool_idx = (uint8_t)m_pools_and_available_allocations.size() - 1;
+		constant_suballoc.m_pool_idx = (uint8_t)m_thingy->pools_and_available_allocations.size() - 1;
 
 		// store allocation internally
-		m_all_allocations.push_back(constant_suballoc);
+		m_thingy->all_allocations.push_back(constant_suballoc);
 
 		// work with pointers when distributing
-		available_allocs.push(&m_all_allocations.back());
+		// (SPECIFFIC TO RING BUFFER)
+		available_allocs.push(&m_thingy->all_allocations.back());
 	}
 
 	base_handle.ptr += num_elements * handle_size;
