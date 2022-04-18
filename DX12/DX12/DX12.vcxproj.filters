@@ -78,7 +78,7 @@
     <ClCompile Include="src\AssimpLoader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\DXFixedBufferMemPool.cpp">
+    <ClCompile Include="src\DXBufferMemPool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\DXConstantRingBuffer.cpp">
@@ -161,13 +161,10 @@
     <ClInclude Include="src\HandlePool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\DXFixedBufferMemPool.h">
+    <ClInclude Include="src\DXBufferMemPool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\DXConstantRingBuffer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\DXIBufferMemPool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

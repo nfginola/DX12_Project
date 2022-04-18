@@ -16,7 +16,8 @@
 #include "AssimpLoader.h"
 #include "HandlePool.h"
 #include "WinPixEventRuntime/pix3.h"
-#include "DXFixedBufferMemPool.h"
+#include "DXBufferMemPool.h"
+#include "DXConstantRingBuffer.h"
 
 #include "../shaders/ShaderInterop_Renderer.h"
 
@@ -180,12 +181,13 @@ int main()
 
 		// designed to be consumed by some higher level algorithm for allocation
 		// e.g dynamic ring buffer
-		uptr<DXIBufferMemPool> mem_pool = std::make_unique<DXFixedBufferMemPool>(dev, 256, 100, D3D12_HEAP_TYPE_UPLOAD, D3D12_RESOURCE_STATE_GENERIC_READ);
-		auto alloc = mem_pool->allocate();
-		auto size = alloc->get_size();
-		mem_pool->deallocate(*alloc);
+		DXBufferMemPool mem_pool(dev, 256, 100, D3D12_HEAP_TYPE_UPLOAD);
+		auto alloc = mem_pool.allocate();
+
+		mem_pool.deallocate(*alloc);
 		// detect free-after-free
-		mem_pool->deallocate(*alloc);
+		//mem_pool.deallocate(*alloc);
+	
 
 
 

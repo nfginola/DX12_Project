@@ -163,7 +163,7 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
   <ItemGroup>
     <ClCompile Include="src\DXConstantRingBuffer.cpp" />
     <ClCompile Include="src\AssimpLoader.cpp" />
-    <ClCompile Include="src\DXFixedBufferMemPool.cpp" />
+    <ClCompile Include="src\DXBufferMemPool.cpp" />
     <ClCompile Include="src\GUIContext.cpp" />
     <ClCompile Include="src\Input.cpp" />
     <ClCompile Include="src\CPUProfiler.cpp" />
@@ -210,9 +210,8 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\DXIBufferMemPool.h" />
     <ClInclude Include="src\DXConstantRingBuffer.h" />
-    <ClInclude Include="src\DXFixedBufferMemPool.h" />
+    <ClInclude Include="src\DXBufferMemPool.h" />
     <ClInclude Include="shaders\ShaderInterop_Common.h" />
     <ClInclude Include="shaders\ShaderInterop_Renderer.h" />
     <ClInclude Include="src\AssimpLoader.h" />
