@@ -187,31 +187,31 @@ int main()
 		// detect free-after-free
 		//mem_pool.deallocate(*alloc);
 
-		{
-			DXConstantRingBuffer ring_buf(dev);
+		//{
+		//	DXConstantRingBuffer ring_buf(dev);
 
-			ring_buf.frame_begin(0);	// emulate start of frame
+		//	ring_buf.frame_begin(0);	// emulate start of frame
 
-			// 2 requests this frame
-			auto alloc1 = ring_buf.allocate(200);
-			auto alloc2 = ring_buf.allocate(350);
+		//	// 2 requests this frame
+		//	auto alloc1 = ring_buf.allocate(200);
+		//	auto alloc2 = ring_buf.allocate(350);
 
-			ring_buf.frame_begin(1);
-			ring_buf.frame_begin(2);
+		//	ring_buf.frame_begin(1);
+		//	ring_buf.frame_begin(2);
 
-			// should clear alloc 1 & 2
-			ring_buf.frame_begin(0);
+		//	// should clear alloc 1 & 2
+		//	ring_buf.frame_begin(0);
 
-			auto alloc11 = ring_buf.allocate(200);
-			auto alloc22 = ring_buf.allocate(350);
+		//	auto alloc11 = ring_buf.allocate(200);
+		//	auto alloc22 = ring_buf.allocate(350);
 
 
-		}
+		//}
 
 	
 
 
-
+		DXConstantRingBuffer ring_buffer(dev);
 
 		MSG msg{};
 		while (g_app_running)
@@ -234,6 +234,15 @@ int main()
 			cpu_pf.frame_begin();
 			gpu_pf.frame_begin(surface_idx);
 			g_gui_ctx->frame_begin();
+			
+			// handle resource management
+			ring_buffer.frame_begin(surface_idx);
+			
+			cpu_pf.profile_begin("allocation");
+			auto alloc1 = ring_buffer.allocate(200);
+			auto alloc2 = ring_buffer.allocate(480);
+			auto alloc3 = ring_buffer.allocate(580);
+			cpu_pf.profile_end("allocation");
 
 
 			if (show_pf)
