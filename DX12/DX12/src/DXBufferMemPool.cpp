@@ -3,7 +3,8 @@
 #include "d3dx12.h"
 #include <random>
 
-DXBufferMemPool::DXBufferMemPool(ID3D12Device* dev, uint16_t element_size, uint32_t num_elements, D3D12_HEAP_TYPE heap_type)
+DXBufferMemPool::DXBufferMemPool(ID3D12Device* dev, uint16_t element_size, uint32_t num_elements, D3D12_HEAP_TYPE heap_type) :
+	m_element_size(element_size)
 {
 	const auto handle_size = dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
@@ -53,12 +54,12 @@ DXBufferMemPool::DXBufferMemPool(ID3D12Device* dev, uint16_t element_size, uint3
 		unique_key = distr(gen);
 	}
 
-
+	m_allocations.reserve(num_elements);	// important to ensure that memory is in place (no reallocations and invalidating of pointer!)
 	// Initialize sub-allocations
-	for (allocation_id_t alloc_id = 0; alloc_id < num_elements; ++alloc_id)
+	for (uint32_t alloc_id = 0; alloc_id < num_elements; ++alloc_id)
 	{
-		DXBufferMemPool::Allocation allocation{};
-		allocation.m_allocation_id = unique_key + alloc_id;
+		DXBufferSuballocation allocation{};
+		allocation.m_allocation_id = unique_key + (uint64_t)alloc_id;
 		allocation.m_gpu_address = m_base_gpu_adr + (uint64_t)alloc_id * element_size;
 		allocation.m_base_buffer = m_buffer.Get();
 		allocation.m_offset_from_base = alloc_id * element_size;
@@ -67,26 +68,30 @@ DXBufferMemPool::DXBufferMemPool(ID3D12Device* dev, uint16_t element_size, uint3
 		if (m_base_cpu_adr)
 			allocation.m_mapped_memory = m_base_cpu_adr + (uint64_t)alloc_id * element_size;
 
-		m_free_allocations.push(allocation);
+		m_allocations.push_back(allocation);
+		m_free_allocations.push(&m_allocations.back());
+
 	}
+	std::cout << "wa\n";
 }
 
-std::optional<DXBufferMemPool::Allocation> DXBufferMemPool::allocate()
+DXBufferSuballocation* DXBufferMemPool::allocate()
 {
 	if (m_free_allocations.empty())
 		return {};
 
-	auto new_allocation = m_free_allocations.front();
-	m_allocations_in_use.insert(new_allocation.m_allocation_id);
+	DXBufferSuballocation* new_allocation = m_free_allocations.front();
+	m_allocations_in_use.insert(new_allocation->m_allocation_id);
 	m_free_allocations.pop();
 
 	return new_allocation;
 }
 
-void DXBufferMemPool::deallocate(Allocation& alloc)
+void DXBufferMemPool::deallocate(DXBufferSuballocation* alloc)
 {
-	const auto& alloc_id = alloc.m_allocation_id;
-	const auto gpu_adr = alloc.m_gpu_address;
+	assert(alloc != nullptr);
+	const auto& alloc_id = alloc->m_allocation_id;
+	const auto gpu_adr = alloc->m_gpu_address;
 
 	// given allocation must be part of this pool
 	assert(m_base_gpu_adr <= gpu_adr && gpu_adr < m_end_gpu_adr);
@@ -101,6 +106,11 @@ void DXBufferMemPool::set_state(D3D12_RESOURCE_STATES new_state, ID3D12GraphicsC
 {
 	auto t_barr = CD3DX12_RESOURCE_BARRIER::Transition(m_buffer.Get(), m_curr_state, new_state, 0, D3D12_RESOURCE_BARRIER_FLAG_NONE);
 	cmdl->ResourceBarrier(1, &t_barr);
+}
+
+uint16_t DXBufferMemPool::get_allocation_size() const
+{
+	return m_element_size;
 }
 
 

@@ -183,10 +183,31 @@ int main()
 		// e.g dynamic ring buffer
 		DXBufferMemPool mem_pool(dev, 256, 100, D3D12_HEAP_TYPE_UPLOAD);
 		auto alloc = mem_pool.allocate();
-
-		mem_pool.deallocate(*alloc);
+		mem_pool.deallocate(alloc);
 		// detect free-after-free
 		//mem_pool.deallocate(*alloc);
+
+		{
+			DXConstantRingBuffer ring_buf(dev);
+
+			ring_buf.frame_begin(0);	// emulate start of frame
+
+			// 2 requests this frame
+			auto alloc1 = ring_buf.allocate(200);
+			auto alloc2 = ring_buf.allocate(350);
+
+			ring_buf.frame_begin(1);
+			ring_buf.frame_begin(2);
+
+			// should clear alloc 1 & 2
+			ring_buf.frame_begin(0);
+
+			auto alloc11 = ring_buf.allocate(200);
+			auto alloc22 = ring_buf.allocate(350);
+
+
+		}
+
 	
 
 
