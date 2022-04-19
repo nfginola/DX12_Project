@@ -39,13 +39,13 @@
     <ClCompile Include="src\CompiledShaderBlob.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\GPUProfiler.cpp">
+    <ClCompile Include="src\Profiler\GPUProfiler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\CPUProfiler.cpp">
+    <ClCompile Include="src\Profiler\CPUProfiler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Stopwatch.cpp">
+    <ClCompile Include="src\Utilities\Stopwatch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="vendor\imgui-docking\imgui.cpp">
@@ -84,7 +84,13 @@
     <ClCompile Include="src\DXConstantRingBuffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\DXConstantSuballocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="src\DXConstantStaticBuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\V2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -110,13 +116,13 @@
     <ClInclude Include="src\CompiledShaderBlob.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\GPUProfiler.h">
+    <ClInclude Include="src\Profiler\GPUProfiler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\CPUProfiler.h">
+    <ClInclude Include="src\Profiler\CPUProfiler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Stopwatch.h">
+    <ClInclude Include="src\Utilities\Stopwatch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="vendor\imgui-docking\imconfig.h">
@@ -161,7 +167,7 @@
     <ClInclude Include="src\AssimpLoader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\HandlePool.h">
+    <ClInclude Include="src\Utilities\HandlePool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\DXBufferMemPool.h">
@@ -176,10 +182,13 @@
     <ClInclude Include="src\DXBufferSuballocation.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\DXConstantSuballocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
     <ClInclude Include="src\DXConstantStaticBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\helperthing.h">
+    <ClInclude Include="src\V2.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -1,25 +1,24 @@
 #pragma once
-#include "DXBufferMemPool.h"
-#include "DXConstantSuballocation.h"
+#include "DXConstantSuballocator.h"
 
 /*
-	Provides a persistent suballocation for the application.
-	For any buffers which have arbitrary lifetimes. This is stored on the DEFAULT heap!
-
+	Nothing more than a thin wrapper for initializing set pool sizes for a static buffer (resides in device-local memory)
 */
-
 class DXConstantStaticBuffer
 {
 public:
 	DXConstantStaticBuffer() = delete;
 	DXConstantStaticBuffer(cptr<ID3D12Device> dev);
+	~DXConstantStaticBuffer() = default;
 
-	// Public API
-	DXConstantSuballocation* allocate();
+	DXConstantSuballocation* allocate(uint32_t requested_size);
 	void deallocate(DXConstantSuballocation* alloc);
 
 private:
+	std::unique_ptr<DXConstantSuballocator> m_suballoc_utils;
 
+	// ring buffer of allocations being used for deallocations
+	std::queue<DXConstantSuballocation*> m_allocations_in_use;
 
 };
 

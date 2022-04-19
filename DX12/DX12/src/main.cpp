@@ -9,17 +9,19 @@
 #include "DXContext.h"
 #include "DXSwapChain.h"
 #include "DXCompiler.h"
-#include "GPUProfiler.h"
-#include "CPUProfiler.h"
+#include "Profiler/GPUProfiler.h"
+#include "Profiler/CPUProfiler.h"
 #include "Input.h"
 #include "GUIContext.h"
 #include "AssimpLoader.h"
-#include "HandlePool.h"
+#include "Utilities/HandlePool.h"
 #include "WinPixEventRuntime/pix3.h"
-#include "DXBufferMemPool.h"
 #include "DXConstantRingBuffer.h"
+#include "DXConstantStaticBuffer.h"
 
-#include "../shaders/ShaderInterop_Renderer.h"
+#include "V2.h"
+
+#include "shaders/ShaderInterop_Renderer.h"
 
 static bool g_app_running = false;
 Input* g_input = nullptr;
@@ -179,39 +181,96 @@ int main()
 
 		g_gui_ctx->add_persistent_ui("test", ui_cb);
 
-		// designed to be consumed by some higher level algorithm for allocation
-		// e.g dynamic ring buffer
-		DXBufferMemPool mem_pool(dev, 256, 100, D3D12_HEAP_TYPE_UPLOAD);
-		auto alloc = mem_pool.allocate();
-		mem_pool.deallocate(alloc);
-		// detect free-after-free
-		//mem_pool.deallocate(*alloc);
-
-		//{
-		//	DXConstantRingBuffer ring_buf(dev);
-
-		//	ring_buf.frame_begin(0);	// emulate start of frame
-
-		//	// 2 requests this frame
-		//	auto alloc1 = ring_buf.allocate(200);
-		//	auto alloc2 = ring_buf.allocate(350);
-
-		//	ring_buf.frame_begin(1);
-		//	ring_buf.frame_begin(2);
-
-		//	// should clear alloc 1 & 2
-		//	ring_buf.frame_begin(0);
-
-		//	auto alloc11 = ring_buf.allocate(200);
-		//	auto alloc22 = ring_buf.allocate(350);
-
-
-		//}
-
+		
+		DXConstantRingBuffer ring_buffer(dev);			// For transient resources (e.g staging for copying to device-local memory)
+		DXConstantStaticBuffer static_buffer(dev);		// For resources with arbitrary lifetimes which needs persistent storage
 	
+		/*
+			DXBufferManager:
+				- Utilizes HandlePool
+
+			struct ConstantViewBufferMD
+			{
+				DXConstantSuballocation* allocation;
+				bool transient = false;		// Determines whether we utilizes static bufffer or ring buffer
+			}
+
+			struct ShaderViewBufferMD
+			{
+				DXShaderResourceBufferSuballocation* allocation;
+				bool transient = false;
+			}
+
+			struct UnorderedAccessBuffer
+			{
+				DXUnorderedAccessBufferSuballocation* allocation;
+			}
+
+			struct ResourceForHandle
+			{ 
+				std::variant<
+						ConstantBufferMD,
+						OtherBufferTypesMD> buffer_md;
+					
+
+				uint64_t handle;
+				void destroy() {}
+			}
+
+			*******
+ 
+			UsageIntentCPU
+				- eUpdateNever					// device-local no matter GPU usage intent
+				- eUpdateSometimes				// device-local no matter GPU usage intent
+				- eUpdateOnceOrMorePerFrame		// upload heap constant buffer if eConstantRead ||||| upload heap common buffer if eShaderRead??
+
+			UsageIntentGPU
+				- eConstantRead				// CBV
+				- eShaderRead				// SRV	--> Structured Buffer specifically with element count >= 1
+				- eReadWrite				// UAV
+				// - eReadWriteRaw			// Raw UAV, but lets not support that for now
+			
+
+			Lets NOT support :
+				eUpdateOnceOrMorePerFrame + eShaderRead for now ---> Requires structured buffer created on upload heap
+
+			Musts:
+				- GPU eReadWrite MUST be accompanied with CPU eUpdateNever		---> I dont see a use case where you would want to have a GPU tinkered resource updated through the CPU...
+
+			*******
 
 
-		DXConstantRingBuffer ring_buffer(dev);
+			struct DXBufferDesc
+			{
+				UpdateIntentCPU cpu_usage;
+				UpdateIntentGPU gpu_usage;
+
+				uint32_t element_size;
+				uint32_t element_count;			// If 1 --> use constant buffer, else, structured
+			}
+
+
+
+			struct DataBlob
+			{
+				void* data;
+				size_t size;
+			}
+
+			BufferManager:
+				BufferHandle create_buffer(const BufferDesc& b_desc, std::optional<DataBlob> init_data);
+				void destory_buffer(BufferHandle handle)		--> do nothing if transient (cleaned up by itself), return if non-transient
+				
+				DXSuballocation* get_resource(BufferHandle handle);
+
+			*/
+
+
+		auto hmm_alloc = static_buffer.allocate(300);
+
+		//auto pools = { PoolInfo(1,1,1), PoolInfo(1,1,1) };
+		//DXBufferSuballocator<DXConstantSuballocation> thing(dev, pools, D3D12_HEAP_TYPE_UPLOAD);
+
 
 		MSG msg{};
 		while (g_app_running)

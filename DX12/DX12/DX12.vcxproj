@@ -119,7 +119,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)vendor\PIXRuntime\inc\;$(ProjectDir)vendor\imgui-docking\backends\;$(ProjectDir)vendor\imgui-docking\;$(ProjectDir)vendor\dxshadercompiler\inc\;$(ProjectDir)vendor\dxheaders\dxguids\;$(ProjectDir)vendor\dxheaders\directx\;$(ProjectDir)vendor\DirectXTK\inc\;$(ProjectDir)vendor\assimp-5.2.3\inc\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)src\;$(ProjectDir)vendor\PIXRuntime\inc\;$(ProjectDir)vendor\imgui-docking\backends\;$(ProjectDir)vendor\imgui-docking\;$(ProjectDir)vendor\dxshadercompiler\inc\;$(ProjectDir)vendor\dxheaders\dxguids\;$(ProjectDir)vendor\dxheaders\directx\;$(ProjectDir)vendor\DirectXTK\inc\;$(ProjectDir)vendor\assimp-5.2.3\inc\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -144,7 +144,7 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir)vendor\PIXRuntime\inc\;$(ProjectDir)vendor\imgui-docking\backends\;$(ProjectDir)vendor\imgui-docking\;$(ProjectDir)vendor\dxshadercompiler\inc\;$(ProjectDir)vendor\dxheaders\dxguids\;$(ProjectDir)vendor\dxheaders\directx\;$(ProjectDir)vendor\DirectXTK\inc\;$(ProjectDir)vendor\assimp-5.2.3\inc\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)src\;$(ProjectDir)vendor\PIXRuntime\inc\;$(ProjectDir)vendor\imgui-docking\backends\;$(ProjectDir)vendor\imgui-docking\;$(ProjectDir)vendor\dxshadercompiler\inc\;$(ProjectDir)vendor\dxheaders\dxguids\;$(ProjectDir)vendor\dxheaders\directx\;$(ProjectDir)vendor\DirectXTK\inc\;$(ProjectDir)vendor\assimp-5.2.3\inc\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -162,25 +162,27 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\DXConstantStaticBuffer.cpp" />
+    <ClCompile Include="src\DXConstantSuballocator.cpp" />
     <ClCompile Include="src\DXConstantRingBuffer.cpp" />
     <ClCompile Include="src\AssimpLoader.cpp" />
     <ClCompile Include="src\DXBufferMemPool.cpp" />
     <ClCompile Include="src\GUIContext.cpp" />
     <ClCompile Include="src\Input.cpp" />
-    <ClCompile Include="src\CPUProfiler.cpp" />
+    <ClCompile Include="src\Profiler\CPUProfiler.cpp" />
     <ClCompile Include="src\CompiledShaderBlob.cpp" />
     <ClCompile Include="src\DXCommon.cpp" />
     <ClCompile Include="src\DXCompiler.cpp" />
     <ClCompile Include="src\DXContext.cpp" />
     <ClCompile Include="src\DXSwapChain.cpp" />
-    <ClCompile Include="src\GPUProfiler.cpp" />
+    <ClCompile Include="src\Profiler\GPUProfiler.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="src\Window.cpp" />
-    <ClCompile Include="src\Stopwatch.cpp" />
+    <ClCompile Include="src\Utilities\Stopwatch.cpp" />
+    <ClCompile Include="src\V2.cpp" />
     <ClCompile Include="vendor\imgui-docking\backends\imgui_impl_dx12.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
@@ -221,19 +223,20 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     <ClInclude Include="src\AssimpTypes.h" />
     <ClInclude Include="src\DXConstantSuballocation.h" />
     <ClInclude Include="src\GUIContext.h" />
-    <ClInclude Include="src\HandlePool.h" />
-    <ClInclude Include="src\helperthing.h" />
+    <ClInclude Include="src\Utilities\HandlePool.h" />
+    <ClInclude Include="src\DXConstantSuballocator.h" />
     <ClInclude Include="src\Input.h" />
-    <ClInclude Include="src\CPUProfiler.h" />
+    <ClInclude Include="src\Profiler\CPUProfiler.h" />
     <ClInclude Include="src\CompiledShaderBlob.h" />
     <ClInclude Include="src\DXCommon.h" />
     <ClInclude Include="src\DXCompiler.h" />
     <ClInclude Include="src\DXContext.h" />
     <ClInclude Include="src\DXSwapChain.h" />
-    <ClInclude Include="src\GPUProfiler.h" />
+    <ClInclude Include="src\Profiler\GPUProfiler.h" />
     <ClInclude Include="src\pch.h" />
     <ClInclude Include="src\Window.h" />
-    <ClInclude Include="src\Stopwatch.h" />
+    <ClInclude Include="src\Utilities\Stopwatch.h" />
+    <ClInclude Include="src\V2.h" />
     <ClInclude Include="vendor\imgui-docking\backends\imgui_impl_dx12.h" />
     <ClInclude Include="vendor\imgui-docking\backends\imgui_impl_win32.h" />
     <ClInclude Include="vendor\imgui-docking\imconfig.h" />
