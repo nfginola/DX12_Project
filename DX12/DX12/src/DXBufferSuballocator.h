@@ -6,17 +6,23 @@
 #include <tuple>
 #include <queue>
 #include <initializer_list>
-#include "DXConstantSuballocation.h"
 #include "DXBufferMemPool.h"
+#include "DXConstantSuballocation.h"
 
 /*
 	Helper utility structure to avoid code duplication
 	This utility is inteded to setup the data structures used for distributing suballocations.
 
-	Maybe make this a template?
-		Make DXConstantSuballocation a Template type
 
-		Use template overloading to make initializers for them (otherwise problematic with init_pool)
+	We should make this a Base class instead! 
+	And then inherit..
+
+	DXBufferSuballocator has the primary functionalities
+
+		DXConstBufSuballocator for constant data						: public DXBufferSuballocator
+		DXShaderBufSuballocator for shader resource						: public DXBufferSuballocator
+		DXUnorderedBufSuballocator for unordered access access			: public DXBufferSuballocator
+
 */
 
 struct PoolInfo
@@ -47,24 +53,20 @@ public:
 private:
 	void init_pool(ID3D12Device* dev, uint16_t element_size, uint32_t num_elements, D3D12_CPU_DESCRIPTOR_HANDLE& base_handle, D3D12_HEAP_TYPE heap_type);
 
-
-	// Use template initalization to generalize allocation metadat filling
+	// Template specialization to tackle some known use cases for the Buffer suballocator
 	struct CommonDetails
 	{
 		bool valid = false;
-		uint32_t frame_idx = -1;
+		uint32_t frame_idx = UINT32_MAX;
 		DXBufferSuballocation* memory;
 		D3D12_CPU_DESCRIPTOR_HANDLE cpu_descriptor;
-		uint8_t pool_idx = -1;
+		uint8_t pool_idx = UINT8_MAX;
 	};
 
 	template <typename T>
-	void fill_allocation(T& to_fill, const CommonDetails& details)
-	{
-		assert(false);
-	}
+	void fill_allocation(T& to_fill, const CommonDetails& details) { assert(false); }
 
-	template<>
+	template <>
 	void fill_allocation<DXConstantSuballocation>(DXConstantSuballocation& to_fill, const CommonDetails& details)
 	{
 		to_fill.m_frame_idx = details.frame_idx;
@@ -74,12 +76,36 @@ private:
 		to_fill.m_pool_idx = details.pool_idx;
 	}
 
+	template <typename T>
+	void deallocation_postprocess(T* to_process) { assert(false); }
+
+	template <>
+	void deallocation_postprocess<DXConstantSuballocation>(DXConstantSuballocation* to_fill)
+	{
+		// handle invalidated
+		to_fill->m_valid = false;
+	}
+
+	template <typename T>
+	void create_descriptor(ID3D12Device* dev, DXBufferSuballocation* alloc, D3D12_CPU_DESCRIPTOR_HANDLE handle) { assert(false); }
+
+	template <>
+	void create_descriptor<DXConstantSuballocation>(ID3D12Device* dev, DXBufferSuballocation* alloc, D3D12_CPU_DESCRIPTOR_HANDLE handle)
+	{	
+		// create view
+		D3D12_CONSTANT_BUFFER_VIEW_DESC cbd{};
+		cbd.BufferLocation = alloc->get_gpu_adr();
+		cbd.SizeInBytes = alloc->get_size();
+		dev->CreateConstantBufferView(&cbd, handle);
+	}
+
+
 private:
 	Microsoft::WRL::ComPtr<ID3D12Device> m_dev;
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_desc_heap;		// Non shader visible descriptor heaps with CBVs
 	std::vector<std::unique_ptr<DXBufferMemPool>> m_pools;
 
-	std::vector<T> m_all_allocations;			// Storage for all allocations
+	std::vector<T> m_all_allocations;								// Storage for all allocations
 	pools_and_allocations_t m_pools_and_available_allocations;
 };
 
@@ -89,7 +115,7 @@ inline DXBufferSuballocator<T>::DXBufferSuballocator(Microsoft::WRL::ComPtr<ID3D
 	std::vector<PoolInfo> pool_infos{ pool_infos_list.begin(), pool_infos_list.end() };
 	uint64_t descriptors_needed = 0;
 	for (auto& pool_info : pool_infos)
-		descriptors_needed += pool_info.num_elements * pool_info.num_pools;
+		descriptors_needed += (uint64_t)pool_info.num_elements * pool_info.num_pools;
 
 	D3D12_DESCRIPTOR_HEAP_DESC dhd{};
 	dhd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
@@ -106,7 +132,6 @@ inline DXBufferSuballocator<T>::DXBufferSuballocator(Microsoft::WRL::ComPtr<ID3D
 	for (auto& pool_info : pool_infos)
 		for (uint32_t i = 0; i < pool_info.num_pools; ++i)
 			init_pool(dev.Get(), pool_info.element_size, pool_info.num_elements, handle, heap_type);
-
 }
 
 template<typename T>
@@ -133,6 +158,7 @@ inline void DXBufferSuballocator<T>::deallocate(T* alloc)
 
 	// return memory
 	auto& allocations = m_pools_and_available_allocations[alloc->m_pool_idx].second;
+	deallocation_postprocess(alloc);
 	allocations.push(alloc);
 }
 
@@ -165,10 +191,11 @@ inline void DXBufferSuballocator<T>::init_pool(ID3D12Device* dev, uint16_t eleme
 		hdl.ptr += (uint64_t)i * handle_size;
 
 		// create view
-		D3D12_CONSTANT_BUFFER_VIEW_DESC cbd{};
-		cbd.BufferLocation = buf_suballoc->get_gpu_adr();
-		cbd.SizeInBytes = buf_suballoc->get_size();
-		dev->CreateConstantBufferView(&cbd, hdl);
+		create_descriptor<T>(dev, buf_suballoc, hdl);
+		//D3D12_CONSTANT_BUFFER_VIEW_DESC cbd{};
+		//cbd.BufferLocation = buf_suballoc->get_gpu_adr();
+		//cbd.SizeInBytes = buf_suballoc->get_size();
+		//dev->CreateConstantBufferView(&cbd, hdl);
 
 		// init allocation
 		T suballoc{};

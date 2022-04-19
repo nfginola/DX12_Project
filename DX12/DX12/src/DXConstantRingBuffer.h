@@ -2,9 +2,8 @@
 #include <d3d12.h>
 #include <queue>
 
-#include "DXConstantSuballocator.h"
+#include "DXBufferSuballocator.h"
 
-#include "V2.h"
 
 /*
 	Ring buffer wrapper around a pool suballocator
@@ -23,11 +22,10 @@ public:
 
 	DXConstantSuballocation* allocate(uint32_t requested_size);	
 	
-	// specifically called at the beginning of a frame (after frame fence)
+	// specifically called after the frame fence
 	void frame_begin(uint32_t frame_idx);
 
 private:
-	//std::unique_ptr<DXConstantSuballocator> m_suballoc_utils;
 	std::unique_ptr<DXBufferSuballocator<DXConstantSuballocation>> m_suballoc_utils;
 
 	// ring buffer of allocations being used for deallocations

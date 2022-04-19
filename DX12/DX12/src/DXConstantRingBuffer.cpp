@@ -4,14 +4,6 @@
 
 DXConstantRingBuffer::DXConstantRingBuffer(cptr<ID3D12Device> dev) 
 {
-	//auto pool_infos = 
-	//{
-	//		DXConstantSuballocator::PoolInfo(1, 256, 100),
-	//		DXConstantSuballocator::PoolInfo(1, 512, 50),
-	//		DXConstantSuballocator::PoolInfo(1, 1024, 25),
-	//};
-	//m_suballoc_utils = std::make_unique<DXConstantSuballocator>(dev, pool_infos, D3D12_HEAP_TYPE_UPLOAD);
-
 	auto pool_infos =
 	{
 			PoolInfo(1, 256, 100),
@@ -46,9 +38,6 @@ void DXConstantRingBuffer::frame_begin(uint32_t frame_idx)
 		{
 			// remove from internal tracker
 			m_allocations_in_use.pop();
-
-			// invalidate handle to block user from accidental re-use
-			alloc_in_use->m_valid = false;
 
 			m_suballoc_utils->deallocate(alloc_in_use);
 		}

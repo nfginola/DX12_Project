@@ -12,14 +12,12 @@ public:
 	const D3D12_CPU_DESCRIPTOR_HANDLE& get_cpu_descriptor() const { return m_cpu_descriptor; }
 
 private:
-	friend class DXConstantRingBuffer;
-	friend class DXConstantStaticBuffer;
-	friend struct DXConstantSuballocator;
-
 	friend DXBufferSuballocator<DXConstantSuballocation>;
+	
+	// requires internals for special case dat (e.g frame idx)
+	friend class DXConstantRingBuffer;
 
 private:
-//public:			// temporarily public
 	bool m_valid = false;
 	uint32_t m_frame_idx = -1;
 	DXBufferSuballocation* m_memory{};				// DXConstantRingBuffer has a non-owning pointer to a memory allocation (the pool owns it)

@@ -19,8 +19,6 @@
 #include "DXConstantRingBuffer.h"
 #include "DXConstantStaticBuffer.h"
 
-#include "V2.h"
-
 #include "shaders/ShaderInterop_Renderer.h"
 
 static bool g_app_running = false;
@@ -184,7 +182,8 @@ int main()
 		
 		DXConstantRingBuffer ring_buffer(dev);			// For transient resources (e.g staging for copying to device-local memory)
 		DXConstantStaticBuffer static_buffer(dev);		// For resources with arbitrary lifetimes which needs persistent storage
-	
+
+
 		/*
 			DXBufferManager:
 				- Utilizes HandlePool
@@ -264,12 +263,6 @@ int main()
 				DXSuballocation* get_resource(BufferHandle handle);
 
 			*/
-
-
-		auto hmm_alloc = static_buffer.allocate(300);
-
-		//auto pools = { PoolInfo(1,1,1), PoolInfo(1,1,1) };
-		//DXBufferSuballocator<DXConstantSuballocation> thing(dev, pools, D3D12_HEAP_TYPE_UPLOAD);
 
 
 		MSG msg{};

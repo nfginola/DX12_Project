@@ -84,13 +84,7 @@
     <ClCompile Include="src\DXConstantRingBuffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\DXConstantSuballocator.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\DXConstantStaticBuffer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\V2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -182,13 +176,10 @@
     <ClInclude Include="src\DXBufferSuballocation.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\DXConstantSuballocator.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\DXConstantStaticBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\V2.h">
+    <ClInclude Include="src\DXBufferSuballocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
