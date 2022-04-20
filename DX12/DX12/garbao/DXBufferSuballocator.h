@@ -23,6 +23,8 @@
 		DXShaderBufSuballocator for shader resource						: public DXBufferSuballocator
 		DXUnorderedBufSuballocator for unordered access access			: public DXBufferSuballocator
 
+	Testing..
+
 */
 
 struct PoolInfo

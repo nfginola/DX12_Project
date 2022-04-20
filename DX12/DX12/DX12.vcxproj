@@ -161,10 +161,12 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\DXBufferManager.cpp" />
     <ClCompile Include="src\DXConstantStaticBuffer.cpp" />
     <ClCompile Include="src\DXConstantRingBuffer.cpp" />
     <ClCompile Include="src\AssimpLoader.cpp" />
     <ClCompile Include="src\DXBufferMemPool.cpp" />
+    <ClCompile Include="src\DXConstantSuballocator.cpp" />
     <ClCompile Include="src\GUIContext.cpp" />
     <ClCompile Include="src\Input.cpp" />
     <ClCompile Include="src\Profiler\CPUProfiler.cpp" />
@@ -211,6 +213,7 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\DXBufferManager.h" />
     <ClInclude Include="src\DXConstantStaticBuffer.h" />
     <ClInclude Include="src\DXBufferSuballocation.h" />
     <ClInclude Include="src\DXConstantRingBuffer.h" />
@@ -220,6 +223,7 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     <ClInclude Include="src\AssimpLoader.h" />
     <ClInclude Include="src\AssimpTypes.h" />
     <ClInclude Include="src\DXConstantSuballocation.h" />
+    <ClInclude Include="src\DXConstantSuballocator.h" />
     <ClInclude Include="src\GUIContext.h" />
     <ClInclude Include="src\Utilities\HandlePool.h" />
     <ClInclude Include="src\Input.h" />
@@ -233,7 +237,6 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     <ClInclude Include="src\pch.h" />
     <ClInclude Include="src\Window.h" />
     <ClInclude Include="src\Utilities\Stopwatch.h" />
-    <ClInclude Include="src\DXBufferSuballocator.h" />
     <ClInclude Include="vendor\imgui-docking\backends\imgui_impl_dx12.h" />
     <ClInclude Include="vendor\imgui-docking\backends\imgui_impl_win32.h" />
     <ClInclude Include="vendor\imgui-docking\imconfig.h" />

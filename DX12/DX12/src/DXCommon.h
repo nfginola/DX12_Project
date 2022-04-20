@@ -9,8 +9,24 @@
 
 #include "d3dx12.h"
 
-
 void ThrowIfFailed(HRESULT hr, const std::string& errMsg);
+
+
+enum class UsageIntentCPU
+{
+	eInvalid,
+	eUpdateNever,				// Maps to device-local memory
+	eUpdateSometimes,			// Maps to device-local memory
+	eUpdateOnceOrMorePerFrame	// Maps to host-local memory (upload heap)
+};
+
+enum class UsageIntentGPU
+{
+	eInvalid,
+	eConstantRead,	// Maps to CBV
+	eShaderRead,	// Maps to SRV
+	eReadWrite		// Maps to UAV
+};
 
 enum class ShaderModel
 {

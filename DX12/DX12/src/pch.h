@@ -24,6 +24,7 @@ using uptr = std::unique_ptr<T>;
 
 #define DET_ERR(msg) std::string("Error at line: (" + std::to_string(__LINE__) + ") in file: (" + __FILE__ + ")\n") + std::string(msg)
 
+
 namespace utils
 {
 	std::wstring to_wstr(const std::string& str);

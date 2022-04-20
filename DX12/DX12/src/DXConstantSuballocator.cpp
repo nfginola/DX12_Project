@@ -26,7 +26,7 @@ DXConstantSuballocator::DXConstantSuballocator(Microsoft::WRL::ComPtr<ID3D12Devi
 			init_pool(dev.Get(), pool_info.element_size, pool_info.num_elements, handle, heap_type);
 }
 
-DXConstantSuballocation* DXConstantSuballocator::allocate(uint32_t requested_size)
+DXConstantSuballocation* DXConstantSuballocator::allocate(uint64_t requested_size)
 {
 	for (auto i = 0; i < m_pools_and_available_allocations.size(); ++i)
 	{

@@ -5,14 +5,14 @@ DXConstantStaticBuffer::DXConstantStaticBuffer(cptr<ID3D12Device> dev)
 {
 	auto pool_infos =
 	{
-			PoolInfo(1, 256, 100),
-			PoolInfo(1, 512, 50),
-			PoolInfo(1, 1024, 25),
+		DXConstantSuballocator::PoolInfo(1, 256, 100),
+		DXConstantSuballocator::PoolInfo(1, 512, 50),
+		DXConstantSuballocator::PoolInfo(1, 1024, 25),
 	};
-	m_suballoc_utils = std::make_unique<DXBufferSuballocator<DXConstantSuballocation>>(dev.Get(), pool_infos, D3D12_HEAP_TYPE_DEFAULT);
+	m_suballoc_utils = std::make_unique<DXConstantSuballocator>(dev.Get(), pool_infos, D3D12_HEAP_TYPE_DEFAULT);
 }
 
-DXConstantSuballocation* DXConstantStaticBuffer::allocate(uint32_t requested_size)
+DXConstantSuballocation* DXConstantStaticBuffer::allocate(uint64_t requested_size)
 {
     return m_suballoc_utils->allocate(requested_size);
 }

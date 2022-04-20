@@ -21,7 +21,7 @@
 
 
 */
-struct DXConstantSuballocator
+class DXConstantSuballocator
 {
 public:
 	using pools_and_allocations_t = std::vector<std::pair<DXBufferMemPool*, std::queue<DXConstantSuballocation*>>>;
@@ -39,7 +39,7 @@ public:
 	DXConstantSuballocator(Microsoft::WRL::ComPtr<ID3D12Device> dev, std::initializer_list<DXConstantSuballocator::PoolInfo> pool_infos_list, D3D12_HEAP_TYPE heap_type);
 	~DXConstantSuballocator() = default;
 
-	DXConstantSuballocation* allocate(uint32_t requested_size);
+	DXConstantSuballocation* allocate(uint64_t requested_size);
 	void deallocate(DXConstantSuballocation* alloc);
 
 	// Set underlying memory pools resource state for optimal usage (up to the application code)
@@ -53,10 +53,10 @@ private:
 	struct CommonDetails
 	{
 		bool valid = false;
-		uint32_t frame_idx = -1;
+		uint32_t frame_idx = UINT32_MAX;
 		DXBufferSuballocation* memory;
 		D3D12_CPU_DESCRIPTOR_HANDLE cpu_descriptor;
-		uint8_t pool_idx = -1;
+		uint8_t pool_idx = UINT8_MAX;
 	};
 
 	template <typename T>

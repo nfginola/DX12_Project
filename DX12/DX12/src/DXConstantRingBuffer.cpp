@@ -6,11 +6,11 @@ DXConstantRingBuffer::DXConstantRingBuffer(cptr<ID3D12Device> dev)
 {
 	auto pool_infos =
 	{
-			PoolInfo(1, 256, 100),
-			PoolInfo(1, 512, 50),
-			PoolInfo(1, 1024, 25),
+		DXConstantSuballocator::PoolInfo(1, 256, 100),
+		DXConstantSuballocator::PoolInfo(1, 512, 50),
+		DXConstantSuballocator::PoolInfo(1, 1024, 25),
 	};
-	m_suballoc_utils = std::make_unique<DXBufferSuballocator<DXConstantSuballocation>>(dev, pool_infos, D3D12_HEAP_TYPE_UPLOAD);
+	m_suballoc_utils = std::make_unique<DXConstantSuballocator>(dev, pool_infos, D3D12_HEAP_TYPE_UPLOAD);
 }
 
 void DXConstantRingBuffer::frame_begin(uint32_t frame_idx)
@@ -39,6 +39,8 @@ void DXConstantRingBuffer::frame_begin(uint32_t frame_idx)
 			// remove from internal tracker
 			m_allocations_in_use.pop();
 
+			alloc_in_use->m_valid = false;		// invalidate app handle
+
 			m_suballoc_utils->deallocate(alloc_in_use);
 		}
 		else
@@ -46,11 +48,13 @@ void DXConstantRingBuffer::frame_begin(uint32_t frame_idx)
 	}
 }
 
-DXConstantSuballocation* DXConstantRingBuffer::allocate(uint32_t requested_size)
+DXConstantSuballocation* DXConstantRingBuffer::allocate(uint64_t requested_size)
 {	
 	// grab allocation
 	auto alloc = m_suballoc_utils->allocate(requested_size);
 	assert(alloc != nullptr);	
+
+	alloc->m_valid = true;		// validate app handle 
 
 	// set which frame this alloc is used on
 	alloc->m_frame_idx = m_curr_frame_idx;

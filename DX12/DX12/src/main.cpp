@@ -16,8 +16,8 @@
 #include "AssimpLoader.h"
 #include "Utilities/HandlePool.h"
 #include "WinPixEventRuntime/pix3.h"
-#include "DXConstantRingBuffer.h"
-#include "DXConstantStaticBuffer.h"
+
+#include "DXBufferManager.h"
 
 #include "shaders/ShaderInterop_Renderer.h"
 
@@ -180,9 +180,76 @@ int main()
 		g_gui_ctx->add_persistent_ui("test", ui_cb);
 
 		
-		DXConstantRingBuffer ring_buffer(dev);			// For transient resources (e.g staging for copying to device-local memory)
-		DXConstantStaticBuffer static_buffer(dev);		// For resources with arbitrary lifetimes which needs persistent storage
+		DXBufferManager buf_mgr(dev);
+		
+		DXBufferDesc bd{};
+		bd.element_count = 1;
+		bd.element_size = 128;
+		bd.usage_cpu = UsageIntentCPU::eUpdateOnceOrMorePerFrame;	// transient
+		bd.usage_gpu = UsageIntentGPU::eConstantRead;
+		auto buf_handle = buf_mgr.create_buffer(bd);
 
+		// init some bogus data
+		uint8_t* some_data = (uint8_t*)malloc(128);
+		for (uint8_t i = 0; i < 128; ++i)
+			some_data[i] = (uint8_t)i;
+
+
+
+	
+
+		//DXConstantRingBuffer ring_buffer(dev);			// For transient resources (e.g staging for copying to device-local memory)
+		//DXConstantStaticBuffer static_buffer(dev);		// For resources with arbitrary lifetimes which needs persistent storage
+
+		
+
+		/*	
+			Much easier to NOT suballocate memory for structured buffers due to their inherently dynamic element size.
+			Rather, make a committed one for each structured buffer and anassociated SRV!
+
+			Same applies to UAV
+
+			We'll take a look into this in more detail (about suballoating here..) during summer!
+
+			DANGER!:
+
+				When allocating persistent constant buffers, we need to make sure the newest copy is updated to all other copies!
+				If we have max 3 frames in flight, we will allocate x3 of the requested buffer   ::   [0, 1, 2]
+
+				if we update on 2 --> 0 and 1 are still in flight, but they need to be updated too!
+				what to do?
+
+				On update (2):
+					- Staging copy to CPU and copy from staging to (2)
+					- Schedule a copy from (2) to (0) when (0) is not in flight anymore		ONLY if no updates were requested again for this resource this frame
+						Otherwise, discard all and restart process
+					- Schedule a copy from (2) to (1) when (1) is not in flight anymore		ONLY if no updates were requested again for this resource this frame
+
+				Should we do on a copy queue?
+					Import our UploadContext
+
+					destination = transient_staging.mapped_memory;
+					offsetted_buffer_info = transient_staging....
+
+						UploadContext->staging_upload(void* data, size_t size, uint8_t* destination);
+						UploadContext->copy_buffer_region(dst..., src...);
+
+						FenceResoure fence_to_wait_for = UploadContext->signal(value);
+						// fenceResource contains ID3D12Fence*, fence value to wait for and the WIN event!
+						
+						// called prior to draw call (just like mentioned below in BufferManager.sync())
+						FenceResource.wait(graphicsQueue);
+
+				We can just schedule a copy at frame_begin to keep it simple
+				and if there was a new update request, it would mean THAT copy above + a CPU to staging and staging to device-local (extra copy)
+				https://asawicki.info/news_1722_secrets_of_direct3d_12_copies_to_the_same_buffer
+				This is actually fine! Since the GPU serializes the copy, meaning we will have the latest copy request data up :)
+
+				We should have some:
+				BufferManager.sync();		// Prior to draw call invocations to have spot where we can guarantee buffer copies before usage!
+				
+
+		*/
 
 		/*
 			DXBufferManager:
@@ -265,6 +332,8 @@ int main()
 			*/
 
 
+
+
 		MSG msg{};
 		while (g_app_running)
 		{
@@ -288,13 +357,14 @@ int main()
 			g_gui_ctx->frame_begin();
 			
 			// handle resource management
-			ring_buffer.frame_begin(surface_idx);
+			//ring_buffer.frame_begin(surface_idx);
 			
-			cpu_pf.profile_begin("allocation");
-			DXConstantSuballocation* alloc1 = ring_buffer.allocate(200);
-			DXConstantSuballocation* alloc2 = ring_buffer.allocate(480);
-			DXConstantSuballocation* alloc3 = ring_buffer.allocate(580);
-			cpu_pf.profile_end("allocation");
+			cpu_pf.profile_begin("buf mgr frame begin");
+			buf_mgr.frame_begin(surface_idx);
+
+			buf_mgr.upload_data(some_data, 128, buf_handle);
+
+			cpu_pf.profile_end("buf mgr frame begin");
 
 
 			if (show_pf)
@@ -389,6 +459,10 @@ int main()
 		// wait for all FIFs before exiting
 		for (const auto& frame_res : per_frame_res)
 			frame_res.sync.wait();
+
+		buf_mgr.destroy_buffer(buf_handle);
+
+		free(some_data);
 
 		delete g_input;
 		delete g_gui_ctx;

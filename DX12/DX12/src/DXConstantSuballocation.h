@@ -1,8 +1,8 @@
 #pragma once
 #include "DXBufferSuballocation.h"
 
-template<typename T>
-class DXBufferSuballocator;
+//template<typename T>
+//class DXBufferSuballocator;
 
 class DXConstantSuballocation
 {
@@ -12,8 +12,10 @@ public:
 	const D3D12_CPU_DESCRIPTOR_HANDLE& get_cpu_descriptor() const { return m_cpu_descriptor; }
 
 private:
-	friend DXBufferSuballocator<DXConstantSuballocation>;
+	//friend DXBufferSuballocator<DXConstantSuballocation>;
 	
+	friend class DXConstantSuballocator;
+
 	// requires internals for special case dat (e.g frame idx)
 	friend class DXConstantRingBuffer;
 

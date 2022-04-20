@@ -87,6 +87,12 @@
     <ClCompile Include="src\DXConstantStaticBuffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\DXConstantSuballocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\DXBufferManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.h">
@@ -179,7 +185,10 @@
     <ClInclude Include="src\DXConstantStaticBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\DXBufferSuballocator.h">
+    <ClInclude Include="src\DXConstantSuballocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\DXBufferManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

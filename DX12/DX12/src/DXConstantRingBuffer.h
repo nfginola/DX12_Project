@@ -2,7 +2,7 @@
 #include <d3d12.h>
 #include <queue>
 
-#include "DXBufferSuballocator.h"
+#include "DXConstantSuballocator.h"
 
 
 /*
@@ -20,13 +20,13 @@ public:
 	DXConstantRingBuffer(cptr<ID3D12Device> dev);
 	~DXConstantRingBuffer() = default;
 
-	DXConstantSuballocation* allocate(uint32_t requested_size);	
+	DXConstantSuballocation* allocate(uint64_t requested_size);	
 	
 	// specifically called after the frame fence
 	void frame_begin(uint32_t frame_idx);
 
 private:
-	std::unique_ptr<DXBufferSuballocator<DXConstantSuballocation>> m_suballoc_utils;
+	std::unique_ptr<DXConstantSuballocator> m_suballoc_utils;
 
 	// ring buffer of allocations being used for deallocations
 	std::queue<DXConstantSuballocation*> m_allocations_in_use;
