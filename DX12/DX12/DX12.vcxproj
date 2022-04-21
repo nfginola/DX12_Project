@@ -168,7 +168,7 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     <ClCompile Include="src\Utilities\AssimpLoader.cpp" />
     <ClCompile Include="src\Graphics\DX\Buffer\DXBufferMemPool.cpp" />
     <ClCompile Include="src\Graphics\DX\Buffer\Constant\DXConstantSuballocator.cpp" />
-    <ClCompile Include="src\Graphics\DX\GUIContext.cpp" />
+    <ClCompile Include="src\Graphics\DX\GUI\GUIContext.cpp" />
     <ClCompile Include="src\Utilities\Input.cpp" />
     <ClCompile Include="src\Profiler\CPUProfiler.cpp" />
     <ClCompile Include="src\Graphics\DX\CompiledShaderBlob.cpp" />
@@ -226,7 +226,7 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     <ClInclude Include="src\Utilities\AssimpTypes.h" />
     <ClInclude Include="src\Graphics\DX\Buffer\Constant\DXConstantSuballocation.h" />
     <ClInclude Include="src\Graphics\DX\Buffer\Constant\DXConstantSuballocator.h" />
-    <ClInclude Include="src\Graphics\DX\GUIContext.h" />
+    <ClInclude Include="src\Graphics\DX\GUI\GUIContext.h" />
     <ClInclude Include="src\Utilities\HandlePool.h" />
     <ClInclude Include="src\Utilities\Input.h" />
     <ClInclude Include="src\Profiler\CPUProfiler.h" />

@@ -11,6 +11,12 @@
 
 void ThrowIfFailed(HRESULT hr, const std::string& errMsg);
 
+enum class RootArgDest
+{
+	eInvalid,
+	eGraphics,
+	eCompute
+};
 
 enum class UsageIntentCPU
 {

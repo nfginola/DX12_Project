@@ -52,13 +52,17 @@ public:
 	void upload_data(void* data, size_t size, BufferHandle hdl);
 	// join-point for potential async copies that need completion guarantee prior to pipeline invocations (e.g draws)
 	//void wait_on_queue(ID3D12CommandQueue* queue);
+	 
 
 	// single descriptor copy to
 	void copy_descriptor(D3D12_CPU_DESCRIPTOR_HANDLE dst, BufferHandle src);
+	void copy_descriptor(ID3D12DescriptorHeap* dst, UINT dst_offset_to_start, BufferHandle src);
 
-	void bind_graphics(ID3D12GraphicsCommandList* cmdl, BufferHandle buf, UINT param_idx);
+	// Maybe should be moved to a DXRootArgBinder which has a reference to a BufferManager and a TextureManager?
+	void bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, BufferHandle buf, UINT param_idx, RootArgDest dest);
 
-	
+
+
 	
 private:
 

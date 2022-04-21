@@ -72,7 +72,7 @@
     <ClCompile Include="src\Utilities\Input.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\DX\GUIContext.cpp">
+    <ClCompile Include="src\Graphics\DX\GUI\GUIContext.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Utilities\AssimpLoader.cpp">
@@ -155,7 +155,7 @@
     <ClInclude Include="src\Utilities\Input.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Graphics\DX\GUIContext.h">
+    <ClInclude Include="src\Graphics\DX\GUI\GUIContext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="shaders\ShaderInterop_Common.h">

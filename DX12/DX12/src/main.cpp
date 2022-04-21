@@ -9,7 +9,7 @@
 #include "Graphics/DX/DXContext.h"
 #include "Graphics/DX/DXSwapChain.h"
 #include "Graphics/DX/DXCompiler.h"
-#include "Graphics/DX/GUIContext.h"
+#include "Graphics/DX/GUI/GUIContext.h"
 #include "WinPixEventRuntime/pix3.h"
 #include "Profiler/GPUProfiler.h"
 #include "Profiler/CPUProfiler.h"
@@ -407,15 +407,20 @@ int main()
 			dq_cmdl->OMSetRenderTargets(1, &rtv_hdl, false, nullptr);
 	
 			// copy to correct part of main desc heap
+			//cpu_pf.profile_begin("copy descriptor");
+			//auto desc_heap_now_cpu = gpu_main_dheap->GetCPUDescriptorHandleForHeapStart();
+			//desc_heap_now_cpu.ptr += descs_per_frame * surface_idx * dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);	
+			//for (int i = 0; i < 1000; ++i)
+			//	buf_mgr.copy_descriptor(desc_heap_now_cpu, buf_handle);
+			//cpu_pf.profile_end("copy descriptor");
+			//// grab gpu handle to the same place
+			//auto desc_heap_now_gpu = gpu_main_dheap->GetGPUDescriptorHandleForHeapStart();
+			//desc_heap_now_gpu.ptr += descs_per_frame * surface_idx * dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
 			cpu_pf.profile_begin("copy descriptor");
-			auto desc_heap_now_cpu = gpu_main_dheap->GetCPUDescriptorHandleForHeapStart();
-			desc_heap_now_cpu.ptr += descs_per_frame * surface_idx * dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);	
-			for (int i = 0; i < 1000; ++i)
-				buf_mgr.copy_descriptor(desc_heap_now_cpu, buf_handle);
+			buf_mgr.copy_descriptor(gpu_main_dheap.Get(), descs_per_frame * surface_idx, buf_handle);
 			cpu_pf.profile_end("copy descriptor");
-			// grab gpu handle to the same place
-			auto desc_heap_now_gpu = gpu_main_dheap->GetGPUDescriptorHandleForHeapStart();
-			desc_heap_now_gpu.ptr += descs_per_frame * surface_idx * dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);	
+
 
 			// main draw
 			gpu_pf.profile_begin(dq_cmdl, dq, "main draw setup");
@@ -428,7 +433,7 @@ int main()
 			// select which method (direct bind or table binding?)
 			// table binding requires copying descriptors prior to reading
 			//dq_cmdl->SetGraphicsRootDescriptorTable(params["my_cbv"], desc_heap_now_gpu);
-			buf_mgr.bind_graphics(dq_cmdl, buf_handle, params["my_cbv"]);
+			buf_mgr.bind_as_direct_arg(dq_cmdl, buf_handle, params["my_cbv"], RootArgDest::eGraphics);
 			
 			dq_cmdl->SetPipelineState(pipe.Get());
 			gpu_pf.profile_end(dq_cmdl, "main draw setup");
