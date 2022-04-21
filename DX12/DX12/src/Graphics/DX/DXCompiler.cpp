@@ -29,7 +29,7 @@ DXCompiler::~DXCompiler()
 }
 
 sptr<CompiledShaderBlob> DXCompiler::compile_from_file(
-	const std::filesystem::path& relPath, 
+	const std::filesystem::path& rel_path, 
 	const std::wstring entry,
 	const std::wstring profile, const DXCompiler::CompileOptions& options)
 {
@@ -38,7 +38,7 @@ sptr<CompiledShaderBlob> DXCompiler::compile_from_file(
 	cptr<IDxcBlobEncoding> sourceBlob;
 
 	HRESULT hr;
-	hr = m_library->CreateBlobFromFile(relPath.c_str(), &code_page, &sourceBlob);
+	hr = m_library->CreateBlobFromFile(rel_path.c_str(), &code_page, &sourceBlob);
 	if (FAILED(hr))
 		throw std::runtime_error("Failed to create blob");
 
@@ -46,7 +46,7 @@ sptr<CompiledShaderBlob> DXCompiler::compile_from_file(
 	cptr<IDxcOperationResult> result;
 	hr = m_compiler->Compile(
 		sourceBlob.Get(), // pSource
-		relPath.c_str(),// pSourceName
+		rel_path.c_str(),// pSourceName
 		entry.c_str(), // pEntryPoint
 		profile.c_str(), // pTargetProfile
 		NULL, 0, // pArguments, argCount
@@ -77,5 +77,4 @@ sptr<CompiledShaderBlob> DXCompiler::compile_from_file(
 
 	auto compiled = std::make_shared<CompiledShaderBlob>(res->GetBufferPointer(), (UINT)res->GetBufferSize());
 	return compiled;
-	return nullptr;
 }

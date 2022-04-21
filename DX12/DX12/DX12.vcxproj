@@ -161,20 +161,21 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\DXBufferManager.cpp" />
-    <ClCompile Include="src\DXConstantStaticBuffer.cpp" />
-    <ClCompile Include="src\DXConstantRingBuffer.cpp" />
-    <ClCompile Include="src\AssimpLoader.cpp" />
-    <ClCompile Include="src\DXBufferMemPool.cpp" />
-    <ClCompile Include="src\DXConstantSuballocator.cpp" />
-    <ClCompile Include="src\GUIContext.cpp" />
-    <ClCompile Include="src\Input.cpp" />
+    <ClCompile Include="src\Graphics\DX\DXBufferManager.cpp" />
+    <ClCompile Include="src\Graphics\DX\Buffer\Constant\DXConstantStaticBuffer.cpp" />
+    <ClCompile Include="src\Graphics\DX\Buffer\Constant\DXConstantRingBuffer.cpp" />
+    <ClCompile Include="src\Graphics\DX\DXBuilders.cpp" />
+    <ClCompile Include="src\Utilities\AssimpLoader.cpp" />
+    <ClCompile Include="src\Graphics\DX\Buffer\DXBufferMemPool.cpp" />
+    <ClCompile Include="src\Graphics\DX\Buffer\Constant\DXConstantSuballocator.cpp" />
+    <ClCompile Include="src\Graphics\DX\GUIContext.cpp" />
+    <ClCompile Include="src\Utilities\Input.cpp" />
     <ClCompile Include="src\Profiler\CPUProfiler.cpp" />
-    <ClCompile Include="src\CompiledShaderBlob.cpp" />
-    <ClCompile Include="src\DXCommon.cpp" />
-    <ClCompile Include="src\DXCompiler.cpp" />
-    <ClCompile Include="src\DXContext.cpp" />
-    <ClCompile Include="src\DXSwapChain.cpp" />
+    <ClCompile Include="src\Graphics\DX\CompiledShaderBlob.cpp" />
+    <ClCompile Include="src\Graphics\DX\DXCommon.cpp" />
+    <ClCompile Include="src\Graphics\DX\DXCompiler.cpp" />
+    <ClCompile Include="src\Graphics\DX\DXContext.cpp" />
+    <ClCompile Include="src\Graphics\DX\DXSwapChain.cpp" />
     <ClCompile Include="src\Profiler\GPUProfiler.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\pch.cpp">
@@ -213,26 +214,27 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\DXBufferManager.h" />
-    <ClInclude Include="src\DXConstantStaticBuffer.h" />
-    <ClInclude Include="src\DXBufferSuballocation.h" />
-    <ClInclude Include="src\DXConstantRingBuffer.h" />
-    <ClInclude Include="src\DXBufferMemPool.h" />
+    <ClInclude Include="src\Graphics\DX\DXBufferManager.h" />
+    <ClInclude Include="src\Graphics\DX\Buffer\Constant\DXConstantStaticBuffer.h" />
+    <ClInclude Include="src\Graphics\DX\Buffer\DXBufferSuballocation.h" />
+    <ClInclude Include="src\Graphics\DX\Buffer\Constant\DXConstantRingBuffer.h" />
+    <ClInclude Include="src\Graphics\DX\Buffer\DXBufferMemPool.h" />
     <ClInclude Include="shaders\ShaderInterop_Common.h" />
     <ClInclude Include="shaders\ShaderInterop_Renderer.h" />
-    <ClInclude Include="src\AssimpLoader.h" />
-    <ClInclude Include="src\AssimpTypes.h" />
-    <ClInclude Include="src\DXConstantSuballocation.h" />
-    <ClInclude Include="src\DXConstantSuballocator.h" />
-    <ClInclude Include="src\GUIContext.h" />
+    <ClInclude Include="src\Graphics\DX\DXBuilders.h" />
+    <ClInclude Include="src\Utilities\AssimpLoader.h" />
+    <ClInclude Include="src\Utilities\AssimpTypes.h" />
+    <ClInclude Include="src\Graphics\DX\Buffer\Constant\DXConstantSuballocation.h" />
+    <ClInclude Include="src\Graphics\DX\Buffer\Constant\DXConstantSuballocator.h" />
+    <ClInclude Include="src\Graphics\DX\GUIContext.h" />
     <ClInclude Include="src\Utilities\HandlePool.h" />
-    <ClInclude Include="src\Input.h" />
+    <ClInclude Include="src\Utilities\Input.h" />
     <ClInclude Include="src\Profiler\CPUProfiler.h" />
-    <ClInclude Include="src\CompiledShaderBlob.h" />
-    <ClInclude Include="src\DXCommon.h" />
-    <ClInclude Include="src\DXCompiler.h" />
-    <ClInclude Include="src\DXContext.h" />
-    <ClInclude Include="src\DXSwapChain.h" />
+    <ClInclude Include="src\Graphics\DX\CompiledShaderBlob.h" />
+    <ClInclude Include="src\Graphics\DX\DXCommon.h" />
+    <ClInclude Include="src\Graphics\DX\DXCompiler.h" />
+    <ClInclude Include="src\Graphics\DX\DXContext.h" />
+    <ClInclude Include="src\Graphics\DX\DXSwapChain.h" />
     <ClInclude Include="src\Profiler\GPUProfiler.h" />
     <ClInclude Include="src\pch.h" />
     <ClInclude Include="src\Window.h" />
@@ -245,6 +247,28 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     <ClInclude Include="vendor\imgui-docking\imstb_rectpack.h" />
     <ClInclude Include="vendor\imgui-docking\imstb_textedit.h" />
     <ClInclude Include="vendor\imgui-docking\imstb_truetype.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\ps.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.0</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.0</ShaderModel>
+    </FxCompile>
+    <FxCompile Include="shaders\vs.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.0</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">6.0</ShaderModel>
+    </FxCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

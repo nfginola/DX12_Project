@@ -23,6 +23,8 @@ enum class UsageIntentCPU
 enum class UsageIntentGPU
 {
 	eInvalid,
+	eVertexRead,	// Maps to VBV
+	eIndexRead,		// Maps to IBV
 	eConstantRead,	// Maps to CBV
 	eShaderRead,	// Maps to SRV
 	eReadWrite		// Maps to UAV
@@ -38,5 +40,16 @@ enum class ShaderType
 	eVertex,
 	ePixel,
 	eCompute,
+	eHull,
+	eDomain,
+	eGeometry
+};
+
+enum class DepthFormat 
+{ 
+	eD32, 
+	eD32_S8, 
+	eD24_S8, 
+	eD16
 };
 

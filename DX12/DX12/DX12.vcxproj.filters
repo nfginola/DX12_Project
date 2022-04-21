@@ -21,22 +21,22 @@
     <ClCompile Include="src\pch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\DXSwapChain.cpp">
+    <ClCompile Include="src\Graphics\DX\DXSwapChain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\DXContext.cpp">
+    <ClCompile Include="src\Graphics\DX\DXContext.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\DXCommon.cpp">
+    <ClCompile Include="src\Graphics\DX\DXCommon.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Window.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\DXCompiler.cpp">
+    <ClCompile Include="src\Graphics\DX\DXCompiler.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\CompiledShaderBlob.cpp">
+    <ClCompile Include="src\Graphics\DX\CompiledShaderBlob.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="src\Profiler\GPUProfiler.cpp">
@@ -69,28 +69,31 @@
     <ClCompile Include="vendor\imgui-docking\backends\imgui_impl_dx12.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Input.cpp">
+    <ClCompile Include="src\Utilities\Input.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\GUIContext.cpp">
+    <ClCompile Include="src\Graphics\DX\GUIContext.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\AssimpLoader.cpp">
+    <ClCompile Include="src\Utilities\AssimpLoader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\DXBufferMemPool.cpp">
+    <ClCompile Include="src\Graphics\DX\Buffer\DXBufferMemPool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\DXConstantRingBuffer.cpp">
+    <ClCompile Include="src\Graphics\DX\Buffer\Constant\DXConstantRingBuffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\DXConstantStaticBuffer.cpp">
+    <ClCompile Include="src\Graphics\DX\Buffer\Constant\DXConstantStaticBuffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\DXConstantSuballocator.cpp">
+    <ClCompile Include="src\Graphics\DX\Buffer\Constant\DXConstantSuballocator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\DXBufferManager.cpp">
+    <ClCompile Include="src\Graphics\DX\DXBufferManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\DX\DXBuilders.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -98,22 +101,22 @@
     <ClInclude Include="src\pch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\DXSwapChain.h">
+    <ClInclude Include="src\Graphics\DX\DXSwapChain.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\DXContext.h">
+    <ClInclude Include="src\Graphics\DX\DXContext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\DXCommon.h">
+    <ClInclude Include="src\Graphics\DX\DXCommon.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Window.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\DXCompiler.h">
+    <ClInclude Include="src\Graphics\DX\DXCompiler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\CompiledShaderBlob.h">
+    <ClInclude Include="src\Graphics\DX\CompiledShaderBlob.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Profiler\GPUProfiler.h">
@@ -149,10 +152,10 @@
     <ClInclude Include="vendor\imgui-docking\backends\imgui_impl_dx12.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Input.h">
+    <ClInclude Include="src\Utilities\Input.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\GUIContext.h">
+    <ClInclude Include="src\Graphics\DX\GUIContext.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="shaders\ShaderInterop_Common.h">
@@ -161,35 +164,42 @@
     <ClInclude Include="shaders\ShaderInterop_Renderer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\AssimpTypes.h">
+    <ClInclude Include="src\Utilities\AssimpTypes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\AssimpLoader.h">
+    <ClInclude Include="src\Utilities\AssimpLoader.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Utilities\HandlePool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\DXBufferMemPool.h">
+    <ClInclude Include="src\Graphics\DX\Buffer\DXBufferMemPool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\DXConstantRingBuffer.h">
+    <ClInclude Include="src\Graphics\DX\Buffer\Constant\DXConstantRingBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\DXConstantSuballocation.h">
+    <ClInclude Include="src\Graphics\DX\Buffer\Constant\DXConstantSuballocation.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\DXBufferSuballocation.h">
+    <ClInclude Include="src\Graphics\DX\Buffer\DXBufferSuballocation.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\DXConstantStaticBuffer.h">
+    <ClInclude Include="src\Graphics\DX\Buffer\Constant\DXConstantStaticBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\DXConstantSuballocator.h">
+    <ClInclude Include="src\Graphics\DX\Buffer\Constant\DXConstantSuballocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\DXBufferManager.h">
+    <ClInclude Include="src\Graphics\DX\DXBufferManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\Graphics\DX\DXBuilders.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="shaders\vs.hlsl" />
+    <FxCompile Include="shaders\ps.hlsl" />
   </ItemGroup>
 </Project>

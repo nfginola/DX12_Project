@@ -1,10 +1,10 @@
 #pragma once
 #include <variant>
 #include "Utilities/HandlePool.h"
-#include "DXCommon.h"
+#include "Graphics/DX/DXCommon.h"
 
 // Handle constant data suballocations
-#include "DXConstantSuballocation.h"
+#include "Buffer/Constant/DXConstantSuballocation.h"
 
 
 // Allocation algorithms for constant data management
@@ -41,20 +41,21 @@ public:
 	DXBufferManager(Microsoft::WRL::ComPtr<ID3D12Device> dev);
 	~DXBufferManager();
 
-	BufferHandle create_buffer(const DXBufferDesc& desc);
-	void destroy_buffer(BufferHandle hdl);
-
-	void upload_data(void* data, size_t size, BufferHandle hdl);
-	
 	void frame_begin(uint32_t frame_idx);
 
+	BufferHandle create_buffer(const DXBufferDesc& desc);
+	// we don't employ ref-counting since we want full control of buffer lifetime to go through here.
+	// (implicit destructions outside makes the release of data hard to reason about)
+	void destroy_buffer(BufferHandle hdl);
+
+	// Maybe should be moved to an DXCopyManager?					// Handles CPU-GPU and GPU-GPU copies and handles potentialy Waits associated with GPU-GPU copies
+	void upload_data(void* data, size_t size, BufferHandle hdl);
 	// join-point for potential async copies that need completion guarantee prior to pipeline invocations (e.g draws)
-	void wait_on_queue(ID3D12CommandQueue* queue);
+	//void wait_on_queue(ID3D12CommandQueue* queue);
 
+	// single descriptor copy to
+	void copy_descriptor(D3D12_CPU_DESCRIPTOR_HANDLE dst, BufferHandle src);
 
-	/*
-		support copying operations to-and-from buffers here as API
-	*/
 	
 	
 private:
@@ -115,6 +116,13 @@ private:
 
 	std::unique_ptr<DXConstantRingBuffer> m_constant_ring_buf;
 	std::unique_ptr<DXConstantStaticBuffer> m_constant_persistent_buf;
+
+	/*
+		
+
+
+		m_structured_persistent_buf		--> uses pools too, but different sizes
+	*/
 
 
 

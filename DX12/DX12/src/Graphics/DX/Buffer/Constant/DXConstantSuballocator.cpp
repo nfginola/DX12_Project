@@ -86,19 +86,11 @@ void DXConstantSuballocator::init_pool(ID3D12Device* dev, uint16_t element_size,
 
 		// init allocation
 		DXConstantSuballocation constant_suballoc{};
-		//constant_suballoc.m_frame_idx = -1;
-		//constant_suballoc.m_memory = buf_suballoc;
-		//constant_suballoc.m_valid = false;
-		//constant_suballoc.m_cpu_descriptor = hdl;
-		//constant_suballoc.m_pool_idx = (uint8_t)m_pools_and_available_allocations.size() - 1;
-
-		CommonDetails cd{};
-		cd.frame_idx = -1;
-		cd.memory = buf_suballoc;
-		cd.valid = false;
-		cd.cpu_descriptor = hdl;
-		cd.pool_idx = (uint8_t)m_pools_and_available_allocations.size() - 1;
-		fill_allocation(constant_suballoc, cd);
+		constant_suballoc.m_frame_idx = -1;
+		constant_suballoc.m_memory = buf_suballoc;
+		constant_suballoc.m_valid = false;
+		constant_suballoc.m_cpu_descriptor = hdl;
+		constant_suballoc.m_pool_idx = (uint8_t)m_pools_and_available_allocations.size() - 1;
 
 		// store allocation internally
 		m_all_allocations.push_back(constant_suballoc);

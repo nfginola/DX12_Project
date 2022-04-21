@@ -1,10 +1,10 @@
 #include "pch.h"
 #include "DXBufferManager.h"
-#include "DXCommon.h"
+#include "Graphics/DX/DXCommon.h"
 
-// Allocation algorithms for constant data management
-#include "DXConstantRingBuffer.h"
-#include "DXConstantStaticBuffer.h"
+// Allocation structures for constant data management
+#include "Buffer/Constant/DXConstantRingBuffer.h"
+#include "Buffer/Constant/DXConstantStaticBuffer.h"
 
 DXBufferManager::~DXBufferManager()
 {
@@ -109,6 +109,9 @@ void DXBufferManager::upload_data(void* data, size_t size, BufferHandle hdl)
 			// upload
 			assert(size == res->total_requested_size);		// assuming that user overwrites ALL of the data!
 
+			// check that the memory IS mappable!
+			assert(md.alloc->get_memory()->mappable());
+
 			auto dst = md.alloc->get_memory()->get_mapped_memory();
 			auto src = data;
 			std::memcpy(dst, src, size);
@@ -133,6 +136,36 @@ void DXBufferManager::upload_data(void* data, size_t size, BufferHandle hdl)
 		assert(false);		// programmer error: forgot to fill UsageIntentGPU on the underlying resource somewhere!
 		break;
 	}
+}
+
+void DXBufferManager::copy_descriptor(D3D12_CPU_DESCRIPTOR_HANDLE dst, BufferHandle src)
+{
+	auto res = m_handles.get_resource(src.handle);
+	switch (res->usage_gpu)
+	{
+	case UsageIntentGPU::eConstantRead:
+	{
+		auto& md = res->get_metadata<ConstantAccessBufferMD>();
+		auto src = md.alloc->get_cpu_descriptor();
+
+		m_dev->CopyDescriptorsSimple(1, dst, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		break;
+	}
+	case UsageIntentGPU::eShaderRead:
+	{
+		assert(false);
+		break;
+	}
+	case UsageIntentGPU::eReadWrite:
+	{
+		assert(false);		// ..
+		break;
+	}
+	default:
+		assert(false);		// programmer error: forgot to fill UsageIntentGPU on the underlying resource somewhere!
+		break;
+	}
+
 }
 
 void DXBufferManager::frame_begin(uint32_t frame_idx)

@@ -41,7 +41,7 @@ public:
 	~DXCompiler();
 	
 	sptr<CompiledShaderBlob> compile_from_file(
-		const std::filesystem::path& relPath, 
+		const std::filesystem::path& rel_path, 
 		const std::wstring profile,
 		const std::wstring entry,
 		const DXCompiler::CompileOptions& options = {});

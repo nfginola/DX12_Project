@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "DXConstantRingBuffer.h"
-#include "DXBufferMemPool.h"
+#include "Graphics/DX/Buffer/DXBufferMemPool.h"
 
 DXConstantRingBuffer::DXConstantRingBuffer(cptr<ID3D12Device> dev) 
 {

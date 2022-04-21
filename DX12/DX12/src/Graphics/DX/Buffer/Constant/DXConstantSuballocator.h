@@ -7,19 +7,17 @@
 #include <queue>
 #include <initializer_list>
 #include "DXConstantSuballocation.h"
-#include "DXBufferMemPool.h"
+#include "Graphics/DX/Buffer/DXBufferMemPool.h"
 
 /*
-	Helper utility structure to avoid code duplication
-	This utility is inteded to setup the data structures used for distributing suballocations.
+	Helper utility structure which acts as a distributor:
+		Selects an appropriate pool to allocate from given the requested size
 
-	Maybe make this a template?
-		Make DXConstantSuballocation a Template type
+	In addition, this class acts as an intermediary for storing non-shader visible descriptors for every suballocation avalable from all pools.
+	Hence, this is a "D3D12-ified pool manager" specifically for constant buffer management
 
-		Use template overloading to make initializers for them (otherwise problematic with init_pool)
-
-
-
+	No interface, since the allocation details are specific and needs to be accessed!
+	DXConstantSuballocator returns DXConstantSuballocation with specific details for Constant data management
 */
 class DXConstantSuballocator
 {
@@ -47,33 +45,6 @@ public:
 
 private:
 	void init_pool(ID3D12Device* dev, uint16_t element_size, uint32_t num_elements, D3D12_CPU_DESCRIPTOR_HANDLE& base_handle, D3D12_HEAP_TYPE heap_type);
-
-
-	// Use template initalization to generalize allocation metadat filling
-	struct CommonDetails
-	{
-		bool valid = false;
-		uint32_t frame_idx = UINT32_MAX;
-		DXBufferSuballocation* memory;
-		D3D12_CPU_DESCRIPTOR_HANDLE cpu_descriptor;
-		uint8_t pool_idx = UINT8_MAX;
-	};
-
-	template <typename T>
-	void fill_allocation(T& to_fill, const CommonDetails& details)
-	{
-		assert(false);
-	}
-
-	template<>
-	void fill_allocation<DXConstantSuballocation>(DXConstantSuballocation& to_fill, const CommonDetails& details)
-	{
-		to_fill.m_frame_idx = details.frame_idx;
-		to_fill.m_memory = details.memory;
-		to_fill.m_valid = details.valid;
-		to_fill.m_cpu_descriptor = details.cpu_descriptor;
-		to_fill.m_pool_idx = details.pool_idx;
-	}
 
 private:
 	Microsoft::WRL::ComPtr<ID3D12Device> m_dev;

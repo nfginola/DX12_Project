@@ -3,6 +3,12 @@
 #include <stdint.h>
 #include <assert.h>
 
+/*
+	Represents a generic buffer suballocation:
+		This can be re-used for any type of allocators which has the purpose of distributing suballocators.
+		For example, the DXBufferMemPool distributes a DXBufferSuballocation in a pool-fashion
+*/
+
 // Not guaranteed to be mappable, calling app must check before use
 class DXBufferSuballocation
 {

@@ -1,8 +1,5 @@
 #pragma once
-#include "DXBufferSuballocation.h"
-
-//template<typename T>
-//class DXBufferSuballocator;
+#include "Graphics/DX/Buffer/DXBufferSuballocation.h"
 
 class DXConstantSuballocation
 {
@@ -12,7 +9,6 @@ public:
 	const D3D12_CPU_DESCRIPTOR_HANDLE& get_cpu_descriptor() const { return m_cpu_descriptor; }
 
 private:
-	//friend DXBufferSuballocator<DXConstantSuballocation>;
 	
 	friend class DXConstantSuballocator;
 
@@ -21,8 +17,9 @@ private:
 
 private:
 	bool m_valid = false;
-	uint32_t m_frame_idx = -1;
 	DXBufferSuballocation* m_memory{};				// DXConstantRingBuffer has a non-owning pointer to a memory allocation (the pool owns it)
 	D3D12_CPU_DESCRIPTOR_HANDLE m_cpu_descriptor{};	// Descriptor in a non-shader visible descriptor heap 
-	uint8_t m_pool_idx = -1;
+
+	uint32_t m_frame_idx = -1;						// Transient constant management
+	uint8_t m_pool_idx = -1;						// Use of pool is exclusive to Constant data management!
 };

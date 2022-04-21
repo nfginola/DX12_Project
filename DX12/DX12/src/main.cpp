@@ -6,18 +6,23 @@
 #include <stdlib.h>
 
 #include "Window.h"
-#include "DXContext.h"
-#include "DXSwapChain.h"
-#include "DXCompiler.h"
+#include "Graphics/DX/DXContext.h"
+#include "Graphics/DX/DXSwapChain.h"
+#include "Graphics/DX/DXCompiler.h"
+#include "Graphics/DX/GUIContext.h"
+#include "WinPixEventRuntime/pix3.h"
 #include "Profiler/GPUProfiler.h"
 #include "Profiler/CPUProfiler.h"
-#include "Input.h"
-#include "GUIContext.h"
-#include "AssimpLoader.h"
-#include "Utilities/HandlePool.h"
-#include "WinPixEventRuntime/pix3.h"
 
-#include "DXBufferManager.h"
+#include "Graphics/DX/CompiledShaderBlob.h"
+
+#include "Graphics/DX/DXBuilders.h"
+
+#include "Utilities/Input.h"
+#include "Utilities/AssimpLoader.h"
+#include "Utilities/HandlePool.h"
+
+#include "Graphics/DX/DXBufferManager.h"
 
 #include "shaders/ShaderInterop_Renderer.h"
 
@@ -54,7 +59,7 @@ int main()
 		auto gfx_sc = gfx_ctx->get_sc();
 		
 		// initialize DX shader compiler
-		auto shd_clr = std::make_unique<DXCompiler>();
+		auto shader_compiler = std::make_unique<DXCompiler>();
 
 		// grab LL modules for creating DX12 primitives
 		auto dev = gfx_ctx->get_dev();
@@ -194,15 +199,6 @@ int main()
 		for (uint8_t i = 0; i < 128; ++i)
 			some_data[i] = (uint8_t)i;
 
-
-
-	
-
-		//DXConstantRingBuffer ring_buffer(dev);			// For transient resources (e.g staging for copying to device-local memory)
-		//DXConstantStaticBuffer static_buffer(dev);		// For resources with arbitrary lifetimes which needs persistent storage
-
-		
-
 		/*	
 			Much easier to NOT suballocate memory for structured buffers due to their inherently dynamic element size.
 			Rather, make a committed one for each structured buffer and anassociated SRV!
@@ -251,89 +247,65 @@ int main()
 
 		*/
 
+
 		/*
-			DXBufferManager:
-				- Utilizes HandlePool
+			Setup quick primtives (pipeline)
+			using immediate buffer to test our constant buffer
+		
+		*/
 
-			struct ConstantViewBufferMD
-			{
-				DXConstantSuballocation* allocation;
-				bool transient = false;		// Determines whether we utilizes static bufffer or ring buffer
-			}
+		cptr<ID3D12RootSignature> rsig;
+		cptr<ID3D12PipelineState> pipe;
+		std::map<std::string, UINT> params;
+		{
+			// load shaders
+			auto vs_blob = shader_compiler->compile_from_file(
+				"shaders/vs.hlsl",
+				L"main",
+				L"vs_6_0");
+			auto ps_blob = shader_compiler->compile_from_file(
+				"shaders/ps.hlsl",
+				L"main",
+				L"ps_6_0");
 
-			struct ShaderViewBufferMD
-			{
-				DXShaderResourceBufferSuballocation* allocation;
-				bool transient = false;
-			}
+			D3D12_DESCRIPTOR_RANGE cbv_range{};
+			cbv_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+			cbv_range.NumDescriptors = 1;
 
-			struct UnorderedAccessBuffer
-			{
-				DXUnorderedAccessBufferSuballocation* allocation;
-			}
+			// setup rootsig
+			rsig = RootSigBuilder()
+				.push_table({ cbv_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
+				//.push_cbv(0, 0, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
+				.build(dev);
 
-			struct ResourceForHandle
-			{ 
-				std::variant<
-						ConstantBufferMD,
-						OtherBufferTypesMD> buffer_md;
-					
+			auto ds = DepthStencilDescBuilder()
+				.set_depth_enabled(false);
 
-				uint64_t handle;
-				void destroy() {}
-			}
+			pipe = PipelineBuilder()
+				.set_root_sig(rsig)
+				.set_shader_bytecode(*vs_blob, ShaderType::eVertex)
+				.set_shader_bytecode(*ps_blob, ShaderType::ePixel)
+				.append_rt_format(DXGI_FORMAT_R8G8B8A8_UNORM)
+				.set_depth_stencil(ds)
+				.build(dev);
+		}
 
-			*******
- 
-			UsageIntentCPU
-				- eUpdateNever					// device-local no matter GPU usage intent
-				- eUpdateSometimes				// device-local no matter GPU usage intent
-				- eUpdateOnceOrMorePerFrame		// upload heap constant buffer if eConstantRead ||||| upload heap common buffer if eShaderRead??
-
-			UsageIntentGPU
-				- eConstantRead				// CBV
-				- eShaderRead				// SRV	--> Structured Buffer specifically with element count >= 1
-				- eReadWrite				// UAV
-				// - eReadWriteRaw			// Raw UAV, but lets not support that for now
-			
-
-			Lets NOT support :
-				eUpdateOnceOrMorePerFrame + eShaderRead for now ---> Requires structured buffer created on upload heap
-
-			Musts:
-				- GPU eReadWrite MUST be accompanied with CPU eUpdateNever		---> I dont see a use case where you would want to have a GPU tinkered resource updated through the CPU...
-
-			*******
-
-
-			struct DXBufferDesc
-			{
-				UpdateIntentCPU cpu_usage;
-				UpdateIntentGPU gpu_usage;
-
-				uint32_t element_size;
-				uint32_t element_count;			// If 1 --> use constant buffer, else, structured
-			}
-
-
-
-			struct DataBlob
-			{
-				void* data;
-				size_t size;
-			}
-
-			BufferManager:
-				BufferHandle create_buffer(const BufferDesc& b_desc, std::optional<DataBlob> init_data);
-				void destory_buffer(BufferHandle handle)		--> do nothing if transient (cleaned up by itself), return if non-transient
-				
-				DXSuballocation* get_resource(BufferHandle handle);
-
-			*/
-
-
-
-
+		// create primary desc heap (frame buffered) (400 per frame)
+		UINT descs_per_frame = 400;
+		cptr<ID3D12DescriptorHeap> gpu_main_dheap;
+		{
+			D3D12_DESCRIPTOR_HEAP_DESC dhd{};
+			dhd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+			dhd.NumDescriptors = descs_per_frame * max_FIF;
+			dhd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+			if (FAILED(dev->CreateDescriptorHeap(&dhd, IID_PPV_ARGS(gpu_main_dheap.GetAddressOf()))))
+				assert(false);
+		}
+		
+		// copy over descriptor to gpu visible desc heap
+		buf_mgr.copy_descriptor(gpu_main_dheap->GetCPUDescriptorHandleForHeapStart(), buf_handle);
+	
+		
 		MSG msg{};
 		while (g_app_running)
 		{
@@ -352,6 +324,8 @@ int main()
 			// wait for FIF
 			frame_res.sync.wait();
 			
+
+
 			cpu_pf.frame_begin();
 			gpu_pf.frame_begin(surface_idx);
 			g_gui_ctx->frame_begin();
@@ -411,7 +385,23 @@ int main()
 			dq_cmdl->ClearRenderTargetView(rtv_hdl, clear_color, 1, &main_scissor);
 			gpu_pf.profile_end(dq_cmdl, "clear");
 
+			// set draw target
 			dq_cmdl->OMSetRenderTargets(1, &rtv_hdl, false, nullptr);
+
+			// main draw
+			gpu_pf.profile_begin(dq_cmdl, dq, "main draw setup");
+			dq_cmdl->RSSetViewports(1, &main_vp);
+			dq_cmdl->RSSetScissorRects(1, &main_scissor);
+			dq_cmdl->SetDescriptorHeaps(1, gpu_main_dheap.GetAddressOf());
+			dq_cmdl->SetGraphicsRootSignature(rsig.Get());
+			dq_cmdl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+			dq_cmdl->SetGraphicsRootDescriptorTable(params["my_cbv"], gpu_main_dheap->GetGPUDescriptorHandleForHeapStart());
+			dq_cmdl->SetPipelineState(pipe.Get());
+			gpu_pf.profile_end(dq_cmdl, "main draw setup");
+
+			gpu_pf.profile_begin(dq_cmdl, dq, "main draw");
+			dq_cmdl->DrawInstanced(6, 1, 0, 0);
+			gpu_pf.profile_end(dq_cmdl, "main draw");
 
 			// render imgui data
 			dq_cmdl->SetDescriptorHeaps(1, dheap_for_imgui.GetAddressOf());		// We should reserve a single descriptor element on our main render desc heap
