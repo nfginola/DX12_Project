@@ -21,6 +21,7 @@ using uptr = std::unique_ptr<T>;
 #include <iostream>
 #include <functional>
 #include <filesystem>
+#include <array>
 
 #define DET_ERR(msg) std::string("Error at line: (" + std::to_string(__LINE__) + ") in file: (" + __FILE__ + ")\n") + std::string(msg)
 

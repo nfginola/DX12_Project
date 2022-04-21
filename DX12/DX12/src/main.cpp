@@ -14,6 +14,8 @@
 #include "Profiler/GPUProfiler.h"
 #include "Profiler/CPUProfiler.h"
 
+#include "DXTK/SimpleMath.h"
+
 #include "Graphics/DX/CompiledShaderBlob.h"
 
 #include "Graphics/DX/DXBuilders.h"
@@ -126,7 +128,7 @@ int main()
 		auto main_scissor = CD3DX12_RECT(0, 0, CLIENT_WIDTH, CLIENT_HEIGHT);
 
 		// Setup profiler
-		dev->SetStablePowerState(true);
+		dev->SetStablePowerState(false);
 		uint8_t pf_latency = max_FIF;
 		GPUProfiler gpu_pf(dev, GPUProfiler::QueueType::eDirectOrCompute, pf_latency);
 		CPUProfiler cpu_pf(pf_latency);
@@ -187,17 +189,23 @@ int main()
 		
 		DXBufferManager buf_mgr(dev);
 		
+		struct CBData
+		{
+			DirectX::XMFLOAT3 color;
+		};
+
+		CBData init{};
+		init.color = { 1.f, 1.f, 1.f };
+
 		DXBufferDesc bd{};
+		bd.data = &init;
+		bd.data_size = sizeof(CBData);
 		bd.element_count = 1;
-		bd.element_size = 128;
+		bd.element_size = sizeof(CBData);
 		bd.usage_cpu = UsageIntentCPU::eUpdateOnceOrMorePerFrame;	// transient
 		bd.usage_gpu = UsageIntentGPU::eConstantRead;
 		auto buf_handle = buf_mgr.create_buffer(bd);
 
-		// init some bogus data
-		uint8_t* some_data = (uint8_t*)malloc(128);
-		for (uint8_t i = 0; i < 128; ++i)
-			some_data[i] = (uint8_t)i;
 
 		/*	
 			Much easier to NOT suballocate memory for structured buffers due to their inherently dynamic element size.
@@ -274,8 +282,8 @@ int main()
 
 			// setup rootsig
 			rsig = RootSigBuilder()
-				.push_table({ cbv_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
-				//.push_cbv(0, 0, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
+				//.push_table({ cbv_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
+				.push_cbv(0, 0, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
 				.build(dev);
 
 			auto ds = DepthStencilDescBuilder()
@@ -303,7 +311,7 @@ int main()
 		}
 		
 		// copy over descriptor to gpu visible desc heap
-		buf_mgr.copy_descriptor(gpu_main_dheap->GetCPUDescriptorHandleForHeapStart(), buf_handle);
+		//buf_mgr.copy_descriptor(gpu_main_dheap->GetCPUDescriptorHandleForHeapStart(), buf_handle);
 	
 		
 		MSG msg{};
@@ -323,6 +331,8 @@ int main()
 
 			// wait for FIF
 			frame_res.sync.wait();
+
+
 			
 
 
@@ -336,7 +346,15 @@ int main()
 			cpu_pf.profile_begin("buf mgr frame begin");
 			buf_mgr.frame_begin(surface_idx);
 
-			buf_mgr.upload_data(some_data, 128, buf_handle);
+			std::array<DirectX::SimpleMath::Vector3, 3> colors;
+			colors[0] = { 1.f, 0.f, 0.f };
+			colors[1] = { 0.f, 1.f, 0.f };
+			colors[2] = { 0.f, 0.f, 1.f };
+
+			CBData this_data{};
+			this_data.color = colors[surface_idx];
+
+			buf_mgr.upload_data(&this_data, sizeof(CBData), buf_handle);
 
 			cpu_pf.profile_end("buf mgr frame begin");
 
@@ -387,6 +405,17 @@ int main()
 
 			// set draw target
 			dq_cmdl->OMSetRenderTargets(1, &rtv_hdl, false, nullptr);
+	
+			// copy to correct part of main desc heap
+			cpu_pf.profile_begin("copy descriptor");
+			auto desc_heap_now_cpu = gpu_main_dheap->GetCPUDescriptorHandleForHeapStart();
+			desc_heap_now_cpu.ptr += descs_per_frame * surface_idx * dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);	
+			for (int i = 0; i < 1000; ++i)
+				buf_mgr.copy_descriptor(desc_heap_now_cpu, buf_handle);
+			cpu_pf.profile_end("copy descriptor");
+			// grab gpu handle to the same place
+			auto desc_heap_now_gpu = gpu_main_dheap->GetGPUDescriptorHandleForHeapStart();
+			desc_heap_now_gpu.ptr += descs_per_frame * surface_idx * dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);	
 
 			// main draw
 			gpu_pf.profile_begin(dq_cmdl, dq, "main draw setup");
@@ -395,7 +424,12 @@ int main()
 			dq_cmdl->SetDescriptorHeaps(1, gpu_main_dheap.GetAddressOf());
 			dq_cmdl->SetGraphicsRootSignature(rsig.Get());
 			dq_cmdl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-			dq_cmdl->SetGraphicsRootDescriptorTable(params["my_cbv"], gpu_main_dheap->GetGPUDescriptorHandleForHeapStart());
+		
+			// select which method (direct bind or table binding?)
+			// table binding requires copying descriptors prior to reading
+			//dq_cmdl->SetGraphicsRootDescriptorTable(params["my_cbv"], desc_heap_now_gpu);
+			buf_mgr.bind_graphics(dq_cmdl, buf_handle, params["my_cbv"]);
+			
 			dq_cmdl->SetPipelineState(pipe.Get());
 			gpu_pf.profile_end(dq_cmdl, "main draw setup");
 
@@ -452,7 +486,7 @@ int main()
 
 		buf_mgr.destroy_buffer(buf_handle);
 
-		free(some_data);
+		//free(some_data);
 
 		delete g_input;
 		delete g_gui_ctx;

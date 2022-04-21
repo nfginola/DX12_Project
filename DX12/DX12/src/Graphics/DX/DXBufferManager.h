@@ -56,6 +56,8 @@ public:
 	// single descriptor copy to
 	void copy_descriptor(D3D12_CPU_DESCRIPTOR_HANDLE dst, BufferHandle src);
 
+	void bind_graphics(ID3D12GraphicsCommandList* cmdl, BufferHandle buf, UINT param_idx);
+
 	
 	
 private:

@@ -107,7 +107,7 @@ void DXBufferManager::upload_data(void* data, size_t size, BufferHandle hdl)
 			md.alloc = m_constant_ring_buf->allocate(res->total_requested_size);
 
 			// upload
-			assert(size == res->total_requested_size);		// assuming that user overwrites ALL of the data!
+			assert(size <= res->total_requested_size);	
 
 			// check that the memory IS mappable!
 			assert(md.alloc->get_memory()->mappable());
@@ -146,9 +146,9 @@ void DXBufferManager::copy_descriptor(D3D12_CPU_DESCRIPTOR_HANDLE dst, BufferHan
 	case UsageIntentGPU::eConstantRead:
 	{
 		auto& md = res->get_metadata<ConstantAccessBufferMD>();
-		auto src = md.alloc->get_cpu_descriptor();
+		auto src_desc = md.alloc->get_cpu_descriptor();
 
-		m_dev->CopyDescriptorsSimple(1, dst, src, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		m_dev->CopyDescriptorsSimple(1, dst, src_desc, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 		break;
 	}
 	case UsageIntentGPU::eShaderRead:
@@ -166,6 +166,14 @@ void DXBufferManager::copy_descriptor(D3D12_CPU_DESCRIPTOR_HANDLE dst, BufferHan
 		break;
 	}
 
+}
+
+void DXBufferManager::bind_graphics(ID3D12GraphicsCommandList* cmdl, BufferHandle buf, UINT param_idx)
+{
+	const auto& res = m_handles.get_resource(buf.handle);
+	const auto& md = res->get_metadata<ConstantAccessBufferMD>();
+
+	cmdl->SetGraphicsRootConstantBufferView(param_idx, md.alloc->get_memory()->get_gpu_adr());
 }
 
 void DXBufferManager::frame_begin(uint32_t frame_idx)
