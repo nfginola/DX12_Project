@@ -417,9 +417,9 @@ int main()
 			//auto desc_heap_now_gpu = gpu_main_dheap->GetGPUDescriptorHandleForHeapStart();
 			//desc_heap_now_gpu.ptr += descs_per_frame * surface_idx * dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-			cpu_pf.profile_begin("copy descriptor");
-			buf_mgr.copy_descriptor(gpu_main_dheap.Get(), descs_per_frame * surface_idx, buf_handle);
-			cpu_pf.profile_end("copy descriptor");
+			//cpu_pf.profile_begin("copy descriptor");
+			//buf_mgr.copy_descriptor(gpu_main_dheap.Get(), descs_per_frame * surface_idx, buf_handle);
+			//cpu_pf.profile_end("copy descriptor");
 
 
 			// main draw

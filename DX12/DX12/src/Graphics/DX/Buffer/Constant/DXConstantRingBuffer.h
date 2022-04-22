@@ -31,5 +31,18 @@ private:
 	// ring buffer of allocations being used for deallocations
 	std::queue<DXConstantSuballocation*> m_allocations_in_use;
 
+	/*
+		If we instead just have a queue with a struct:
+		struct ...
+		{
+			FrameIdx
+			DXBufferSuballocations
+		}
+
+		stored internally, that is enough to internally keep track!
+		We can still simply return a DXBufferSuballocation.
+	
+	*/
+
 	uint32_t m_curr_frame_idx = 0;
 };

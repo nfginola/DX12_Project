@@ -96,6 +96,12 @@
     <ClCompile Include="src\Graphics\DX\DXBuilders.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Graphics\DX\Buffer\DXBufferPoolAllocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\DX\Buffer\DXBufferRingPoolAllocator.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.h">
@@ -195,6 +201,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Graphics\DX\DXBuilders.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\DX\Buffer\DXBufferPoolAllocator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\DX\Buffer\DXBufferRingPoolAllocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

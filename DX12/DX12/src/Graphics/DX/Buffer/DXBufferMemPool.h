@@ -34,6 +34,7 @@ class DXBufferMemPool
 public:
 	DXBufferMemPool() = delete;
 	DXBufferMemPool(ID3D12Device* dev, uint16_t element_size, uint32_t num_elements, D3D12_HEAP_TYPE heap_type);
+	~DXBufferMemPool() = default;
 
 	// API for retrieving and returning suballocations
 	DXBufferSuballocation* allocate();

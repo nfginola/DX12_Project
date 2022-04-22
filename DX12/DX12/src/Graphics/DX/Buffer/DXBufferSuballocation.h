@@ -29,7 +29,7 @@ private:
 	uint64_t m_allocation_id = 0;
 
 	// For copying
-	ID3D12Resource* m_base_buffer{};					// Non-owning ptr to base buffer. ComPtr takes care of cleaning up, this doesnt have to worry (verify with DXGI Debug Print on application exit)
+	ID3D12Resource* m_base_buffer = nullptr;					// Non-owning ptr to base buffer. ComPtr takes care of cleaning up, this doesnt have to worry (verify with DXGI Debug Print on application exit)
 	uint32_t m_offset_from_base = 0;
 	uint32_t m_size = 0;
 

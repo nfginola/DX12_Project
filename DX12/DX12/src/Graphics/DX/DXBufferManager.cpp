@@ -6,6 +6,9 @@
 #include "Buffer/Constant/DXConstantRingBuffer.h"
 #include "Buffer/Constant/DXConstantStaticBuffer.h"
 
+
+
+
 DXBufferManager::~DXBufferManager()
 {
 
@@ -16,8 +19,32 @@ DXBufferManager::DXBufferManager(Microsoft::WRL::ComPtr<ID3D12Device> dev) :
 {
 	// initialize data structures for constant data management
 
-	m_constant_ring_buf = std::make_unique<DXConstantRingBuffer>(dev);
-	m_constant_persistent_buf = std::make_unique<DXConstantStaticBuffer>(dev);
+	//m_constant_ring_buf = std::make_unique<DXConstantRingBuffer>(dev);
+	//m_constant_persistent_buf = std::make_unique<DXConstantStaticBuffer>(dev);
+
+
+	// setup allocator for persistent memory
+	{
+		auto pool_infos =
+		{
+			DXBufferPoolAllocator::PoolInfo(1, 256, 100),
+			DXBufferPoolAllocator::PoolInfo(1, 512, 50),
+			DXBufferPoolAllocator::PoolInfo(1, 1024, 25),
+		};
+		m_constant_persistent_buf2 = std::make_unique<DXBufferPoolAllocator>(dev, pool_infos, D3D12_HEAP_TYPE_DEFAULT);
+	}
+
+	// setup ring buffer for transient upload buffer
+	{
+		auto pool_infos =
+		{
+			DXBufferPoolAllocator::PoolInfo(1, 256, 100),
+			DXBufferPoolAllocator::PoolInfo(1, 512, 50),
+			DXBufferPoolAllocator::PoolInfo(1, 1024, 25),
+		};
+		auto pool_for_ring = std::make_unique<DXBufferPoolAllocator>(dev, pool_infos, D3D12_HEAP_TYPE_UPLOAD);
+		m_constant_ring_buf2 = std::make_unique<DXBufferRingPoolAllocator>(std::move(pool_for_ring));
+	}
 }
 
 BufferHandle DXBufferManager::create_buffer(const DXBufferDesc& desc)
@@ -40,7 +67,8 @@ BufferHandle DXBufferManager::create_buffer(const DXBufferDesc& desc)
 		const auto& md = res->get_metadata<ConstantAccessBufferMD>();
 
 		// upload init. data
-		auto dst = md.alloc->get_memory()->get_mapped_memory();
+		//auto dst = md.alloc->get_memory()->get_mapped_memory();
+		auto dst = md.alloc->get_mapped_memory();
 		auto src = desc.data;
 		std::memcpy(dst, src, desc.data_size);
 		
@@ -78,7 +106,8 @@ void DXBufferManager::destroy_buffer(BufferHandle hdl)
 		auto& md = res->get_metadata<ConstantAccessBufferMD>();
 		if (!md.transient)
 		{
-			m_constant_persistent_buf->deallocate(md.alloc);
+			//m_constant_persistent_buf->deallocate(md.alloc);
+			m_constant_persistent_buf2->deallocate(md.alloc);
 		}
 		break;
 	}
@@ -104,15 +133,18 @@ void DXBufferManager::upload_data(void* data, size_t size, BufferHandle hdl)
 		if (md.transient)
 		{
 			// grab new memory from ring buffer
-			md.alloc = m_constant_ring_buf->allocate(res->total_requested_size);
+			//md.alloc = m_constant_ring_buf->allocate(res->total_requested_size);
+			md.alloc = m_constant_ring_buf2->allocate(res->total_requested_size);
 
 			// upload
 			assert(size <= res->total_requested_size);	
 
 			// check that the memory IS mappable!
-			assert(md.alloc->get_memory()->mappable());
+			//assert(md.alloc->get_memory()->mappable());
+			assert(md.alloc->mappable());
 
-			auto dst = md.alloc->get_memory()->get_mapped_memory();
+			//auto dst = md.alloc->get_memory()->get_mapped_memory();
+			auto dst = md.alloc->get_mapped_memory();
 			auto src = data;
 			std::memcpy(dst, src, size);
 		}
@@ -140,64 +172,64 @@ void DXBufferManager::upload_data(void* data, size_t size, BufferHandle hdl)
 
 void DXBufferManager::copy_descriptor(D3D12_CPU_DESCRIPTOR_HANDLE dst, BufferHandle src)
 {
-	auto res = m_handles.get_resource(src.handle);
-	switch (res->usage_gpu)
-	{
-	case UsageIntentGPU::eConstantRead:
-	{
-		auto& md = res->get_metadata<ConstantAccessBufferMD>();
-		auto src_desc = md.alloc->get_cpu_descriptor();
+	//auto res = m_handles.get_resource(src.handle);
+	//switch (res->usage_gpu)
+	//{
+	//case UsageIntentGPU::eConstantRead:
+	//{
+	//	auto& md = res->get_metadata<ConstantAccessBufferMD>();
+	//	auto src_desc = md.alloc->get_cpu_descriptor();
 
-		m_dev->CopyDescriptorsSimple(1, dst, src_desc, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		break;
-	}
-	case UsageIntentGPU::eShaderRead:
-	{
-		assert(false);
-		break;
-	}
-	case UsageIntentGPU::eReadWrite:
-	{
-		assert(false);		// ..
-		break;
-	}
-	default:
-		assert(false);		// programmer error: forgot to fill UsageIntentGPU on the underlying resource somewhere!
-		break;
-	}
+	//	m_dev->CopyDescriptorsSimple(1, dst, src_desc, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//	break;
+	//}
+	//case UsageIntentGPU::eShaderRead:
+	//{
+	//	assert(false);
+	//	break;
+	//}
+	//case UsageIntentGPU::eReadWrite:
+	//{
+	//	assert(false);		// ..
+	//	break;
+	//}
+	//default:
+	//	assert(false);		// programmer error: forgot to fill UsageIntentGPU on the underlying resource somewhere!
+	//	break;
+	//}
 
 }
 
 void DXBufferManager::copy_descriptor(ID3D12DescriptorHeap* dst, UINT descs_offset_to_start, BufferHandle src)
 {
-	auto res = m_handles.get_resource(src.handle);
-	auto dst_final = dst->GetCPUDescriptorHandleForHeapStart();
-	dst_final.ptr += descs_offset_to_start * m_dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//auto res = m_handles.get_resource(src.handle);
+	//auto dst_final = dst->GetCPUDescriptorHandleForHeapStart();
+	//dst_final.ptr += descs_offset_to_start * m_dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	switch (res->usage_gpu)
-	{
-	case UsageIntentGPU::eConstantRead:
-	{
-		auto& md = res->get_metadata<ConstantAccessBufferMD>();
-		auto src_desc = md.alloc->get_cpu_descriptor();
+	//switch (res->usage_gpu)
+	//{
+	//case UsageIntentGPU::eConstantRead:
+	//{
+	//	auto& md = res->get_metadata<ConstantAccessBufferMD>();
+	//	auto src_desc = md.alloc->get_cpu_descriptor();
 
-		m_dev->CopyDescriptorsSimple(1, dst_final, src_desc, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		break;
-	}
-	case UsageIntentGPU::eShaderRead:
-	{
-		assert(false);
-		break;
-	}
-	case UsageIntentGPU::eReadWrite:
-	{
-		assert(false);		// ..
-		break;
-	}
-	default:
-		assert(false);		// programmer error: forgot to fill UsageIntentGPU on the underlying resource somewhere!
-		break;
-	}
+	//	m_dev->CopyDescriptorsSimple(1, dst_final, src_desc, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//	break;
+	//}
+	//case UsageIntentGPU::eShaderRead:
+	//{
+	//	assert(false);
+	//	break;
+	//}
+	//case UsageIntentGPU::eReadWrite:
+	//{
+	//	assert(false);		// ..
+	//	break;
+	//}
+	//default:
+	//	assert(false);		// programmer error: forgot to fill UsageIntentGPU on the underlying resource somewhere!
+	//	break;
+	//}
 }
 
 void DXBufferManager::bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, BufferHandle buf, UINT param_idx, RootArgDest dest)
@@ -210,7 +242,7 @@ void DXBufferManager::bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, Buffer
 	{
 		const auto& md = res->get_metadata<ConstantAccessBufferMD>();
 		if (dest == RootArgDest::eGraphics)
-			cmdl->SetGraphicsRootConstantBufferView(param_idx, md.alloc->get_memory()->get_gpu_adr());	
+			cmdl->SetGraphicsRootConstantBufferView(param_idx, md.alloc->get_gpu_adr());	
 
 		break;
 	}
@@ -234,7 +266,8 @@ void DXBufferManager::bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, Buffer
 void DXBufferManager::frame_begin(uint32_t frame_idx)
 {
 	// resources are freed back to the ring buffer on a per-frame basis
-	m_constant_ring_buf->frame_begin(frame_idx);
+	//m_constant_ring_buf->frame_begin(frame_idx);
+	m_constant_ring_buf2->frame_begin(frame_idx);
 
 
 }
@@ -250,7 +283,8 @@ DXBufferManager::InternalBufferResource* DXBufferManager::grab_constant_memory(c
 	{
 		handle_alloc = m_handles.get_next_free_handle();
 		auto& md = handle_alloc.resource->get_metadata<ConstantAccessBufferMD>();
-		md.alloc = m_constant_persistent_buf->allocate(desc.element_count * desc.element_size);
+		//md.alloc = m_constant_persistent_buf->allocate(desc.element_count * desc.element_size);
+		md.alloc = m_constant_persistent_buf2->allocate(desc.element_count * desc.element_size);
 		md.transient = false;
 		break;
 	}
@@ -258,7 +292,8 @@ DXBufferManager::InternalBufferResource* DXBufferManager::grab_constant_memory(c
 	{
 		handle_alloc = m_handles.get_next_free_handle();
 		auto& md = handle_alloc.resource->get_metadata<ConstantAccessBufferMD>();
-		md.alloc = m_constant_ring_buf->allocate(desc.element_count * desc.element_size);
+		//md.alloc = m_constant_ring_buf->allocate(desc.element_count * desc.element_size);
+		md.alloc = m_constant_ring_buf2->allocate(desc.element_count * desc.element_size);
 		md.transient = true;
 		break;
 	}

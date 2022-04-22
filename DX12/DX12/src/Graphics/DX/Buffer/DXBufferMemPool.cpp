@@ -78,7 +78,7 @@ DXBufferMemPool::DXBufferMemPool(ID3D12Device* dev, uint16_t element_size, uint3
 DXBufferSuballocation* DXBufferMemPool::allocate()
 {
 	if (m_free_allocations.empty())
-		return {};
+		return nullptr;
 
 	DXBufferSuballocation* new_allocation = m_free_allocations.front();
 	m_allocations_in_use.insert(new_allocation->m_allocation_id);

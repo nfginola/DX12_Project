@@ -6,6 +6,8 @@
 // Handle constant data suballocations
 #include "Buffer/Constant/DXConstantSuballocation.h"
 
+#include "Buffer/DXBufferPoolAllocator.h"
+#include "Buffer/DXBufferRingPoolAllocator.h"
 
 // Allocation algorithms for constant data management
 class DXConstantRingBuffer;
@@ -68,9 +70,15 @@ private:
 
 	struct ConstantAccessBufferMD
 	{
-		DXConstantSuballocation* alloc;
+		DXBufferSuballocation* alloc;
 		bool transient = false;
 	};
+	
+	//struct ConstantAccessBufferMD
+	//{
+	//	DXConstantSuballocation* alloc;
+	//	bool transient = false;
+	//};
 
 	struct ShaderAccessBufferMD
 	{
@@ -120,8 +128,12 @@ private:
 
 	HandlePool<InternalBufferResource> m_handles;
 
-	std::unique_ptr<DXConstantRingBuffer> m_constant_ring_buf;
-	std::unique_ptr<DXConstantStaticBuffer> m_constant_persistent_buf;
+	//std::unique_ptr<DXConstantRingBuffer> m_constant_ring_buf;
+	//std::unique_ptr<DXConstantStaticBuffer> m_constant_persistent_buf;
+
+	// new versions
+	std::unique_ptr<DXBufferRingPoolAllocator> m_constant_ring_buf2;
+	std::unique_ptr<DXBufferPoolAllocator> m_constant_persistent_buf2;
 
 	/*
 		

@@ -161,6 +161,8 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Graphics\DX\Buffer\DXBufferRingPoolAllocator.cpp" />
+    <ClCompile Include="src\Graphics\DX\Buffer\DXBufferPoolAllocator.cpp" />
     <ClCompile Include="src\Graphics\DX\DXBufferManager.cpp" />
     <ClCompile Include="src\Graphics\DX\Buffer\Constant\DXConstantStaticBuffer.cpp" />
     <ClCompile Include="src\Graphics\DX\Buffer\Constant\DXConstantRingBuffer.cpp" />
@@ -214,6 +216,8 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Graphics\DX\Buffer\DXBufferRingPoolAllocator.h" />
+    <ClInclude Include="src\Graphics\DX\Buffer\DXBufferPoolAllocator.h" />
     <ClInclude Include="src\Graphics\DX\DXBufferManager.h" />
     <ClInclude Include="src\Graphics\DX\Buffer\Constant\DXConstantStaticBuffer.h" />
     <ClInclude Include="src\Graphics\DX\Buffer\DXBufferSuballocation.h" />
