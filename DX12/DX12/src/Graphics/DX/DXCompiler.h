@@ -42,10 +42,13 @@ public:
 	
 	sptr<CompiledShaderBlob> compile_from_file(
 		const std::filesystem::path& rel_path, 
-		const std::wstring profile,
+		ShaderType shader,
 		const std::wstring entry,
 		const DXCompiler::CompileOptions& options = {});
 	
+private:
+	std::wstring grab_profile(ShaderType shader);
+
 private:
 	ShaderModel m_shader_model;
 

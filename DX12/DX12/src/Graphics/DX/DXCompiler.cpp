@@ -30,9 +30,12 @@ DXCompiler::~DXCompiler()
 
 sptr<CompiledShaderBlob> DXCompiler::compile_from_file(
 	const std::filesystem::path& rel_path, 
+	ShaderType type,
 	const std::wstring entry,
-	const std::wstring profile, const DXCompiler::CompileOptions& options)
+	const DXCompiler::CompileOptions& options)
 {
+	std::wstring profile = grab_profile(type);
+
 	// Create blob to store compiled data
 	uint32_t code_page = CP_UTF8;
 	cptr<IDxcBlobEncoding> sourceBlob;
@@ -77,4 +80,43 @@ sptr<CompiledShaderBlob> DXCompiler::compile_from_file(
 
 	auto compiled = std::make_shared<CompiledShaderBlob>(res->GetBufferPointer(), (UINT)res->GetBufferSize());
 	return compiled;
+}
+
+std::wstring DXCompiler::grab_profile(ShaderType type)
+{
+	std::wstring profile;
+	switch (type)
+	{
+	case ShaderType::eVertex:
+		profile = L"vs";
+		break;
+	case ShaderType::ePixel:
+		profile = L"ps";
+		break;
+	case ShaderType::eGeometry:
+		profile = L"gs";
+		break;
+	case ShaderType::eHull:
+		profile = L"hs";
+		break;
+	case ShaderType::eDomain:
+		profile = L"ds";
+		break;
+	case ShaderType::eCompute:
+		profile = L"cs";
+		break;
+	default:
+		assert(false);
+	}
+	profile += L"_";
+
+	switch (m_shader_model)
+	{
+	case ShaderModel::e6_0:
+		profile += L"6_0";
+		break;
+	default:
+		assert(false);
+	}
+	return profile;
 }

@@ -3,8 +3,6 @@
 #include "Utilities/HandlePool.h"
 #include "Graphics/DX/DXCommon.h"
 
-// Handle constant data suballocations
-#include "Buffer/Constant/DXConstantSuballocation.h"
 
 #include "Buffer/DXBufferPoolAllocator.h"
 #include "Buffer/DXBufferRingPoolAllocator.h"
@@ -46,8 +44,6 @@ public:
 	void frame_begin(uint32_t frame_idx);
 
 	BufferHandle create_buffer(const DXBufferDesc& desc);
-	// we don't employ ref-counting since we want full control of buffer lifetime to go through here.
-	// (implicit destructions outside makes the release of data hard to reason about)
 	void destroy_buffer(BufferHandle hdl);
 
 	// Maybe should be moved to an DXCopyManager?					// Handles CPU-GPU and GPU-GPU copies and handles potentialy Waits associated with GPU-GPU copies
@@ -56,9 +52,6 @@ public:
 	//void wait_on_queue(ID3D12CommandQueue* queue);
 	 
 
-	// single descriptor copy to
-	void copy_descriptor(D3D12_CPU_DESCRIPTOR_HANDLE dst, BufferHandle src);
-	void copy_descriptor(ID3D12DescriptorHeap* dst, UINT dst_offset_to_start, BufferHandle src);
 
 	// Maybe should be moved to a DXRootArgBinder which has a reference to a BufferManager and a TextureManager?
 	void bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, BufferHandle buf, UINT param_idx, RootArgDest dest);
@@ -74,12 +67,6 @@ private:
 		bool transient = false;
 	};
 	
-	//struct ConstantAccessBufferMD
-	//{
-	//	DXConstantSuballocation* alloc;
-	//	bool transient = false;
-	//};
-
 	struct ShaderAccessBufferMD
 	{
 		int a = 1;	// to implement
@@ -92,6 +79,14 @@ private:
 
 	struct InternalBufferResource
 	{
+		std::variant<
+			ConstantAccessBufferMD,
+			ShaderAccessBufferMD,
+			UnorderedAccessBufferMD> metadata;
+
+		uint64_t total_requested_size = 0;
+		UsageIntentGPU usage_gpu = UsageIntentGPU::eInvalid;	// Used to idenetify metadata variant
+		
 		template <typename T>
 		T& get_metadata()
 		{
@@ -108,14 +103,6 @@ private:
 			return *to_ret;
 		}
 
-		std::variant<
-			ConstantAccessBufferMD,
-			ShaderAccessBufferMD,
-			UnorderedAccessBufferMD> metadata;
-
-		uint64_t total_requested_size = 0;
-		UsageIntentGPU usage_gpu = UsageIntentGPU::eInvalid;	// Used to idenetify metadata variant
-		
 		uint64_t handle = 0;
 		void destroy() { /* destruction is done externally */ }
 	};
@@ -125,24 +112,58 @@ private:
 
 private:
 	Microsoft::WRL::ComPtr<ID3D12Device> m_dev;
-
 	HandlePool<InternalBufferResource> m_handles;
 
-	//std::unique_ptr<DXConstantRingBuffer> m_constant_ring_buf;
-	//std::unique_ptr<DXConstantStaticBuffer> m_constant_persistent_buf;
-
-	// new versions
-	std::unique_ptr<DXBufferRingPoolAllocator> m_constant_ring_buf2;
-	std::unique_ptr<DXBufferPoolAllocator> m_constant_persistent_buf2;
-
 	/*
+		For buffers with persistent locations,
+		we should create a View for them according to the usage specified by the user
+
+		Persistent Buffers work well with Descriptors, since they are not frequently updated (so they 
+
+		We should be able to batch resources to contiguously store in a CPU descriptor heap;
+
+		TexHdl amb
+		TexHdl diff
+		TexHdl spec
+
+		DescHdl d_hdl = desc_mgr.allocate({ amb, diff, spec })		--> Group is required to be of same GPU access (e.g all SRVs)
+
+		BufHdl b1
+		BufHdl b2
+		BufHdl b3
+
+		DescHdl d_hdl2 = desc.mgr.allocate({ b1, b2, b3 })		--> Same as above (e.g they all must either be SRV or CBV)
+		--> Table with 3
+
+		--> If transient buffer/texture given --> Assert
+
+
+		Perhaps this should be an external thing that the app needs to do manually:
+			Meaning app has to:
+				1) Create resource(s)
+				2) Create descriptors for the resource(s) manually
+					--> This gives flexibility to placement of resources in the CPU visible descriptor heap!
+					--> If we automate this, it has to be tied with resource creation, which is arbitrary,
+						thus it is impossible to be flexible and smart with the descriptor management on the CPU only heap!
+
+
+		BindlessDescriptorManager should MAKE USE OF a DescriptorManager --> This is a specialized case
+		- Holds the most recent version of the resources
+		- Tracks changes with details (knows how the GPU version is outdated and can copy appropriately only the part that changes)
+
+
+
+
+
 		
 
-
-		m_structured_persistent_buf		--> uses pools too, but different sizes
+	
+	
+	
 	*/
 
-
+	std::unique_ptr<DXBufferRingPoolAllocator> m_constant_ring_buf;
+	std::unique_ptr<DXBufferPoolAllocator> m_constant_persistent_buf;
 
 
 };

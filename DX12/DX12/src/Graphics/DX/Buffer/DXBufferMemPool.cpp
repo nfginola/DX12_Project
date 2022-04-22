@@ -84,6 +84,8 @@ DXBufferSuballocation* DXBufferMemPool::allocate()
 	m_allocations_in_use.insert(new_allocation->m_allocation_id);
 	m_free_allocations.pop();
 
+	new_allocation->m_is_valid = true;
+
 	return new_allocation;
 }
 
@@ -97,6 +99,8 @@ void DXBufferMemPool::deallocate(DXBufferSuballocation* alloc)
 	assert(m_base_gpu_adr <= gpu_adr && gpu_adr < m_end_gpu_adr);
 	// crash if free-after-free detected
 	assert(m_allocations_in_use.find(alloc_id) != m_allocations_in_use.cend());
+
+	alloc->m_is_valid = false;
 
 	m_allocations_in_use.erase(alloc_id);
 	m_free_allocations.push(alloc);

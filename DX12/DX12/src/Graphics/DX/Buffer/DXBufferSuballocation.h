@@ -18,6 +18,8 @@ public:
 	uint32_t get_size() const { return m_size; }
 	D3D12_GPU_VIRTUAL_ADDRESS get_gpu_adr() const { return m_gpu_address; }
 
+	bool is_valid() const { return m_is_valid; }
+
 	bool mappable() const { return m_mapped_memory != nullptr; }
 	uint8_t* get_mapped_memory() const { assert(mappable()); return m_mapped_memory; }
 
@@ -35,4 +37,6 @@ private:
 
 	uint8_t* m_mapped_memory = nullptr;					// CPU updateable memory (optional)
 	D3D12_GPU_VIRTUAL_ADDRESS m_gpu_address{};			// GPU address to bind as immediate root argument
+
+	bool m_is_valid = false;			// Is app-handle valid?
 };

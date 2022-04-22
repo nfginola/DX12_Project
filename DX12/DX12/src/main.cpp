@@ -134,22 +134,23 @@ int main()
 		CPUProfiler cpu_pf(pf_latency);
 
 			
-		// Setup resource view for ImGUI usage
-		cptr<ID3D12DescriptorHeap> dheap_for_imgui;
+		// create primary desc heap (frame buffered) (500 per frame)
+		UINT descs_per_frame = 500;
+		cptr<ID3D12DescriptorHeap> gpu_main_dheap;
 		{
-			D3D12_DESCRIPTOR_HEAP_DESC desc = {};
-			desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-			desc.NumDescriptors = 1;
-			desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-			ThrowIfFailed(dev->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&dheap_for_imgui)), DET_ERR("Bazooka"));
+			D3D12_DESCRIPTOR_HEAP_DESC dhd{};
+			dhd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+			dhd.NumDescriptors = descs_per_frame * max_FIF;
+			dhd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+			if (FAILED(dev->CreateDescriptorHeap(&dhd, IID_PPV_ARGS(gpu_main_dheap.GetAddressOf()))))
+				assert(false);
 		}
-
 
 		// Setup ImGUI
 		g_gui_ctx = new GUIContext(win->get_hwnd(), dev, max_FIF,
-			dheap_for_imgui.Get(),
-			dheap_for_imgui->GetCPUDescriptorHandleForHeapStart(),
-			dheap_for_imgui->GetGPUDescriptorHandleForHeapStart());
+			gpu_main_dheap.Get(),
+			gpu_main_dheap->GetCPUDescriptorHandleForHeapStart(),		// slot 0 reserved for ImGUI
+			gpu_main_dheap->GetGPUDescriptorHandleForHeapStart());
 
 		// Setup test UI
 		bool show_pf = true;
@@ -205,6 +206,17 @@ int main()
 		bd.usage_cpu = UsageIntentCPU::eUpdateOnceOrMorePerFrame;	// transient
 		bd.usage_gpu = UsageIntentGPU::eConstantRead;
 		auto buf_handle = buf_mgr.create_buffer(bd);
+
+		DXBufferDesc bd2{};
+		init.color = { 0.3, 0.8, 0.1 };
+		bd2.data = &init;
+		bd2.data_size = sizeof(CBData);
+		bd2.element_count = 1;
+		bd2.element_size = sizeof(CBData);
+		bd2.usage_cpu = UsageIntentCPU::eUpdateSometimes;	// persistent
+		bd2.usage_gpu = UsageIntentGPU::eConstantRead;
+		auto buf_handle2 = buf_mgr.create_buffer(bd2);
+
 
 
 		/*	
@@ -269,12 +281,12 @@ int main()
 			// load shaders
 			auto vs_blob = shader_compiler->compile_from_file(
 				"shaders/vs.hlsl",
-				L"main",
-				L"vs_6_0");
+				ShaderType::eVertex,
+				L"main");
 			auto ps_blob = shader_compiler->compile_from_file(
 				"shaders/ps.hlsl",
-				L"main",
-				L"ps_6_0");
+				ShaderType::ePixel,
+				L"main");
 
 			D3D12_DESCRIPTOR_RANGE cbv_range{};
 			cbv_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
@@ -298,22 +310,44 @@ int main()
 				.build(dev);
 		}
 
-		// create primary desc heap (frame buffered) (400 per frame)
-		UINT descs_per_frame = 400;
-		cptr<ID3D12DescriptorHeap> gpu_main_dheap;
+
+		UINT max_per_frame_thing = 500;
+		// res for testing descriptor creation during runtime
+		cptr<ID3D12Resource> bogus_buf;
 		{
-			D3D12_DESCRIPTOR_HEAP_DESC dhd{};
-			dhd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-			dhd.NumDescriptors = descs_per_frame * max_FIF;
-			dhd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-			if (FAILED(dev->CreateDescriptorHeap(&dhd, IID_PPV_ARGS(gpu_main_dheap.GetAddressOf()))))
+			D3D12_HEAP_PROPERTIES hp{};
+			hp.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+			D3D12_RESOURCE_DESC rd{};
+			rd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+			rd.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+			rd.Width = (uint64_t)max_per_frame_thing * max_FIF * 256;
+			rd.Height = rd.DepthOrArraySize = rd.MipLevels = 1;
+			rd.Format = DXGI_FORMAT_UNKNOWN;
+			rd.SampleDesc = { 1, 0 };
+			rd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;		// Requirement for bufers
+			rd.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+			auto hr = dev->CreateCommittedResource(
+				&hp,
+				D3D12_HEAP_FLAG_NONE,
+				&rd,
+				D3D12_RESOURCE_STATE_COMMON,
+				nullptr,
+				IID_PPV_ARGS(bogus_buf.GetAddressOf()));
+			if (FAILED(hr))
 				assert(false);
 		}
-		
-		// copy over descriptor to gpu visible desc heap
-		//buf_mgr.copy_descriptor(gpu_main_dheap->GetCPUDescriptorHandleForHeapStart(), buf_handle);
-	
-		
+
+		cptr<ID3D12DescriptorHeap> bogus_desc_heap;
+		{
+			D3D12_DESCRIPTOR_HEAP_DESC dhd{};
+			dhd.NumDescriptors = max_per_frame_thing * 3;
+			dhd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+			dev->CreateDescriptorHeap(&dhd, IID_PPV_ARGS(bogus_desc_heap.GetAddressOf()));
+		}
+
+
 		MSG msg{};
 		while (g_app_running)
 		{
@@ -332,16 +366,10 @@ int main()
 			// wait for FIF
 			frame_res.sync.wait();
 
-
-			
-
-
 			cpu_pf.frame_begin();
 			gpu_pf.frame_begin(surface_idx);
 			g_gui_ctx->frame_begin();
 			
-			// handle resource management
-			//ring_buffer.frame_begin(surface_idx);
 			
 			cpu_pf.profile_begin("buf mgr frame begin");
 			buf_mgr.frame_begin(surface_idx);
@@ -357,6 +385,22 @@ int main()
 			buf_mgr.upload_data(&this_data, sizeof(CBData), buf_handle);
 
 			cpu_pf.profile_end("buf mgr frame begin");
+
+			cpu_pf.profile_begin("cbv creation");
+			for (int i = 0; i < max_per_frame_thing; ++i)
+			{
+				D3D12_CONSTANT_BUFFER_VIEW_DESC cbvd{};
+				auto gpu_thing = bogus_buf->GetGPUVirtualAddress();
+				gpu_thing += 256 * (i + max_per_frame_thing * surface_idx);
+				cbvd.BufferLocation = gpu_thing;
+				cbvd.SizeInBytes = 256;
+
+				auto to_place = bogus_desc_heap->GetCPUDescriptorHandleForHeapStart();
+				to_place.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * (i + max_per_frame_thing * surface_idx);
+				dev->CreateConstantBufferView(&cbvd, to_place);
+			}
+			cpu_pf.profile_end("cbv creation");
+
 
 
 			if (show_pf)
@@ -406,33 +450,16 @@ int main()
 			// set draw target
 			dq_cmdl->OMSetRenderTargets(1, &rtv_hdl, false, nullptr);
 	
-			// copy to correct part of main desc heap
-			//cpu_pf.profile_begin("copy descriptor");
-			//auto desc_heap_now_cpu = gpu_main_dheap->GetCPUDescriptorHandleForHeapStart();
-			//desc_heap_now_cpu.ptr += descs_per_frame * surface_idx * dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);	
-			//for (int i = 0; i < 1000; ++i)
-			//	buf_mgr.copy_descriptor(desc_heap_now_cpu, buf_handle);
-			//cpu_pf.profile_end("copy descriptor");
-			//// grab gpu handle to the same place
-			//auto desc_heap_now_gpu = gpu_main_dheap->GetGPUDescriptorHandleForHeapStart();
-			//desc_heap_now_gpu.ptr += descs_per_frame * surface_idx * dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-			//cpu_pf.profile_begin("copy descriptor");
-			//buf_mgr.copy_descriptor(gpu_main_dheap.Get(), descs_per_frame * surface_idx, buf_handle);
-			//cpu_pf.profile_end("copy descriptor");
-
+			// set main desc heap
+			dq_cmdl->SetDescriptorHeaps(1, gpu_main_dheap.GetAddressOf());
 
 			// main draw
 			gpu_pf.profile_begin(dq_cmdl, dq, "main draw setup");
 			dq_cmdl->RSSetViewports(1, &main_vp);
 			dq_cmdl->RSSetScissorRects(1, &main_scissor);
-			dq_cmdl->SetDescriptorHeaps(1, gpu_main_dheap.GetAddressOf());
 			dq_cmdl->SetGraphicsRootSignature(rsig.Get());
 			dq_cmdl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		
-			// select which method (direct bind or table binding?)
-			// table binding requires copying descriptors prior to reading
-			//dq_cmdl->SetGraphicsRootDescriptorTable(params["my_cbv"], desc_heap_now_gpu);
 			buf_mgr.bind_as_direct_arg(dq_cmdl, buf_handle, params["my_cbv"], RootArgDest::eGraphics);
 			
 			dq_cmdl->SetPipelineState(pipe.Get());
@@ -443,7 +470,7 @@ int main()
 			gpu_pf.profile_end(dq_cmdl, "main draw");
 
 			// render imgui data
-			dq_cmdl->SetDescriptorHeaps(1, dheap_for_imgui.GetAddressOf());		// We should reserve a single descriptor element on our main render desc heap
+			//dq_cmdl->SetDescriptorHeaps(1, dheap_for_imgui.GetAddressOf());		// We should reserve a single descriptor element on our main render desc heap
 			g_gui_ctx->render(dq_cmdl);
 
 			// transition
@@ -489,10 +516,6 @@ int main()
 		for (const auto& frame_res : per_frame_res)
 			frame_res.sync.wait();
 
-		buf_mgr.destroy_buffer(buf_handle);
-
-		//free(some_data);
-
 		delete g_input;
 		delete g_gui_ctx;
 
@@ -503,10 +526,6 @@ int main()
 	{
 		std::cerr << e.what() << std::endl;
 	}
-
-
-
-
 	_CrtDumpMemoryLeaks();
 
 	return 0;

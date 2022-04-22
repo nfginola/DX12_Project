@@ -5,7 +5,7 @@
 class DXBufferPoolAllocator;
 
 /*
-	A ring-buffered pool allocator
+	A ring-buffered pool allocator meant for transient resources
 */
 class DXBufferRingPoolAllocator
 {

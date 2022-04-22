@@ -81,15 +81,6 @@
     <ClCompile Include="src\Graphics\DX\Buffer\DXBufferMemPool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\DX\Buffer\Constant\DXConstantRingBuffer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Graphics\DX\Buffer\Constant\DXConstantStaticBuffer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Graphics\DX\Buffer\Constant\DXConstantSuballocator.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\Graphics\DX\DXBufferManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -182,19 +173,7 @@
     <ClInclude Include="src\Graphics\DX\Buffer\DXBufferMemPool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Graphics\DX\Buffer\Constant\DXConstantRingBuffer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Graphics\DX\Buffer\Constant\DXConstantSuballocation.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="src\Graphics\DX\Buffer\DXBufferSuballocation.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Graphics\DX\Buffer\Constant\DXConstantStaticBuffer.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Graphics\DX\Buffer\Constant\DXConstantSuballocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Graphics\DX\DXBufferManager.h">

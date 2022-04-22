@@ -8,10 +8,7 @@ public:
 	CompiledShaderBlob(void* data, size_t size);
 	~CompiledShaderBlob() = default;
 	
-	const std::vector<uint8_t>& get_blob() { return m_generic_blob; }
-
 	operator const std::vector<uint8_t>& ();
-	//operator D3D12_SHADER_BYTECODE();
 
 private:
 	friend class DXCompiler;
