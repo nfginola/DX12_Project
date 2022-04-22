@@ -141,7 +141,7 @@ private:
 		Perhaps this should be an external thing that the app needs to do manually:
 			Meaning app has to:
 				1) Create resource(s)
-				2) Create descriptors for the resource(s) manually
+				2) Create descriptors for the resource(s) manually through the manager
 					--> This gives flexibility to placement of resources in the CPU visible descriptor heap!
 					--> If we automate this, it has to be tied with resource creation, which is arbitrary,
 						thus it is impossible to be flexible and smart with the descriptor management on the CPU only heap!
@@ -150,6 +150,21 @@ private:
 		BindlessDescriptorManager should MAKE USE OF a DescriptorManager --> This is a specialized case
 		- Holds the most recent version of the resources
 		- Tracks changes with details (knows how the GPU version is outdated and can copy appropriately only the part that changes)
+		- Holds persistent Constant Buffers for each material
+			- When a descriptor (table) is unloaded, the constant buffer is also unloaded
+				- Therefore, that descriptor will not be accessible on subsequent frames after this removal.
+
+
+		--> If we want descriptor data --> Go to descriptor managers
+		--> If we want immediate binds --> Grab immediate resource info from BufferHandle / TextureHandle
+
+		
+		[  Static,      Dynamic (ring buffered)  ]
+
+		Static:
+		[  50 Reserved (e.g ImGUI),  1000 (100 CBVs, 850 SRVs, 50 UAVs),     Dynamic Descriptors   ]
+
+
 
 
 

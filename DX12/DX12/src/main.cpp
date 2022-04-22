@@ -28,6 +28,8 @@
 
 #include "shaders/ShaderInterop_Renderer.h"
 
+#include "Graphics/DX/Descriptor/DXDescriptorPool.h"
+
 static bool g_app_running = false;
 Input* g_input = nullptr;
 GUIContext* g_gui_ctx = nullptr;
@@ -348,6 +350,12 @@ int main()
 		}
 
 
+		DXDescriptorPool dpool(dev, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 100, true);
+		
+
+
+
+
 		MSG msg{};
 		while (g_app_running)
 		{
@@ -369,10 +377,30 @@ int main()
 			cpu_pf.frame_begin();
 			gpu_pf.frame_begin(surface_idx);
 			g_gui_ctx->frame_begin();
+
+
+			cpu_pf.profile_begin("list thing");
+			for (int i = 0; i < 50; ++i)
+			{
+				auto dalloc1 = dpool.allocate(7);
+				auto dalloc2 = dpool.allocate(7);
+				auto dalloc3 = dpool.allocate(7);
+
+				dpool.deallocate(std::move(dalloc2));
+
+				auto dalloc4 = dpool.allocate(4);
+
+				dpool.deallocate(std::move(dalloc3));
+
+				dpool.deallocate(std::move(dalloc1));
+				dpool.deallocate(std::move(dalloc4));
+			}
+			cpu_pf.profile_end("list thing");
 			
 			
 			cpu_pf.profile_begin("buf mgr frame begin");
 			buf_mgr.frame_begin(surface_idx);
+
 
 			std::array<DirectX::SimpleMath::Vector3, 3> colors;
 			colors[0] = { 1.f, 0.f, 0.f };

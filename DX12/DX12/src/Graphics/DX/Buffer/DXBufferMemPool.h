@@ -54,8 +54,8 @@ private:
 	D3D12_GPU_VIRTUAL_ADDRESS m_end_gpu_adr{};				// Used to verify deallocation
 
 	std::vector<DXBufferSuballocation> m_allocations;
-	std::set<uint64_t> m_allocations_in_use;				// for internal verification (e.g handle free-after-free)
 	std::queue<DXBufferSuballocation*> m_free_allocations;
+	std::set<uint64_t> m_allocations_in_use;				// for internal verification (e.g handle free-after-free)
 
 	uint16_t m_element_size = 0;
 

@@ -23,6 +23,8 @@ public:
 	bool mappable() const { return m_mapped_memory != nullptr; }
 	uint8_t* get_mapped_memory() const { assert(mappable()); return m_mapped_memory; }
 
+	uint64_t get_id() { return m_allocation_id; }
+
 private:
 	friend class DXBufferMemPool;
 	DXBufferSuballocation() = default;								// Protect calling app from constructing a bogus allocation
