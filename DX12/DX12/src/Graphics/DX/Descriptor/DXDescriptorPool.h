@@ -34,6 +34,9 @@ private:
 	D3D12_CPU_DESCRIPTOR_HANDLE m_curr_cpu_unallocated_start;
 	D3D12_GPU_DESCRIPTOR_HANDLE m_curr_gpu_unallocated_start;
 
-	std::list<DescriptorChunk> m_free_chunks;
+	//std::list<DescriptorChunk> m_free_chunks;
+
+	size_t m_used_indices = 0;
+	std::vector<DescriptorChunk> m_free_chunks2;
 };
 

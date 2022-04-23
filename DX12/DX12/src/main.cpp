@@ -380,7 +380,7 @@ int main()
 
 
 			cpu_pf.profile_begin("list thing");
-			for (int i = 0; i < 50; ++i)
+			for (int i = 0; i < 100; ++i)
 			{
 				auto dalloc1 = dpool.allocate(7);
 				auto dalloc2 = dpool.allocate(7);
