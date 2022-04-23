@@ -5,7 +5,7 @@ DXDescriptorHeapGPU::DXDescriptorHeapGPU(cptr<ID3D12Device> dev, D3D12_DESCRIPTO
 	m_dev(dev),
 	m_type(type)
 {
-	constexpr auto max_descriptors = 5000;
+	constexpr auto max_descriptors = 6000;
 
 	m_base_main_pool = std::make_unique<DXDescriptorPool>(dev, type, max_descriptors, true);
 	// static part first half
@@ -16,6 +16,26 @@ DXDescriptorHeapGPU::DXDescriptorHeapGPU(cptr<ID3D12Device> dev, D3D12_DESCRIPTO
 	// steal allocations and sub-manage
 	m_static_part = std::make_unique<DXDescriptorPool>(dev, std::move(static_alloc), type);
 	m_dynamic_part = std::make_unique<DXDescriptorPool>(dev, std::move(dyn_alloc), type);
+}
+
+void DXDescriptorHeapGPU::begin_frame(uint32_t frame_idx)
+{
+	m_frame_idx = frame_idx;
+
+	while (!m_active_dynamic_allocs2.empty())
+	{
+		auto& alloc_in_use = m_active_dynamic_allocs2.front();
+		if (alloc_in_use.frame_idx == frame_idx)
+		{
+			// remove from internal tracker
+			m_active_dynamic_allocs2.pop();
+
+			m_dynamic_part->deallocate(std::move(alloc_in_use.alloc));
+		}
+		else
+			break;
+	}
+
 }
 
 DXDescriptorAllocation DXDescriptorHeapGPU::allocate_static(uint32_t num_descriptors)
@@ -39,6 +59,11 @@ DXDescriptorAllocation DXDescriptorHeapGPU::allocate_dynamic(uint32_t num_descri
 	// tag allocation
 	m_active_dynamic_allocs.insert(to_ret.gpu_handle().ptr);
 
+	DynamicElement el{};
+	el.alloc = to_ret;
+	el.frame_idx = m_frame_idx;
+	m_active_dynamic_allocs2.push(std::move(el));
+
 	return to_ret;
 }
 
@@ -49,15 +74,6 @@ void DXDescriptorHeapGPU::deallocate_static(DXDescriptorAllocation&& alloc)
 		assert(false);		// couldnt find, programmer error
 
 	m_static_part->deallocate(std::move(alloc));
-}
-
-void DXDescriptorHeapGPU::deallocate_dynamic(DXDescriptorAllocation&& alloc)
-{
-	auto it = m_active_dynamic_allocs.find(alloc.gpu_handle().ptr);
-	if (it == m_active_dynamic_allocs.cend())
-		assert(false);		// couldnt find, programmer error
-
-	m_dynamic_part->deallocate(std::move(alloc));
 }
 
 ID3D12DescriptorHeap* DXDescriptorHeapGPU::get_desc_heap() const

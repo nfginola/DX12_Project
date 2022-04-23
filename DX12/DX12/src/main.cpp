@@ -113,22 +113,23 @@ int main()
 			res.dq_cmdl->Close();
 		}
 
-		// create RTVs
-		cptr<ID3D12DescriptorHeap> rtv_dheap;
-		D3D12_DESCRIPTOR_HEAP_DESC dheap_d{};
-		dheap_d.Type = D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
-		dheap_d.NumDescriptors = max_FIF;
-		ThrowIfFailed(dev->CreateDescriptorHeap(&dheap_d, IID_PPV_ARGS(rtv_dheap.GetAddressOf())), DET_ERR("Failed to create RTV descriptor heap"));
-		const auto rtv_hdl_size = gfx_ctx->get_hdl_sizes().rtv;
+		DXDescriptorHeapCPU cpu_rtv_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		DXDescriptorHeapGPU gpu_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+
+		// Allocate and use descriptor for RTVs
+		auto rtv_alloc = cpu_rtv_dheap.allocate(max_FIF);
 		for (auto i = 0; i < max_FIF; ++i)
 		{
-			auto hdl = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtv_dheap->GetCPUDescriptorHandleForHeapStart())
-				.Offset(i, rtv_hdl_size);
+			auto hdl = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtv_alloc.cpu_handle())
+				.Offset(i, rtv_alloc.descriptor_size());
 			dev->CreateRenderTargetView(gfx_sc->get_backbuffer(i), nullptr, hdl);
 		}
 
 		auto main_vp = CD3DX12_VIEWPORT(0.f, 0.f, CLIENT_WIDTH, CLIENT_HEIGHT, D3D12_MIN_DEPTH, D3D12_MAX_DEPTH);
 		auto main_scissor = CD3DX12_RECT(0, 0, CLIENT_WIDTH, CLIENT_HEIGHT);
+
+
 
 		// Setup profiler
 		dev->SetStablePowerState(false);
@@ -136,33 +137,12 @@ int main()
 		GPUProfiler gpu_pf(dev, GPUProfiler::QueueType::eDirectOrCompute, pf_latency);
 		CPUProfiler cpu_pf(pf_latency);
 
-			
-		// create primary desc heap (frame buffered) (500 per frame)
-		UINT descs_per_frame = 500;
-		cptr<ID3D12DescriptorHeap> gpu_main_dheap;
-		{
-			D3D12_DESCRIPTOR_HEAP_DESC dhd{};
-			dhd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-			dhd.NumDescriptors = descs_per_frame * max_FIF;
-			dhd.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-			if (FAILED(dev->CreateDescriptorHeap(&dhd, IID_PPV_ARGS(gpu_main_dheap.GetAddressOf()))))
-				assert(false);
-		}
-
-		// TEST
-		DXDescriptorHeapGPU gpu_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		// Allocate from main gpu dheap for ImGUI
 		auto imgui_alloc = gpu_dheap.allocate_static(1);
 		g_gui_ctx = new GUIContext(win->get_hwnd(), dev, max_FIF,
 			gpu_dheap.get_desc_heap(),
 			imgui_alloc.cpu_handle(),		// slot 0 reserved for ImGUI
 			imgui_alloc.gpu_handle());
-
-
-		// Setup ImGUI
-		//g_gui_ctx = new GUIContext(win->get_hwnd(), dev, max_FIF,
-		//	gpu_main_dheap.Get(),
-		//	gpu_main_dheap->GetCPUDescriptorHandleForHeapStart(),		// slot 0 reserved for ImGUI
-		//	gpu_main_dheap->GetGPUDescriptorHandleForHeapStart());
 
 		// Setup test UI
 		bool show_pf = true;
@@ -358,6 +338,22 @@ int main()
 		}
 
 		{
+			std::vector<DXDescriptorAllocation> allocs;
+			allocs.push_back(gpu_dheap.allocate_static(30));
+			allocs.push_back(gpu_dheap.allocate_static(30));
+			allocs.push_back(gpu_dheap.allocate_static(30));
+			allocs.push_back(gpu_dheap.allocate_static(30));
+
+
+			allocs.push_back(gpu_dheap.allocate_dynamic(30));
+			allocs.push_back(gpu_dheap.allocate_dynamic(30));
+			allocs.push_back(gpu_dheap.allocate_dynamic(30));
+
+
+			gpu_dheap.deallocate_static(std::move(allocs[0]));
+			gpu_dheap.deallocate_static(std::move(allocs[1]));
+			gpu_dheap.deallocate_static(std::move(allocs[2]));
+			gpu_dheap.deallocate_static(std::move(allocs[3]));
 
 		}
 
@@ -385,7 +381,19 @@ int main()
 			gpu_pf.frame_begin(surface_idx);
 			g_gui_ctx->frame_begin();
 
+			gpu_dheap.begin_frame(surface_idx);
+
 			
+			cpu_pf.profile_begin("allocate dynamic descs");
+			for (int i = 0; i < 50; ++i)
+			{
+				gpu_dheap.allocate_dynamic(30);
+				gpu_dheap.allocate_dynamic(30);
+				gpu_dheap.allocate_dynamic(30);
+				gpu_dheap.allocate_dynamic(30);
+			}
+
+			cpu_pf.profile_end("allocate dynamic descs");
 			
 			cpu_pf.profile_begin("buf mgr frame begin");
 			buf_mgr.frame_begin(surface_idx);
@@ -441,8 +449,8 @@ int main()
 
 			// clear
 			gpu_pf.profile_begin(dq_cmdl, dq, "clear");
-			auto rtv_hdl = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtv_dheap->GetCPUDescriptorHandleForHeapStart())
-				.Offset(surface_idx, rtv_hdl_size);
+			auto rtv_hdl = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtv_alloc.cpu_handle())
+				.Offset(surface_idx, rtv_alloc.descriptor_size());
 			FLOAT clear_color[4] = { 0.5f, 0.2f, 0.2f, 1.f };
 			dq_cmdl->ClearRenderTargetView(rtv_hdl, clear_color, 1, &main_scissor);
 			gpu_pf.profile_end(dq_cmdl, "clear");
