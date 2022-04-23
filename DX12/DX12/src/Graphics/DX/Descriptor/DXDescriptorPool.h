@@ -5,6 +5,14 @@
 
 #include <list>
 
+
+/*
+	Allocates in a free-list fashion and also does memory coalescing.
+	Using small pools is recommended so that we dont have too large chunks to iterate over when deallocating!
+	The list is sorted by GPU address.
+
+	Using in place vector yields about 3x speedup in comparison to using std::list (checked in Release mode)
+*/
 class DXDescriptorPool
 {
 public:
@@ -12,7 +20,7 @@ public:
 	~DXDescriptorPool() = default;
 
 	DXDescriptorAllocation allocate(uint32_t num_requested_descriptors);
-	void deallocate(DXDescriptorAllocation&& alloc);
+	void deallocate(DXDescriptorAllocation&& alloc);		// experimentation: force use of move semantics so calling app is fully aware that the allocation they are holding is invalid afterwards!
 
 
 private:
@@ -31,8 +39,8 @@ private:
 	uint32_t m_max_descriptors = 0;
 	uint32_t m_handle_size = 0;
 
-	D3D12_CPU_DESCRIPTOR_HANDLE m_curr_cpu_unallocated_start;
-	D3D12_GPU_DESCRIPTOR_HANDLE m_curr_gpu_unallocated_start;
+	//D3D12_CPU_DESCRIPTOR_HANDLE m_curr_cpu_unallocated_start;
+	//D3D12_GPU_DESCRIPTOR_HANDLE m_curr_gpu_unallocated_start;
 
 	//std::list<DescriptorChunk> m_free_chunks;
 

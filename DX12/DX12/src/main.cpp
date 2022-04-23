@@ -382,13 +382,13 @@ int main()
 			cpu_pf.profile_begin("list thing");
 			for (int i = 0; i < 100; ++i)
 			{
-				auto dalloc1 = dpool.allocate(7);
-				auto dalloc2 = dpool.allocate(7);
-				auto dalloc3 = dpool.allocate(7);
+				auto dalloc1 = dpool.allocate(25);
+				auto dalloc2 = dpool.allocate(35);
+				auto dalloc3 = dpool.allocate(10);
 
 				dpool.deallocate(std::move(dalloc2));
 
-				auto dalloc4 = dpool.allocate(4);
+				auto dalloc4 = dpool.allocate(5);
 
 				dpool.deallocate(std::move(dalloc3));
 

@@ -18,8 +18,8 @@ DXDescriptorPool::DXDescriptorPool(cptr<ID3D12Device> dev, D3D12_DESCRIPTOR_HEAP
 	if (FAILED(hr))
 		assert(false);
 
-	m_curr_cpu_unallocated_start = m_desc_heap->GetCPUDescriptorHandleForHeapStart();
-	m_curr_gpu_unallocated_start = m_desc_heap->GetGPUDescriptorHandleForHeapStart();
+	//m_curr_cpu_unallocated_start = m_desc_heap->GetCPUDescriptorHandleForHeapStart();
+	//m_curr_gpu_unallocated_start = m_desc_heap->GetGPUDescriptorHandleForHeapStart();
 
 	DescriptorChunk full_chunk{};
 	full_chunk.cpu_start = m_desc_heap->GetCPUDescriptorHandleForHeapStart();;
@@ -199,6 +199,7 @@ void DXDescriptorPool::deallocate(DXDescriptorAllocation&& alloc)
 
 				// right merged with left
 				m_free_chunks2.erase(right_chunk_it);
+				--m_used_indices;
 				break;
 			}
 			else if (merge_left)

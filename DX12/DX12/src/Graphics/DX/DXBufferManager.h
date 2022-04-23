@@ -66,12 +66,21 @@ private:
 		DXBufferSuballocation* alloc;
 		bool transient = false;
 	};
+
+	// Due to time constraints, we will upgrade suballocations later for other types
+	// Since the other types require arbitrarily sized allocations
 	
+	// We cant use the Pool Allocator for Structured Buffers, because we essentially need a new MemPool per new Structured Buffer (which is equivalent to a Committed Resource)
+	// If we want to do properly, we'd need a generic buffer suballocator algorithm
+	// --> alloc(10 * sizeof(SomeStruct)  
+	
+	// Likely structured: Make Committed resource OR Placed 
 	struct ShaderAccessBufferMD
 	{
 		int a = 1;	// to implement
 	};
 
+	// Make Committed resource OR Placed.
 	struct UnorderedAccessBufferMD
 	{
 		int a = 1;	 // to implement
