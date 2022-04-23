@@ -17,11 +17,17 @@ class DXDescriptorPool
 {
 public:
 	DXDescriptorPool(cptr<ID3D12Device> dev, D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t max_descriptors, bool gpu_visible);
+	
+	// Can also act as a suballocator to a specific allocation!
+	// Here, we 'steal' ownership of the allocation from another pool
+	DXDescriptorPool(cptr<ID3D12Device> dev, DXDescriptorAllocation&& alloc, D3D12_DESCRIPTOR_HEAP_TYPE type);
+
 	~DXDescriptorPool() = default;
 
 	DXDescriptorAllocation allocate(uint32_t num_requested_descriptors);
 	void deallocate(DXDescriptorAllocation&& alloc);		// experimentation: force use of move semantics so calling app is fully aware that the allocation they are holding is invalid afterwards!
 
+	ID3D12DescriptorHeap* get_desc_heap() const;
 
 private:
 	struct DescriptorChunk
@@ -44,7 +50,7 @@ private:
 
 	//std::list<DescriptorChunk> m_free_chunks;
 
-	size_t m_used_indices = 0;
+	//size_t m_used_indices = 0;
 	std::vector<DescriptorChunk> m_free_chunks2;
 };
 

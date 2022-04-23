@@ -161,6 +161,8 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Graphics\DX\Descriptor\DXDescriptorHeapGPU.cpp" />
+    <ClCompile Include="src\Graphics\DX\Descriptor\DXDescriptorHeapCPU.cpp" />
     <ClCompile Include="src\Graphics\DX\Descriptor\DXDescriptorAllocation.cpp" />
     <ClCompile Include="src\Graphics\DX\Descriptor\DXDescriptorPool.cpp" />
     <ClCompile Include="src\Graphics\DX\Buffer\DXBufferRingPoolAllocator.cpp" />
@@ -215,6 +217,8 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Graphics\DX\Descriptor\DXDescriptorHeapGPU.h" />
+    <ClInclude Include="src\Graphics\DX\Descriptor\DXDescriptorHeapCPU.h" />
     <ClInclude Include="src\Graphics\DX\Descriptor\DXDescriptorPool.h" />
     <ClInclude Include="src\Graphics\DX\Buffer\DXBufferRingPoolAllocator.h" />
     <ClInclude Include="src\Graphics\DX\Buffer\DXBufferPoolAllocator.h" />

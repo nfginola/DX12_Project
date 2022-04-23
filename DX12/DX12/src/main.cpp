@@ -28,7 +28,8 @@
 
 #include "shaders/ShaderInterop_Renderer.h"
 
-#include "Graphics/DX/Descriptor/DXDescriptorPool.h"
+#include "Graphics/DX/Descriptor/DXDescriptorHeapCPU.h"
+#include "Graphics/DX/Descriptor/DXDescriptorHeapGPU.h"
 
 static bool g_app_running = false;
 Input* g_input = nullptr;
@@ -148,11 +149,20 @@ int main()
 				assert(false);
 		}
 
-		// Setup ImGUI
+		// TEST
+		DXDescriptorHeapGPU gpu_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		auto imgui_alloc = gpu_dheap.allocate_static(1);
 		g_gui_ctx = new GUIContext(win->get_hwnd(), dev, max_FIF,
-			gpu_main_dheap.Get(),
-			gpu_main_dheap->GetCPUDescriptorHandleForHeapStart(),		// slot 0 reserved for ImGUI
-			gpu_main_dheap->GetGPUDescriptorHandleForHeapStart());
+			gpu_dheap.get_desc_heap(),
+			imgui_alloc.cpu_handle(),		// slot 0 reserved for ImGUI
+			imgui_alloc.gpu_handle());
+
+
+		// Setup ImGUI
+		//g_gui_ctx = new GUIContext(win->get_hwnd(), dev, max_FIF,
+		//	gpu_main_dheap.Get(),
+		//	gpu_main_dheap->GetCPUDescriptorHandleForHeapStart(),		// slot 0 reserved for ImGUI
+		//	gpu_main_dheap->GetGPUDescriptorHandleForHeapStart());
 
 		// Setup test UI
 		bool show_pf = true;
@@ -313,46 +323,43 @@ int main()
 		}
 
 
-		UINT max_per_frame_thing = 500;
-		// res for testing descriptor creation during runtime
-		cptr<ID3D12Resource> bogus_buf;
+		// testing memory coalescing on disjoint deallocs
 		{
-			D3D12_HEAP_PROPERTIES hp{};
-			hp.Type = D3D12_HEAP_TYPE_DEFAULT;
+			DXDescriptorHeapCPU cpu_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-			D3D12_RESOURCE_DESC rd{};
-			rd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
-			rd.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
-			rd.Width = (uint64_t)max_per_frame_thing * max_FIF * 256;
-			rd.Height = rd.DepthOrArraySize = rd.MipLevels = 1;
-			rd.Format = DXGI_FORMAT_UNKNOWN;
-			rd.SampleDesc = { 1, 0 };
-			rd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;		// Requirement for bufers
-			rd.Flags = D3D12_RESOURCE_FLAG_NONE;
 
-			auto hr = dev->CreateCommittedResource(
-				&hp,
-				D3D12_HEAP_FLAG_NONE,
-				&rd,
-				D3D12_RESOURCE_STATE_COMMON,
-				nullptr,
-				IID_PPV_ARGS(bogus_buf.GetAddressOf()));
-			if (FAILED(hr))
-				assert(false);
+			std::vector<DXDescriptorAllocation> allocs;
+			allocs.push_back(cpu_dheap.allocate(100));
+			allocs.push_back(cpu_dheap.allocate(100));
+			allocs.push_back(cpu_dheap.allocate(100));
+			allocs.push_back(cpu_dheap.allocate(100));
+			allocs.push_back(cpu_dheap.allocate(100));
+
+			allocs.push_back(cpu_dheap.allocate(100));
+			allocs.push_back(cpu_dheap.allocate(100));
+			allocs.push_back(cpu_dheap.allocate(100));
+			allocs.push_back(cpu_dheap.allocate(100));
+			allocs.push_back(cpu_dheap.allocate(100));
+
+			cpu_dheap.deallocate(std::move(allocs[0]));
+			cpu_dheap.deallocate(std::move(allocs[2]));
+			cpu_dheap.deallocate(std::move(allocs[4]));
+
+			cpu_dheap.deallocate(std::move(allocs[0 + 5]));
+			cpu_dheap.deallocate(std::move(allocs[2 + 5]));
+
+			cpu_dheap.deallocate(std::move(allocs[1]));
+			cpu_dheap.deallocate(std::move(allocs[3]));
+
+			cpu_dheap.deallocate(std::move(allocs[4 + 5]));
+			cpu_dheap.deallocate(std::move(allocs[1 + 5]));
+			cpu_dheap.deallocate(std::move(allocs[3 + 5]));
+
 		}
 
-		cptr<ID3D12DescriptorHeap> bogus_desc_heap;
 		{
-			D3D12_DESCRIPTOR_HEAP_DESC dhd{};
-			dhd.NumDescriptors = max_per_frame_thing * 3;
-			dhd.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-			dev->CreateDescriptorHeap(&dhd, IID_PPV_ARGS(bogus_desc_heap.GetAddressOf()));
+
 		}
-
-
-		DXDescriptorPool dpool(dev, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 100, true);
-		
-
 
 
 
@@ -378,24 +385,6 @@ int main()
 			gpu_pf.frame_begin(surface_idx);
 			g_gui_ctx->frame_begin();
 
-
-			cpu_pf.profile_begin("list thing");
-			for (int i = 0; i < 100; ++i)
-			{
-				auto dalloc1 = dpool.allocate(25);
-				auto dalloc2 = dpool.allocate(35);
-				auto dalloc3 = dpool.allocate(10);
-
-				dpool.deallocate(std::move(dalloc2));
-
-				auto dalloc4 = dpool.allocate(5);
-
-				dpool.deallocate(std::move(dalloc3));
-
-				dpool.deallocate(std::move(dalloc1));
-				dpool.deallocate(std::move(dalloc4));
-			}
-			cpu_pf.profile_end("list thing");
 			
 			
 			cpu_pf.profile_begin("buf mgr frame begin");
@@ -414,26 +403,9 @@ int main()
 
 			cpu_pf.profile_end("buf mgr frame begin");
 
-			cpu_pf.profile_begin("cbv creation");
-			for (int i = 0; i < max_per_frame_thing; ++i)
-			{
-				D3D12_CONSTANT_BUFFER_VIEW_DESC cbvd{};
-				auto gpu_thing = bogus_buf->GetGPUVirtualAddress();
-				gpu_thing += 256 * (i + max_per_frame_thing * surface_idx);
-				cbvd.BufferLocation = gpu_thing;
-				cbvd.SizeInBytes = 256;
-
-				auto to_place = bogus_desc_heap->GetCPUDescriptorHandleForHeapStart();
-				to_place.ptr += dev->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV) * (i + max_per_frame_thing * surface_idx);
-				dev->CreateConstantBufferView(&cbvd, to_place);
-			}
-			cpu_pf.profile_end("cbv creation");
-
-
 
 			if (show_pf)
 			{
-
 				// query profiler results
 				std::cout << "GPU:\n";
 				const auto& profiles = gpu_pf.get_profiles();
@@ -479,7 +451,9 @@ int main()
 			dq_cmdl->OMSetRenderTargets(1, &rtv_hdl, false, nullptr);
 	
 			// set main desc heap
-			dq_cmdl->SetDescriptorHeaps(1, gpu_main_dheap.GetAddressOf());
+			//dq_cmdl->SetDescriptorHeaps(1, gpu_main_dheap.GetAddressOf());
+			ID3D12DescriptorHeap* dheaps[] = { gpu_dheap.get_desc_heap() };
+			dq_cmdl->SetDescriptorHeaps(1, dheaps);
 
 			// main draw
 			gpu_pf.profile_begin(dq_cmdl, dq, "main draw setup");

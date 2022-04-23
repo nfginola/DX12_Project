@@ -99,6 +99,12 @@
     <ClCompile Include="src\Graphics\DX\Descriptor\DXDescriptorAllocation.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\Graphics\DX\Descriptor\DXDescriptorHeapCPU.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Graphics\DX\Descriptor\DXDescriptorHeapGPU.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\pch.h">
@@ -198,6 +204,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Graphics\DX\Descriptor\DXDescriptorPool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\DX\Descriptor\DXDescriptorHeapCPU.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Graphics\DX\Descriptor\DXDescriptorHeapGPU.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

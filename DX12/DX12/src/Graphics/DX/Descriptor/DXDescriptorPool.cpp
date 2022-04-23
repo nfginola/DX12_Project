@@ -32,9 +32,26 @@ DXDescriptorPool::DXDescriptorPool(cptr<ID3D12Device> dev, D3D12_DESCRIPTOR_HEAP
 
 
 	// allocate worst case needs (use in place memory instead of list)
-	m_used_indices = 1;
+	//	m_used_indices = 1;
 	m_free_chunks2.reserve(max_descriptors);
 	m_free_chunks2.push_back(full_chunk);
+}
+
+DXDescriptorPool::DXDescriptorPool(cptr<ID3D12Device> dev, DXDescriptorAllocation&& alloc, D3D12_DESCRIPTOR_HEAP_TYPE type) :
+	m_dev(dev),
+	m_heap_type(type),
+	m_gpu_visible(alloc.gpu_visible()),
+	m_max_descriptors(alloc.num_descriptors()),
+	m_handle_size(dev->GetDescriptorHandleIncrementSize(type))
+{
+	// allocate worst case needs to keep memory in place
+	m_free_chunks2.reserve(alloc.num_descriptors());
+
+	DescriptorChunk new_chunk{};
+	new_chunk.cpu_start = alloc.cpu_handle();
+	new_chunk.gpu_start = alloc.gpu_handle();
+	new_chunk.num_descriptors = alloc.num_descriptors();
+	m_free_chunks2.push_back(new_chunk);
 }
 
 DXDescriptorAllocation DXDescriptorPool::allocate(uint32_t num_requested_descriptors)
@@ -65,11 +82,14 @@ DXDescriptorAllocation DXDescriptorPool::allocate(uint32_t num_requested_descrip
 	//assert(false);
 	//return {};
 
-	for (auto& chunk : m_free_chunks2)
+	for (auto it = m_free_chunks2.begin(); it != m_free_chunks2.end(); ++it)
 	{
+		auto& chunk = *it;
 		if (chunk.num_descriptors == num_requested_descriptors)
 		{
-			return DXDescriptorAllocation(chunk.cpu_start, chunk.gpu_start, m_handle_size, num_requested_descriptors);
+			auto to_ret = DXDescriptorAllocation(chunk.cpu_start, chunk.gpu_start, m_handle_size, num_requested_descriptors);
+			m_free_chunks2.erase(it);
+			return to_ret;
 		}
 		else if (chunk.num_descriptors > num_requested_descriptors)
 		{
@@ -87,10 +107,7 @@ DXDescriptorAllocation DXDescriptorPool::allocate(uint32_t num_requested_descrip
 			continue;
 	}
 
-	assert(false);
 	return {};
-
-
 }
 
 void DXDescriptorPool::deallocate(DXDescriptorAllocation&& alloc)
@@ -175,13 +192,17 @@ void DXDescriptorPool::deallocate(DXDescriptorAllocation&& alloc)
 	//	}
 	//}
 
-	auto it = m_free_chunks2.begin();
 
 	if (m_free_chunks2.size() > 1)
 	{
-		std::advance(it, 1);
-		for (auto i = 1; i < m_used_indices; ++i)
+		//std::advance(it, 1);
+		//for (auto i = 1; i < m_used_indices; ++i)
+		//for (auto i = 1; i < m_free_chunks2.size(); ++i)
+		for (auto it = m_free_chunks2.begin() + 1; it != m_free_chunks2.end(); ++it)
 		{
+			//auto it = m_free_chunks2.begin();
+			//std::advance(it, i);
+
 			const auto left_chunk_it = std::next(it, -1);
 			const auto right_chunk_it = it;
 			auto& left_chunk = *left_chunk_it;
@@ -199,7 +220,7 @@ void DXDescriptorPool::deallocate(DXDescriptorAllocation&& alloc)
 
 				// right merged with left
 				m_free_chunks2.erase(right_chunk_it);
-				--m_used_indices;
+				//--m_used_indices;
 				break;
 			}
 			else if (merge_left)
@@ -215,11 +236,22 @@ void DXDescriptorPool::deallocate(DXDescriptorAllocation&& alloc)
 				break;
 			}
 			else
-				assert(false);
+			{
+				DescriptorChunk chunk{};
+				chunk.cpu_start = alloc.cpu_handle();
+				chunk.gpu_start = alloc.gpu_handle();
+				chunk.num_descriptors = alloc.num_descriptors();
+				m_free_chunks2.push_back(chunk);
+				//++m_used_indices;
+				break;
+			}
+
+
 		}
 	}
-	else
+	else if (m_free_chunks2.size() == 1)
 	{
+		auto it = m_free_chunks2.begin();
 		auto& chunk = *it;
 
 		bool merge_left = alloc_gpu_start == chunk.gpu_start.ptr + chunk.num_descriptors * m_handle_size;
@@ -252,7 +284,21 @@ void DXDescriptorPool::deallocate(DXDescriptorAllocation&& alloc)
 			else
 				m_free_chunks2.push_back(disjoint_chunk);
 
-			++m_used_indices;
+			//++m_used_indices;
 		}
 	}
+	else
+	{
+		DescriptorChunk chunk{};
+		chunk.cpu_start = alloc.cpu_handle();
+		chunk.gpu_start = alloc.gpu_handle();
+		chunk.num_descriptors = alloc.num_descriptors();
+		m_free_chunks2.push_back(chunk);
+		//++m_used_indices;
+	}
+}
+
+ID3D12DescriptorHeap* DXDescriptorPool::get_desc_heap() const
+{
+	return m_desc_heap.Get();
 }
