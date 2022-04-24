@@ -267,12 +267,6 @@ int main()
 		*/
 
 
-		/*
-			Setup quick primtives (pipeline)
-			using immediate buffer to test our constant buffer
-		
-		*/
-
 		cptr<ID3D12RootSignature> rsig;
 		cptr<ID3D12PipelineState> pipe;
 		std::map<std::string, UINT> params;
@@ -310,62 +304,6 @@ int main()
 		}
 
 
-		// testing memory coalescing on disjoint deallocs
-		{
-			DXDescriptorHeapCPU cpu_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-
-			std::vector<DXDescriptorAllocation> allocs;
-			allocs.push_back(cpu_dheap.allocate(100));
-			allocs.push_back(cpu_dheap.allocate(100));
-			allocs.push_back(cpu_dheap.allocate(100));
-			allocs.push_back(cpu_dheap.allocate(100));
-			allocs.push_back(cpu_dheap.allocate(100));
-
-			allocs.push_back(cpu_dheap.allocate(100));
-			allocs.push_back(cpu_dheap.allocate(100));
-			allocs.push_back(cpu_dheap.allocate(100));
-			allocs.push_back(cpu_dheap.allocate(100));
-			allocs.push_back(cpu_dheap.allocate(100));
-
-			cpu_dheap.deallocate(std::move(allocs[0]));
-			cpu_dheap.deallocate(std::move(allocs[2]));
-			cpu_dheap.deallocate(std::move(allocs[4]));
-
-			cpu_dheap.deallocate(std::move(allocs[0 + 5]));
-			cpu_dheap.deallocate(std::move(allocs[2 + 5]));
-
-			cpu_dheap.deallocate(std::move(allocs[1]));
-			cpu_dheap.deallocate(std::move(allocs[3]));
-
-			cpu_dheap.deallocate(std::move(allocs[4 + 5]));
-			cpu_dheap.deallocate(std::move(allocs[1 + 5]));
-			cpu_dheap.deallocate(std::move(allocs[3 + 5]));
-
-		}
-
-		{
-			std::vector<DXDescriptorAllocation> allocs;
-			allocs.push_back(gpu_dheap.allocate_static(30));
-			allocs.push_back(gpu_dheap.allocate_static(30));
-			allocs.push_back(gpu_dheap.allocate_static(30));
-			allocs.push_back(gpu_dheap.allocate_static(30));
-
-
-			allocs.push_back(gpu_dheap.allocate_dynamic(30));
-			allocs.push_back(gpu_dheap.allocate_dynamic(30));
-			allocs.push_back(gpu_dheap.allocate_dynamic(30));
-
-
-			gpu_dheap.deallocate_static(std::move(allocs[0]));
-			gpu_dheap.deallocate_static(std::move(allocs[1]));
-			gpu_dheap.deallocate_static(std::move(allocs[2]));
-			gpu_dheap.deallocate_static(std::move(allocs[3]));
-
-		}
-
-
-
 
 		DXUploadContext up_ctx(dev, &buf_mgr, max_FIF);
 
@@ -394,17 +332,6 @@ int main()
 			gpu_dheap.frame_begin(surface_idx);
 
 
-			
-			cpu_pf.profile_begin("allocate dynamic descs");
-			for (int i = 0; i < 1; ++i)
-			{
-				gpu_dheap.allocate_dynamic(30);
-				gpu_dheap.allocate_dynamic(30);
-				gpu_dheap.allocate_dynamic(30);
-				gpu_dheap.allocate_dynamic(30);
-			}
-
-			cpu_pf.profile_end("allocate dynamic descs");
 			
 			cpu_pf.profile_begin("buf mgr frame begin");
 			buf_mgr.frame_begin(surface_idx);
@@ -447,7 +374,7 @@ int main()
 			dq_ator->Reset();
 			dq_cmdl->Reset(dq_ator, nullptr);
 
-			up_ctx.frame_begin(surface_idx, dq_cmdl);
+			up_ctx.frame_begin(surface_idx);
 
 			up_ctx.upload_data(&this_data, sizeof(CBData), buf_handle2);
 			for (int i = 0; i < hdls.size(); ++i)
@@ -456,14 +383,12 @@ int main()
 			}
 
 
-			up_ctx.submit_work(gfx_ctx->get_next_fence_value(), dq_cmdl);
-			// force direct queue to wait on the GPU for async copy to be done 
+			up_ctx.submit_work(gfx_ctx->get_next_fence_value());
+
+			// force direct queue to wait on the GPU for async copy to be done before submitting this frame
 			up_ctx.wait_for_async_copy(dq);
 
-
-
-
-			PIXBeginEvent(dq_cmdl, PIX_COLOR(0, 200, 200), "Hey");
+			PIXBeginEvent(dq_cmdl, PIX_COLOR(0, 200, 200), "Direct Queue Main");
 
 			gpu_pf.profile_begin(dq_cmdl, dq, "frame");
 			cpu_pf.profile_begin("cpu frame");
@@ -552,6 +477,8 @@ int main()
 
 		delete g_input;
 		delete g_gui_ctx;
+
+		free(some_mem);
 
 		g_input = nullptr;
 		g_gui_ctx = nullptr;

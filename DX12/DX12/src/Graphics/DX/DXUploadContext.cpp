@@ -2,6 +2,7 @@
 #include "DXUploadContext.h"
 #include "WinPixEventRuntime/pix3.h"
 
+static int thing = 0;
 
 DXUploadContext::DXUploadContext(cptr<ID3D12Device> dev, DXBufferManager* buf_mgr, uint32_t max_fif) :
 	m_dev(dev),
@@ -34,8 +35,9 @@ DXUploadContext::DXUploadContext(cptr<ID3D12Device> dev, DXBufferManager* buf_mg
 	}
 }
 
-void DXUploadContext::frame_begin(uint32_t frame_idx, ID3D12GraphicsCommandList* before_copy)
+void DXUploadContext::frame_begin(uint32_t frame_idx)
 {
+	// Assuming that resources that are used have been transitioned to Common state (for use on Copy queue)
 	m_curr_frame_idx = frame_idx;
 
 	m_ators[frame_idx]->Reset();
@@ -47,10 +49,8 @@ void DXUploadContext::frame_begin(uint32_t frame_idx, ID3D12GraphicsCommandList*
 	//m_buf_mgr->m_constant_persistent_bufs[m_curr_frame_idx]->set_state(D3D12_RESOURCE_STATE_COMMON, before_copy);
 	//m_buf_mgr->m_constant_persistent_bufs[m_curr_frame_idx]->set_state(D3D12_RESOURCE_STATE_COPY_DEST, m_cmdls[frame_idx].Get());
 
-	PIXBeginEvent(m_cmdls[frame_idx].Get(), PIX_COLOR(200, 0, 200), "copy thing #1");
-
-
-
+	std::string event_name = "copy thing #" + std::to_string(thing++);
+	PIXBeginEvent(m_cmdls[frame_idx].Get(), PIX_COLOR(200, 0, 200), event_name.c_str());
 }
 
 void DXUploadContext::upload_data(void* data, size_t size, BufferHandle hdl)
@@ -63,27 +63,18 @@ void DXUploadContext::upload_data(void* data, size_t size, BufferHandle hdl)
 	}
 }
 
-void DXUploadContext::submit_work(uint32_t sig_val, ID3D12GraphicsCommandList* waiter_cmdl)
+void DXUploadContext::submit_work(uint32_t sig_val)
 {
 	auto cmdl = m_cmdls[m_curr_frame_idx].Get();
-
-	//m_buf_mgr->m_constant_persistent_bufs[m_curr_frame_idx]->set_state(D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, m_cmdls[m_curr_frame_idx].Get());
-
 	cmdl->Close();
 	ID3D12CommandList* cmdls[] = { cmdl };
 	m_copy_queue->ExecuteCommandLists(1, cmdls);
+	// Resources decays to common state
 
 	PIXEndEvent(m_copy_queue.Get());
 
 	auto& sync = m_sync_prims[m_curr_frame_idx];
 	sync.signal(m_copy_queue.Get(), sig_val);
-
-
-
-
-
-	// transition back to VERTEX AND CONSTANT OPTIMAL (common state promotion tackles this)
-	//m_buf_mgr->m_constant_persistent_bufs[m_curr_frame_idx]->set_state(D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER, cmdl);
 }
 
 void DXUploadContext::wait_for_async_copy(ID3D12CommandQueue* queue)
