@@ -1,7 +1,6 @@
 #include "pch.h"
 #include "DXBufferMemPool.h"
 #include "d3dx12.h"
-#include <random>
 
 DXBufferMemPool::DXBufferMemPool(ID3D12Device* dev, uint16_t element_size, uint32_t num_elements, D3D12_HEAP_TYPE heap_type) :
 	m_element_size(element_size)
@@ -44,65 +43,44 @@ DXBufferMemPool::DXBufferMemPool(ID3D12Device* dev, uint16_t element_size, uint3
 		m_buffer->Map(0, &no_read, (void**)&m_base_cpu_adr);
 	}
 
-	// Add unique ID to differentiate different pool allocations (we can at least minimize POTENTIAL collisions)
-	// Otherwise, the calling app should only allocate/deallocate allocations which come from a specific pool!
-	uint32_t unique_key = 0;
-	{
-		std::random_device random_dev; 
-		std::mt19937 gen(random_dev());
-		std::uniform_int_distribution<uint32_t> distr(0, UINT32_MAX); 
-		unique_key = distr(gen);
-	}
 
-	m_allocations.reserve(num_elements);	// important to ensure that memory is in place (no reallocations and invalidating of pointer!)
+	//m_free_allocations.reserve(num_elements);	// important to ensure that memory is in place (no reallocations and invalidating of pointer!)
 	// Initialize sub-allocations
 	for (uint32_t alloc_id = 0; alloc_id < num_elements; ++alloc_id)
 	{
-		DXBufferSuballocation allocation{};
-		allocation.m_allocation_id = unique_key + (uint64_t)alloc_id;
-		allocation.m_gpu_address = m_base_gpu_adr + (uint64_t)alloc_id * element_size;
-		allocation.m_base_buffer = m_buffer.Get();
-		allocation.m_offset_from_base = alloc_id * element_size;
-		allocation.m_size = element_size;
+		auto allocation = DXBufferAllocation(
+			m_buffer.Get(),
+			alloc_id * element_size,
+			element_size,
+			m_base_gpu_adr + (uint64_t)alloc_id * element_size,
+			true,
+			m_base_cpu_adr ? m_base_cpu_adr + (uint64_t)alloc_id * element_size : nullptr
+		);
 
-		if (m_base_cpu_adr)
-			allocation.m_mapped_memory = m_base_cpu_adr + (uint64_t)alloc_id * element_size;
-
-		m_allocations.push_back(allocation);
-		m_free_allocations.push(&m_allocations.back());
-
+		m_free_allocations.push(std::move(allocation));
 	}
-	std::cout << "wa\n";
 }
 
-DXBufferSuballocation* DXBufferMemPool::allocate()
+DXBufferAllocation DXBufferMemPool::allocate()
 {
 	if (m_free_allocations.empty())
-		return nullptr;
+		return {};
 
-	DXBufferSuballocation* new_allocation = m_free_allocations.front();
-	m_allocations_in_use.insert(new_allocation->m_allocation_id);
+	auto new_allocation = std::move(m_free_allocations.front());
 	m_free_allocations.pop();
-
-	new_allocation->m_is_valid = true;
 
 	return new_allocation;
 }
 
-void DXBufferMemPool::deallocate(DXBufferSuballocation* alloc)
+void DXBufferMemPool::deallocate(DXBufferAllocation&& alloc)
 {
 	assert(alloc != nullptr);
-	const auto& alloc_id = alloc->m_allocation_id;
-	const auto gpu_adr = alloc->m_gpu_address;
 
 	// given allocation must be part of this pool
-	assert(m_base_gpu_adr <= gpu_adr && gpu_adr < m_end_gpu_adr);
+	assert(m_base_gpu_adr <= alloc.get_gpu_adr() && alloc.get_gpu_adr() < m_end_gpu_adr);
 	// crash if free-after-free detected
 	assert(m_allocations_in_use.find(alloc_id) != m_allocations_in_use.cend());
 
-	alloc->m_is_valid = false;
-
-	m_allocations_in_use.erase(alloc_id);
 	m_free_allocations.push(alloc);
 }
 

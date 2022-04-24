@@ -11,17 +11,17 @@ DXBufferPoolAllocator::DXBufferPoolAllocator(Microsoft::WRL::ComPtr<ID3D12Device
 			init_pool(dev.Get(), pool_info.element_size, pool_info.num_elements, heap_type);
 }
 
-DXBufferSuballocation* DXBufferPoolAllocator::allocate(uint64_t requested_size)
+DXBufferAllocation DXBufferPoolAllocator::allocate(uint64_t requested_size)
 {
-	DXBufferSuballocation* alloc = nullptr;
+	DXBufferAllocation alloc{};
 	DXBufferMemPool* pool_used = nullptr;
 	for (auto& pool : m_pools)
 	{
 		if (pool->get_allocation_size() < requested_size)
 			continue;
 
-		alloc = pool->allocate();
-		if (alloc)
+		alloc = std::move(pool->allocate());
+		if (alloc.size() != 0)
 		{
 			pool_used = pool.get();
 			break;
@@ -29,21 +29,21 @@ DXBufferSuballocation* DXBufferPoolAllocator::allocate(uint64_t requested_size)
 	}
 
 	// couldn't find any suitable memory after going through all pools.. crash
-	if (!alloc)
+	if (alloc.size() == 0)
 		assert(false);
 	
-	m_active_alloc_to_pool.insert({ alloc, pool_used });
+	m_active_alloc_to_pool.insert({ alloc.gpu_adr() , pool_used });
 	return alloc;
 }
 
-void DXBufferPoolAllocator::deallocate(DXBufferSuballocation* alloc)
+void DXBufferPoolAllocator::deallocate(DXBufferAllocation&& alloc)
 {
-	auto it = m_active_alloc_to_pool.find(alloc);
+	auto it = m_active_alloc_to_pool.find(alloc.gpu_adr());
 	if (it == m_active_alloc_to_pool.cend())
 		assert(false);
 
-	auto& [allocation, pool] = *it;
-	pool->deallocate(allocation);
+	auto& [_, pool] = *it;
+	pool->deallocate(std::move(alloc));
 
 	m_active_alloc_to_pool.erase(it);
 }

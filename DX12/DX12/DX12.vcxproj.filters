@@ -96,9 +96,6 @@
     <ClCompile Include="src\Graphics\DX\Descriptor\DXDescriptorPool.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="src\Graphics\DX\Descriptor\DXDescriptorAllocation.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="src\Graphics\DX\Descriptor\DXDescriptorHeapCPU.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -185,7 +182,7 @@
     <ClInclude Include="src\Graphics\DX\Buffer\DXBufferMemPool.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="src\Graphics\DX\Buffer\DXBufferSuballocation.h">
+    <ClInclude Include="src\Graphics\DX\Buffer\DXBufferAllocation.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="src\Graphics\DX\DXBufferManager.h">

@@ -61,57 +61,14 @@ public:
 	
 private:
 
-	struct ConstantAccessBufferMD
-	{
-		DXBufferSuballocation* alloc;
-		bool transient = false;
-	};
-
-	// Due to time constraints, we will upgrade suballocations later for other types
-	// Since the other types require arbitrarily sized allocations
-	
-	// We cant use the Pool Allocator for Structured Buffers, because we essentially need a new MemPool per new Structured Buffer (which is equivalent to a Committed Resource)
-	// If we want to do properly, we'd need a generic buffer suballocator algorithm
-	// --> alloc(10 * sizeof(SomeStruct)  
-	
-	// Likely structured: Make Committed resource OR Placed 
-	struct ShaderAccessBufferMD
-	{
-		int a = 1;	// to implement
-	};
-
-	// Make Committed resource OR Placed.
-	struct UnorderedAccessBufferMD
-	{
-		int a = 1;	 // to implement
-	};
-
 	struct InternalBufferResource
 	{
-		std::variant<
-			ConstantAccessBufferMD,
-			ShaderAccessBufferMD,
-			UnorderedAccessBufferMD> metadata;
+		DXBufferAllocation alloc;
+		bool transient = false;
 
 		uint64_t total_requested_size = 0;
 		UsageIntentGPU usage_gpu = UsageIntentGPU::eInvalid;	// Used to idenetify metadata variant
 		
-		template <typename T>
-		T& get_metadata()
-		{
-			T* to_ret = nullptr;
-			try
-			{
-				to_ret = &(std::get<T>(metadata));
-			}
-			catch (const std::bad_variant_access& e)
-			{
-				std::cout << e.what() << "\n";
-				assert(false);		// programmer error!
-			}
-			return *to_ret;
-		}
-
 		uint64_t handle = 0;
 		void destroy() { /* destruction is done externally */ }
 	};

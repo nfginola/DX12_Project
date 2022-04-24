@@ -2,6 +2,9 @@
 #include "DXBufferMemPool.h"
 #include <unordered_map>
 
+/*
+	Pool allocator with fixed size elements.
+*/
 class DXBufferPoolAllocator
 {
 public:
@@ -19,8 +22,8 @@ public:
 	DXBufferPoolAllocator(Microsoft::WRL::ComPtr<ID3D12Device> dev, std::initializer_list<DXBufferPoolAllocator::PoolInfo> pool_infos_list, D3D12_HEAP_TYPE heap_type);
 	~DXBufferPoolAllocator() = default;
 
-	DXBufferSuballocation* allocate(uint64_t requested_size);
-	void deallocate(DXBufferSuballocation* alloc);
+	DXBufferAllocation allocate(uint64_t requested_size);
+	void deallocate(DXBufferAllocation&& alloc);
 
 	// Sets state of the underlying buffer
 	void set_state(D3D12_RESOURCE_STATES new_state, ID3D12GraphicsCommandList* cmdl);
@@ -33,7 +36,8 @@ private:
 	cptr<ID3D12Device> m_dev;
 	std::vector<std::unique_ptr<DXBufferMemPool>> m_pools;
 
-	std::unordered_map<DXBufferSuballocation*, DXBufferMemPool*> m_active_alloc_to_pool;
+	std::unordered_map<uint64_t, DXBufferMemPool*> m_active_alloc_to_pool;
+
 
 
 

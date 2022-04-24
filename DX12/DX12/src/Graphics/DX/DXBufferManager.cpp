@@ -51,11 +51,10 @@ BufferHandle DXBufferManager::create_buffer(const DXBufferDesc& desc)
 	case UsageIntentGPU::eConstantRead:
 	{
 		res = grab_constant_memory(desc);	
-		const auto& md = res->get_metadata<ConstantAccessBufferMD>();
 
 		// upload init. data
 		//auto dst = md.alloc->get_memory()->get_mapped_memory();
-		auto dst = md.alloc->get_mapped_memory();
+		auto dst = res->alloc.mapped_memory();
 		auto src = desc.data;
 		std::memcpy(dst, src, desc.data_size);
 		
@@ -77,8 +76,10 @@ BufferHandle DXBufferManager::create_buffer(const DXBufferDesc& desc)
 		break;
 	}
 	
-	assert(res != nullptr);
-	res->total_requested_size = desc.element_count * desc.element_size;
+	if (res == nullptr)
+		assert(false);
+	else
+		res->total_requested_size = desc.element_count * desc.element_size;
 
 	return BufferHandle(res->handle);
 }
@@ -90,11 +91,10 @@ void DXBufferManager::destroy_buffer(BufferHandle hdl)
 	{
 	case UsageIntentGPU::eConstantRead:
 	{
-		auto& md = res->get_metadata<ConstantAccessBufferMD>();
-		if (!md.transient)
+		if (!res->transient)
 		{
-			//m_constant_persistent_buf->deallocate(md.alloc);
-			m_constant_persistent_buf->deallocate(md.alloc);
+			m_constant_persistent_buf->deallocate(std::move(res->alloc));
+			m_handles.free_handle(res->handle);
 		}
 		break;
 	}
@@ -116,12 +116,11 @@ void DXBufferManager::upload_data(void* data, size_t size, BufferHandle hdl)
 	{
 	case UsageIntentGPU::eConstantRead:
 	{
-		auto& md = res->get_metadata<ConstantAccessBufferMD>();
-		if (md.transient)
+		if (res->transient)
 		{
 			// grab new memory from ring buffer
 			//md.alloc = m_constant_ring_buf->allocate(res->total_requested_size);
-			md.alloc = m_constant_ring_buf->allocate(res->total_requested_size);
+			res->alloc = m_constant_ring_buf->allocate(res->total_requested_size);
 
 			// upload
 			assert(size <= res->total_requested_size);	
@@ -131,7 +130,7 @@ void DXBufferManager::upload_data(void* data, size_t size, BufferHandle hdl)
 			assert(md.alloc->mappable());
 
 			//auto dst = md.alloc->get_memory()->get_mapped_memory();
-			auto dst = md.alloc->get_mapped_memory();
+			auto dst = res->alloc.mapped_memory();
 			auto src = data;
 			std::memcpy(dst, src, size);
 		}
@@ -165,12 +164,8 @@ void DXBufferManager::bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, Buffer
 	{
 	case UsageIntentGPU::eConstantRead:
 	{
-		const auto& md = res->get_metadata<ConstantAccessBufferMD>();
-		if (!md.alloc->is_valid())
-			assert(false);				// Transient suballocation will be stomped! You forgot to use update on this buffer which was declared Transient (e.g at least one update per frame)
-
 		if (dest == RootArgDest::eGraphics)
-			cmdl->SetGraphicsRootConstantBufferView(param_idx, md.alloc->get_gpu_adr());	
+			cmdl->SetGraphicsRootConstantBufferView(param_idx, res->alloc.gpu_adr());	
 
 		break;
 	}
@@ -207,19 +202,15 @@ DXBufferManager::InternalBufferResource* DXBufferManager::grab_constant_memory(c
 	case UsageIntentCPU::eUpdateSometimes:				// arbitrary lifetime (requires persistent memory)
 	{
 		handle_alloc = m_handles.get_next_free_handle();
-		auto& md = handle_alloc.resource->get_metadata<ConstantAccessBufferMD>();
-		//md.alloc = m_constant_persistent_buf->allocate(desc.element_count * desc.element_size);
-		md.alloc = m_constant_persistent_buf->allocate(desc.element_count * desc.element_size);
-		md.transient = false;
+		handle_alloc.resource->alloc = m_constant_persistent_buf->allocate(desc.element_count * desc.element_size);
+		handle_alloc.resource->transient = false;
 		break;
 	}
 	case UsageIntentCPU::eUpdateOnceOrMorePerFrame:		// transient (subscribed to ring buffer)
 	{
 		handle_alloc = m_handles.get_next_free_handle();
-		auto& md = handle_alloc.resource->get_metadata<ConstantAccessBufferMD>();
-		//md.alloc = m_constant_ring_buf->allocate(desc.element_count * desc.element_size);
-		md.alloc = m_constant_ring_buf->allocate(desc.element_count * desc.element_size);
-		md.transient = true;
+		handle_alloc.resource->alloc = m_constant_ring_buf->allocate(desc.element_count * desc.element_size);
+		handle_alloc.resource->transient = true;
 		break;
 	}
 	default:

@@ -51,7 +51,6 @@ DXDescriptorAllocation DXDescriptorHeapGPU::allocate_static(uint32_t num_descrip
 
 DXDescriptorAllocation DXDescriptorHeapGPU::allocate_dynamic(uint32_t num_descriptors)
 {
-
 	auto to_ret = m_dynamic_part->allocate(num_descriptors);
 	if (to_ret.num_descriptors() == 0)
 		assert(false);	// please increase size manually

@@ -21,14 +21,24 @@ enum class RootArgDest
 enum class UsageIntentCPU
 {
 	eInvalid,
-	eUpdateNever,				// Maps to device-local memory
-	eUpdateSometimes,			// Maps to device-local memory
+
+	eUpdateNever,					// Maps to device-local memory
+	eUpdateSometimes,				// Maps to device-local memory
+	eUpdateOnce,					// Upload if GPU intends to read once OR device-local if GPU intends to read many times
+	eUpdateMultipleTimesPerFrame,	// Upload if GPU intends to read onece OR device-local if GPU intends to read many times
+
+
 	eUpdateOnceOrMorePerFrame	// Maps to host-local memory (upload heap)
 };
 
 enum class UsageIntentGPU
 {
 	eInvalid,
+
+	eReadOncePerFrame,
+	eReadMultipleTimesPerFrame,
+
+	// We dont need these below since they are handled outside (by descriptors, which are orthogonal to the resources)
 	eVertexRead,	// Maps to VBV
 	eIndexRead,		// Maps to IBV
 	eConstantRead,	// Maps to CBV

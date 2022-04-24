@@ -4,7 +4,7 @@
 #include <set>
 #include <optional>
 
-#include "DXBufferSuballocation.h"
+#include "DXBufferAllocation.h"
 
 /*
 	A memory pool using suballocation with a fixed-sized element pool allocation strategy (element size supplied on construction time)
@@ -37,8 +37,8 @@ public:
 	~DXBufferMemPool() = default;
 
 	// API for retrieving and returning suballocations
-	DXBufferSuballocation* allocate();
-	void deallocate(DXBufferSuballocation* alloc);
+	DXBufferAllocation allocate();
+	void deallocate(DXBufferAllocation&& alloc);
 
 	// Set underlying memory resource state for optimal usage (up to the application code)
 	void set_state(D3D12_RESOURCE_STATES new_state, ID3D12GraphicsCommandList* cmdl);
@@ -53,9 +53,7 @@ private:
 	D3D12_GPU_VIRTUAL_ADDRESS m_base_gpu_adr{};
 	D3D12_GPU_VIRTUAL_ADDRESS m_end_gpu_adr{};				// Used to verify deallocation
 
-	std::vector<DXBufferSuballocation> m_allocations;
-	std::queue<DXBufferSuballocation*> m_free_allocations;
-	std::set<uint64_t> m_allocations_in_use;				// for internal verification (e.g handle free-after-free)
+	std::queue<DXBufferAllocation> m_free_allocations;
 
 	uint16_t m_element_size = 0;
 
