@@ -56,6 +56,6 @@ void DXBufferPoolAllocator::set_state(D3D12_RESOURCE_STATES new_state, ID3D12Gra
 
 void DXBufferPoolAllocator::init_pool(ID3D12Device* dev, uint16_t element_size, uint32_t num_elements, D3D12_HEAP_TYPE heap_type)
 {
-	auto pool = std::make_unique<DXBufferMemPool>(dev, element_size, num_elements, D3D12_HEAP_TYPE_UPLOAD);
+	auto pool = std::make_unique<DXBufferMemPool>(dev, element_size, num_elements, heap_type);
 	m_pools.push_back(std::move(pool));
 }

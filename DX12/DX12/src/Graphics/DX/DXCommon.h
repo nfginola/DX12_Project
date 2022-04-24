@@ -66,3 +66,48 @@ enum class DepthFormat
 	eD16
 };
 
+
+struct DXFence
+{
+public:
+	DXFence() = default;
+	DXFence(ID3D12Device* dev)
+	{
+		m_fence_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+		auto hr = dev->CreateFence(m_fence_val_to_wait_for, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(m_fence.GetAddressOf()));
+		if (FAILED(hr))
+			assert(false);
+	}
+
+	void signal(ID3D12CommandQueue* queue, UINT sig_val)
+	{
+		m_fence_val_to_wait_for = sig_val;
+		queue->Signal(
+			m_fence.Get(),
+			m_fence_val_to_wait_for);
+	}
+
+	// GPU wait
+	void wait(ID3D12CommandQueue* queue)
+	{
+		queue->Wait(m_fence.Get(), m_fence_val_to_wait_for);
+	}
+
+	// CPU wait
+	void wait() const
+	{
+		if (m_fence->GetCompletedValue() < m_fence_val_to_wait_for)
+		{
+			// Raise an event when fence reaches fenceVal
+			ThrowIfFailed(m_fence->SetEventOnCompletion(m_fence_val_to_wait_for, m_fence_event), DET_ERR("Failed to couple Fence and Event"));
+			// CPU block until event is done
+			WaitForSingleObject(m_fence_event, INFINITE);
+		}
+	}
+
+private:
+	UINT m_fence_val_to_wait_for = 0;
+	cptr<ID3D12Fence> m_fence;
+	HANDLE m_fence_event{};
+};
+

@@ -31,6 +31,8 @@
 #include "Graphics/DX/Descriptor/DXDescriptorHeapCPU.h"
 #include "Graphics/DX/Descriptor/DXDescriptorHeapGPU.h"
 
+#include "Graphics/DX/DXUploadContext.h"
+
 static bool g_app_running = false;
 Input* g_input = nullptr;
 GUIContext* g_gui_ctx = nullptr;
@@ -41,7 +43,7 @@ int main()
 {
 	g_app_running = true;
 #if defined(_DEBUG)
-	constexpr auto debug_on = true;
+	constexpr auto debug_on = false;
 #else
 	constexpr auto debug_on = false;
 #endif
@@ -74,46 +76,10 @@ int main()
 		auto dev = gfx_ctx->get_dev();
 		auto dq = gfx_ctx->get_direct_queue();
 
-		struct SyncRes
-		{
-		public:
-			SyncRes() = default;
-			SyncRes(ID3D12Device* dev)
-			{
-				fence_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-				auto hr = dev->CreateFence(fence_val_to_wait_for, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.GetAddressOf()));
-				if (FAILED(hr))
-					assert(false);
-			}
-
-			void signal(ID3D12CommandQueue* queue, UINT sig_val)
-			{
-				fence_val_to_wait_for = sig_val;
-				queue->Signal(
-					fence.Get(),
-					fence_val_to_wait_for);
-			}
-
-			void wait() const
-			{
-				if (fence->GetCompletedValue() < fence_val_to_wait_for)
-				{
-					// Raise an event when fence reaches fenceVal
-					ThrowIfFailed(fence->SetEventOnCompletion(fence_val_to_wait_for, fence_event), DET_ERR("Failed to couple Fence and Event"));
-					// CPU block until event is done
-					WaitForSingleObject(fence_event, INFINITE);
-				}
-			}
-
-		private:
-			UINT fence_val_to_wait_for = 0;
-			cptr<ID3D12Fence> fence;
-			HANDLE fence_event;
-		};
 
 		struct PerFrameResource
 		{
-			SyncRes sync;
+			DXFence sync;
 			UINT prev_surface_idx = 0;
 			cptr<ID3D12CommandAllocator> dq_ator;
 			cptr<ID3D12GraphicsCommandList> dq_cmdl;
@@ -126,10 +92,7 @@ int main()
 		for (auto& res : per_frame_res)
 		{
 			// init sync res
-			//res.sync.fence_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-			//ThrowIfFailed(dev->CreateFence(res.sync.fence_val_to_wait_for, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(res.sync.fence.GetAddressOf())), DET_ERR("Failed to create fence"));
-			res.sync = SyncRes(dev);
-
+			res.sync = DXFence(dev);
 
 			// init dq ator & cmd list
 			constexpr auto q_type = D3D12_COMMAND_LIST_TYPE_DIRECT;
@@ -205,7 +168,7 @@ int main()
 		g_gui_ctx->add_persistent_ui("test", ui_cb);
 
 		
-		DXBufferManager buf_mgr(dev);
+		DXBufferManager buf_mgr(dev, max_FIF);
 		
 		struct CBData
 		{
@@ -235,6 +198,23 @@ int main()
 		bd2.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
 		bd2.flag = BufferFlag::eConstant;
 		auto buf_handle2 = buf_mgr.create_buffer(bd2);
+
+		std::vector<BufferHandle> hdls;
+		for (int i = 0; i < 1000; ++i)
+		{
+			DXBufferDesc bd_new{};
+			bd_new.element_count = 1;
+			bd_new.element_size = 1024;
+			bd_new.usage_cpu = UsageIntentCPU::eUpdateSometimes;	// persistent
+			bd_new.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+			bd_new.flag = BufferFlag::eConstant;
+			auto handle = buf_mgr.create_buffer(bd_new);
+			hdls.push_back(handle);
+		}
+
+
+		void* some_mem = (void*)std::malloc(1024);
+		std::memset(some_mem, 1, 1024);
 
 
 
@@ -386,6 +366,9 @@ int main()
 
 
 
+
+		DXUploadContext up_ctx(dev, &buf_mgr, max_FIF);
+
 		MSG msg{};
 		while (g_app_running)
 		{
@@ -408,7 +391,8 @@ int main()
 			gpu_pf.frame_begin(surface_idx);
 			g_gui_ctx->frame_begin();
 
-			gpu_dheap.begin_frame(surface_idx);
+			gpu_dheap.frame_begin(surface_idx);
+
 
 			
 			cpu_pf.profile_begin("allocate dynamic descs");
@@ -434,9 +418,9 @@ int main()
 			CBData this_data{};
 			this_data.color = colors[surface_idx];
 
-			buf_mgr.upload_data(&this_data, sizeof(CBData), buf_handle);
 
 			cpu_pf.profile_end("buf mgr frame begin");
+
 
 
 			if (show_pf)
@@ -462,6 +446,22 @@ int main()
 			// reset
 			dq_ator->Reset();
 			dq_cmdl->Reset(dq_ator, nullptr);
+
+			up_ctx.frame_begin(surface_idx, dq_cmdl);
+
+			up_ctx.upload_data(&this_data, sizeof(CBData), buf_handle2);
+			for (int i = 0; i < hdls.size(); ++i)
+			{
+				up_ctx.upload_data(some_mem, 1024, hdls[i]);
+			}
+
+
+			up_ctx.submit_work(gfx_ctx->get_next_fence_value(), dq_cmdl);
+			// force direct queue to wait on the GPU for async copy to be done 
+			up_ctx.wait_for_async_copy(dq);
+
+
+
 
 			PIXBeginEvent(dq_cmdl, PIX_COLOR(0, 200, 200), "Hey");
 
@@ -497,13 +497,13 @@ int main()
 			dq_cmdl->SetGraphicsRootSignature(rsig.Get());
 			dq_cmdl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		
-			buf_mgr.bind_as_direct_arg(dq_cmdl, buf_handle, params["my_cbv"], RootArgDest::eGraphics);
+			buf_mgr.bind_as_direct_arg(dq_cmdl, buf_handle2, params["my_cbv"], RootArgDest::eGraphics);
 			
 			dq_cmdl->SetPipelineState(pipe.Get());
 			gpu_pf.profile_end(dq_cmdl, "main draw setup");
 
 			gpu_pf.profile_begin(dq_cmdl, dq, "main draw");
-			dq_cmdl->DrawInstanced(6, 1, 0, 0);
+			dq_cmdl->DrawInstanced(6, 10000, 0, 0);
 			gpu_pf.profile_end(dq_cmdl, "main draw");
 
 			// render imgui data
@@ -539,12 +539,6 @@ int main()
 
 			// signal when this frame is no longer in flight
 			frame_res.sync.signal(dq, gfx_ctx->get_next_fence_value());
-
-			//frame_res.sync.fence_val_to_wait_for = gfx_ctx->get_next_fence_value();
-			//ThrowIfFailed(dq->Signal(
-			//	frame_res.sync.fence.Get(), 
-			//	frame_res.sync.fence_val_to_wait_for), 
-			//	DET_ERR("Cant add a signal request to queue"));
 
 			frame_res.prev_surface_idx = surface_idx;
 

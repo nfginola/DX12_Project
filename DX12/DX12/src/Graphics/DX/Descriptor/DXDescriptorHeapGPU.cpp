@@ -18,7 +18,7 @@ DXDescriptorHeapGPU::DXDescriptorHeapGPU(cptr<ID3D12Device> dev, D3D12_DESCRIPTO
 	m_dynamic_part = std::make_unique<DXDescriptorPool>(dev, std::move(dyn_alloc), type);
 }
 
-void DXDescriptorHeapGPU::begin_frame(uint32_t frame_idx)
+void DXDescriptorHeapGPU::frame_begin(uint32_t frame_idx)
 {
 	m_frame_idx = frame_idx;
 

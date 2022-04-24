@@ -9,6 +9,8 @@ DXBufferMemPool::DXBufferMemPool(ID3D12Device* dev, uint16_t element_size, uint3
 
 	if (heap_type == D3D12_HEAP_TYPE_UPLOAD)
 		m_curr_state = D3D12_RESOURCE_STATE_GENERIC_READ;		// required start state for upload buffer
+	else
+		m_curr_state = D3D12_RESOURCE_STATE_COMMON;
 
 	// Create buffer
 	D3D12_HEAP_PROPERTIES hp{};
@@ -84,6 +86,7 @@ void DXBufferMemPool::deallocate(DXBufferAllocation&& alloc)
 void DXBufferMemPool::set_state(D3D12_RESOURCE_STATES new_state, ID3D12GraphicsCommandList* cmdl)
 {
 	auto t_barr = CD3DX12_RESOURCE_BARRIER::Transition(m_buffer.Get(), m_curr_state, new_state, 0, D3D12_RESOURCE_BARRIER_FLAG_NONE);
+	m_curr_state = new_state;
 	cmdl->ResourceBarrier(1, &t_barr);
 }
 

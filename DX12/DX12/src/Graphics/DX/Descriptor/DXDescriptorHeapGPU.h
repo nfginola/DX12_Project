@@ -12,7 +12,7 @@ class DXDescriptorHeapGPU
 public:
 	DXDescriptorHeapGPU(cptr<ID3D12Device> dev, D3D12_DESCRIPTOR_HEAP_TYPE type);
 
-	void begin_frame(uint32_t frame_idx);
+	void frame_begin(uint32_t frame_idx);
 
 	DXDescriptorAllocation allocate_static(uint32_t num_descriptors);
 	void deallocate_static(DXDescriptorAllocation&& alloc);

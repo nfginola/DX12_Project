@@ -7,18 +7,21 @@ DXBufferManager::~DXBufferManager()
 
 }
 
-DXBufferManager::DXBufferManager(Microsoft::WRL::ComPtr<ID3D12Device> dev) :
+DXBufferManager::DXBufferManager(Microsoft::WRL::ComPtr<ID3D12Device> dev, uint32_t max_fif) :
 	m_dev(dev)
 {
 	// setup allocator for persistent memory
 	{
+		m_constant_persistent_bufs.resize(max_fif);
 		auto pool_infos =
 		{
 			DXBufferPoolAllocator::PoolInfo(1, 256, 100),
-			DXBufferPoolAllocator::PoolInfo(1, 512, 50),
-			DXBufferPoolAllocator::PoolInfo(1, 1024, 25),
+			DXBufferPoolAllocator::PoolInfo(1, 512, 100),
+			DXBufferPoolAllocator::PoolInfo(1, 1024, 4000),
 		};
-		m_constant_persistent_buf = std::make_unique<DXBufferPoolAllocator>(dev, pool_infos, D3D12_HEAP_TYPE_DEFAULT);
+		//m_constant_persistent_buf = std::make_unique<DXBufferPoolAllocator>(dev, pool_infos, D3D12_HEAP_TYPE_DEFAULT);
+		for (uint32_t i = 0; i < max_fif; ++i)
+			m_constant_persistent_bufs[i] = std::make_unique<DXBufferPoolAllocator>(dev, pool_infos, D3D12_HEAP_TYPE_DEFAULT);
 	}
 
 	// setup ring buffer for transient upload buffer
@@ -27,7 +30,7 @@ DXBufferManager::DXBufferManager(Microsoft::WRL::ComPtr<ID3D12Device> dev) :
 		{
 			DXBufferPoolAllocator::PoolInfo(1, 256, 100),
 			DXBufferPoolAllocator::PoolInfo(1, 512, 50),
-			DXBufferPoolAllocator::PoolInfo(1, 1024, 25),
+			DXBufferPoolAllocator::PoolInfo(1, 1024, 6000),
 		};
 		auto pool_for_ring = std::make_unique<DXBufferPoolAllocator>(dev, pool_infos, D3D12_HEAP_TYPE_UPLOAD);
 		m_constant_ring_buf = std::make_unique<DXBufferRingPoolAllocator>(std::move(pool_for_ring));
@@ -61,6 +64,7 @@ BufferHandle DXBufferManager::create_buffer(const DXBufferDesc& desc)
 		res->usage_cpu = desc.usage_cpu;
 		res->usage_gpu = desc.usage_gpu;
 		res->total_requested_size = desc.element_count * desc.element_size;
+		res->frame_idx_allocation = m_curr_frame_idx;
 		return BufferHandle(res->handle);
 	}
 
@@ -79,59 +83,6 @@ void DXBufferManager::destroy_buffer(BufferHandle hdl)
 	{
 
 	}
-}
-
-void DXBufferManager::upload_data(void* data, size_t size, BufferHandle hdl)
-{
-	auto res = m_handles.get_resource(hdl.handle);
-
-	if (res->is_constant)
-	{
-		update_constant(data, size, res);
-	}
-
-	//switch (res->usage_gpu)
-	//{
-	//case UsageIntentGPU::eConstantRead:
-	//{
-	//	if (res->transient)
-	//	{
-	//		// grab new memory from ring buffer
-	//		//md.alloc = m_constant_ring_buf->allocate(res->total_requested_size);
-	//		res->alloc = m_constant_ring_buf->allocate(res->total_requested_size);
-
-	//		// upload
-	//		assert(size <= res->total_requested_size);	
-
-	//		// check that the memory IS mappable!
-	//		//assert(md.alloc->get_memory()->mappable());
-	//		assert(md.alloc->mappable());
-
-	//		//auto dst = md.alloc->get_memory()->get_mapped_memory();
-	//		auto dst = res->alloc.mapped_memory();
-	//		auto src = data;
-	//		std::memcpy(dst, src, size);
-	//	}
-	//	else
-	//	{
-	//		// do cpu-gpu copy to staging (allocate from a fixed size upload buffer)
-	//		// do gpu-gpu copy from staging to device-local memory
-	//	}
-	//	break;
-	//}
-	//case UsageIntentGPU::eShaderRead:
-	//{
-	//	break;
-	//}
-	//case UsageIntentGPU::eReadWrite:
-	//{
-	//	assert(false);		// ..
-	//	break;
-	//}
-	//default:
-	//	assert(false);		// programmer error: forgot to fill UsageIntentGPU on the underlying resource somewhere!
-	//	break;
-	//}
 }
 
 void DXBufferManager::bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, BufferHandle buf, UINT param_idx, RootArgDest dest)
@@ -176,12 +127,33 @@ void DXBufferManager::frame_begin(uint32_t frame_idx)
 
 	// resources are freed back to the ring buffer on a per-frame basis
 	m_constant_ring_buf->frame_begin(frame_idx);
+
+
+	// deallocate 
+	while (!m_deletion_queue.empty())
+	{
+		auto el = m_deletion_queue.front();
+		if (el.first == frame_idx)
+		{
+			auto& del_func = el.second;
+			del_func();
+			m_deletion_queue.pop();
+		}
+		else
+			break;
+	}
+
 }
 
 
 
 
 
+
+DXBufferManager::InternalBufferResource* DXBufferManager::get_internal_buf(BufferHandle handle)
+{
+	return m_handles.get_resource(handle.handle);
+}
 
 DXBufferManager::InternalBufferResource* DXBufferManager::create_constant(const DXBufferDesc& desc)
 {
@@ -201,7 +173,8 @@ DXBufferManager::InternalBufferResource* DXBufferManager::create_constant(const 
 	if (usage_cpu == UsageIntentCPU::eUpdateNever)
 	{
 		// allocate from persistent allocator
-		auto alloc = m_constant_persistent_buf->allocate(requested_size);
+		//auto alloc = m_constant_persistent_buf->allocate(requested_size);
+		auto alloc = m_constant_persistent_bufs[m_curr_frame_idx]->allocate(requested_size);
 		resource->alloc = alloc;
 		resource->is_transient = false;
 
@@ -209,7 +182,8 @@ DXBufferManager::InternalBufferResource* DXBufferManager::create_constant(const 
 	// Only updates sometimes every X frames
 	else if (usage_cpu == UsageIntentCPU::eUpdateSometimes)
 	{
-		auto alloc = m_constant_persistent_buf->allocate(requested_size);
+		//auto alloc = m_constant_persistent_buf->allocate(requested_size);
+		auto alloc = m_constant_persistent_bufs[m_curr_frame_idx]->allocate(requested_size);
 		resource->alloc = alloc;
 		resource->is_transient = false;
 	}
@@ -230,7 +204,8 @@ DXBufferManager::InternalBufferResource* DXBufferManager::create_constant(const 
 		// on the update request --> we discard the existing allocation by pushing it into a deletion queue 
 		// deletion queue includes a lambda
 		// allocate from persistent allocator
-		auto alloc = m_constant_persistent_buf->allocate(requested_size);
+		//auto alloc = m_constant_persistent_buf->allocate(requested_size);
+		auto alloc = m_constant_persistent_bufs[m_curr_frame_idx]->allocate(requested_size);
 		resource->alloc = alloc;
 		resource->is_transient = true;
 
@@ -257,7 +232,8 @@ void DXBufferManager::destroy_constant(InternalBufferResource* res)
 {
 	if (res->usage_cpu == UsageIntentCPU::eUpdateNever)
 	{
-		m_constant_persistent_buf->deallocate(std::move(res->alloc));
+		//m_constant_persistent_buf->deallocate(std::move(res->alloc));
+		m_constant_persistent_bufs[res->frame_idx_allocation]->deallocate(std::move(res->alloc));
 		m_handles.free_handle(res->handle);
 	}
 	else if (res->usage_cpu == UsageIntentCPU::eUpdateOnce && res->usage_gpu == UsageIntentGPU::eReadOncePerFrame)
@@ -267,7 +243,8 @@ void DXBufferManager::destroy_constant(InternalBufferResource* res)
 	}
 	else if (res->usage_cpu == UsageIntentCPU::eUpdateOnce && res->usage_gpu == UsageIntentGPU::eReadMultipleTimesPerFrame)
 	{
-		m_constant_persistent_buf->deallocate(std::move(res->alloc));
+		//m_constant_persistent_buf->deallocate(std::move(res->alloc));
+		m_constant_persistent_bufs[res->frame_idx_allocation]->deallocate(std::move(res->alloc));
 		m_handles.free_handle(res->handle);
 	}
 	else
@@ -275,45 +252,4 @@ void DXBufferManager::destroy_constant(InternalBufferResource* res)
 }
 
 
-void DXBufferManager::update_constant(void* data, size_t size, InternalBufferResource* res)
-{
-	if (res->usage_cpu == UsageIntentCPU::eUpdateNever)
-	{
-		assert(false);
-	}
-	else if (res->usage_cpu == UsageIntentCPU::eUpdateOnce && res->usage_gpu == UsageIntentGPU::eReadOncePerFrame)
-	{
-		// grab new memory from ring buffer
-		//md.alloc = m_constant_ring_buf->allocate(res->total_requested_size);
-		res->alloc = m_constant_ring_buf->allocate(res->total_requested_size);
 
-		// upload
-		assert(size <= res->total_requested_size);	
-
-		// check that the memory IS mappable!
-		assert(res->alloc.mappable());
-
-		// copy to upload heap
-		auto dst = res->alloc.mapped_memory();
-		auto src = data;
-		std::memcpy(dst, src, size);
-	}
-	else if (res->usage_cpu == UsageIntentCPU::eUpdateOnce && res->usage_gpu == UsageIntentGPU::eReadMultipleTimesPerFrame)
-	{
-		// push deletion request
-		auto del_func = [this, alloc = std::move(res->alloc)]() mutable
-		{
-			m_constant_persistent_buf->deallocate(std::move(alloc));
-		};
-		m_deletion_queue.push({ m_curr_frame_idx, del_func });
-
-		// grab new version
-		auto alloc = m_constant_persistent_buf->allocate(res->total_requested_size);
-		res->alloc = alloc;
-
-		// copy up to staging... (NOT FINISHED)
-
-
-		assert(false);
-	}
-}

@@ -40,7 +40,7 @@ class DXBufferManager
 {
 
 public:
-	DXBufferManager(Microsoft::WRL::ComPtr<ID3D12Device> dev);
+	DXBufferManager(Microsoft::WRL::ComPtr<ID3D12Device> dev, uint32_t max_fif);
 	~DXBufferManager();
 
 	void frame_begin(uint32_t frame_idx);
@@ -49,7 +49,7 @@ public:
 	void destroy_buffer(BufferHandle hdl);
 
 	// Maybe should be moved to an DXCopyManager?					// Handles CPU-GPU and GPU-GPU copies and handles potentialy Waits associated with GPU-GPU copies
-	void upload_data(void* data, size_t size, BufferHandle hdl);
+	//void upload_data(void* data, size_t size, BufferHandle hdl);
 	// join-point for potential async copies that need completion guarantee prior to pipeline invocations (e.g draws)
 	//void wait_on_queue(ID3D12CommandQueue* queue);
 	 
@@ -74,16 +74,19 @@ private:
 		UsageIntentCPU usage_cpu = UsageIntentCPU::eInvalid;
 		UsageIntentGPU usage_gpu = UsageIntentGPU::eInvalid;
 		uint64_t total_requested_size = 0;
-		
+		uint32_t frame_idx_allocation = 0;
+
 		uint64_t handle = 0;
 		void destroy() { /* destruction is done externally */ }
 	};
+
+	InternalBufferResource* get_internal_buf(BufferHandle handle);
+
 
 private:
 
 	InternalBufferResource* create_constant(const DXBufferDesc& desc);
 	void destroy_constant(InternalBufferResource* res);
-	void update_constant(void* data, size_t size, InternalBufferResource* res);
 
 private:
 	Microsoft::WRL::ComPtr<ID3D12Device> m_dev;
@@ -154,7 +157,10 @@ private:
 	*/
 
 	std::unique_ptr<DXBufferRingPoolAllocator> m_constant_ring_buf;
-	std::unique_ptr<DXBufferPoolAllocator> m_constant_persistent_buf;
+
+	// one for each FIF since we resource states can be different..
+	std::vector<std::unique_ptr<DXBufferPoolAllocator>> m_constant_persistent_bufs;
+	//std::unique_ptr<DXBufferPoolAllocator> m_constant_persistent_buf;
 
 
 	std::queue<std::pair<uint32_t, std::function<void()>>> m_deletion_queue;		// pair: [frame idx to delete on, deletion function]
