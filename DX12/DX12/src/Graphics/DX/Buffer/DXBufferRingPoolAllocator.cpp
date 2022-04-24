@@ -30,7 +30,6 @@ DXBufferAllocation DXBufferRingPoolAllocator::allocate(uint64_t requested_size)
 {
 	// grab allocation
 	auto alloc = m_allocator->allocate(requested_size);
-	assert(alloc != nullptr);
 
 	QueueElement el{};
 	el.alloc = alloc;

@@ -1,5 +1,5 @@
 #pragma once
-#include <variant>
+#include <functional>
 #include "Utilities/HandlePool.h"
 #include "Graphics/DX/DXCommon.h"
 
@@ -25,6 +25,8 @@ struct DXBufferDesc
 {
 	UsageIntentCPU usage_cpu = UsageIntentCPU::eInvalid;
 	UsageIntentGPU usage_gpu = UsageIntentGPU::eInvalid;
+	BufferFlag flag = BufferFlag::eInvalid;
+	//bool is_constant = false;
 
 	uint32_t element_size = 0;
 	uint32_t element_count = 0;
@@ -60,25 +62,33 @@ public:
 
 	
 private:
+	friend class DXUploadContext;
 
 	struct InternalBufferResource
 	{
 		DXBufferAllocation alloc;
-		bool transient = false;
 
+		// Metadata
+		bool is_transient = false;
+		bool is_constant = false;
+		UsageIntentCPU usage_cpu = UsageIntentCPU::eInvalid;
+		UsageIntentGPU usage_gpu = UsageIntentGPU::eInvalid;
 		uint64_t total_requested_size = 0;
-		UsageIntentGPU usage_gpu = UsageIntentGPU::eInvalid;	// Used to idenetify metadata variant
 		
 		uint64_t handle = 0;
 		void destroy() { /* destruction is done externally */ }
 	};
 
 private:
-	InternalBufferResource* grab_constant_memory(const DXBufferDesc& desc);
+
+	InternalBufferResource* create_constant(const DXBufferDesc& desc);
+	void destroy_constant(InternalBufferResource* res);
+	void update_constant(void* data, size_t size, InternalBufferResource* res);
 
 private:
 	Microsoft::WRL::ComPtr<ID3D12Device> m_dev;
 	HandlePool<InternalBufferResource> m_handles;
+	uint32_t m_curr_frame_idx = 0;
 
 	/*
 		For buffers with persistent locations,
@@ -147,5 +157,6 @@ private:
 	std::unique_ptr<DXBufferPoolAllocator> m_constant_persistent_buf;
 
 
+	std::queue<std::pair<uint32_t, std::function<void()>>> m_deletion_queue;		// pair: [frame idx to delete on, deletion function]
 };
 

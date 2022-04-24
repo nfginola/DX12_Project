@@ -161,6 +161,7 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Graphics\DX\DXUploadContext.cpp" />
     <ClCompile Include="src\Graphics\DX\Descriptor\DXDescriptorHeapGPU.cpp" />
     <ClCompile Include="src\Graphics\DX\Descriptor\DXDescriptorHeapCPU.cpp" />
     <ClCompile Include="src\Graphics\DX\Descriptor\DXDescriptorPool.cpp" />
@@ -216,6 +217,7 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Graphics\DX\DXUploadContext.h" />
     <ClInclude Include="src\Graphics\DX\Descriptor\DXDescriptorHeapGPU.h" />
     <ClInclude Include="src\Graphics\DX\Descriptor\DXDescriptorHeapCPU.h" />
     <ClInclude Include="src\Graphics\DX\Descriptor\DXDescriptorPool.h" />

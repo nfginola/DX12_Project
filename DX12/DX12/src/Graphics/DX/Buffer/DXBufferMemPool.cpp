@@ -74,12 +74,9 @@ DXBufferAllocation DXBufferMemPool::allocate()
 
 void DXBufferMemPool::deallocate(DXBufferAllocation&& alloc)
 {
-	assert(alloc != nullptr);
 
 	// given allocation must be part of this pool
-	assert(m_base_gpu_adr <= alloc.get_gpu_adr() && alloc.get_gpu_adr() < m_end_gpu_adr);
-	// crash if free-after-free detected
-	assert(m_allocations_in_use.find(alloc_id) != m_allocations_in_use.cend());
+	assert(m_base_gpu_adr <= alloc.gpu_adr() && alloc.gpu_adr() < m_end_gpu_adr);
 
 	m_free_allocations.push(alloc);
 }

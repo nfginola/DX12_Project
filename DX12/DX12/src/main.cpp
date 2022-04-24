@@ -40,7 +40,11 @@ LRESULT window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 int main()
 {
 	g_app_running = true;
+#if defined(_DEBUG)
 	constexpr auto debug_on = true;
+#else
+	constexpr auto debug_on = false;
+#endif
 	const UINT CLIENT_WIDTH = 1600;
 	const UINT CLIENT_HEIGHT = 900;
 
@@ -72,9 +76,23 @@ int main()
 
 		struct SyncRes
 		{
-			UINT fence_val_to_wait_for = 0;
-			cptr<ID3D12Fence> fence;
-			HANDLE fence_event;
+		public:
+			SyncRes() = default;
+			SyncRes(ID3D12Device* dev)
+			{
+				fence_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+				auto hr = dev->CreateFence(fence_val_to_wait_for, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(fence.GetAddressOf()));
+				if (FAILED(hr))
+					assert(false);
+			}
+
+			void signal(ID3D12CommandQueue* queue, UINT sig_val)
+			{
+				fence_val_to_wait_for = sig_val;
+				queue->Signal(
+					fence.Get(),
+					fence_val_to_wait_for);
+			}
 
 			void wait() const
 			{
@@ -86,6 +104,11 @@ int main()
 					WaitForSingleObject(fence_event, INFINITE);
 				}
 			}
+
+		private:
+			UINT fence_val_to_wait_for = 0;
+			cptr<ID3D12Fence> fence;
+			HANDLE fence_event;
 		};
 
 		struct PerFrameResource
@@ -103,8 +126,10 @@ int main()
 		for (auto& res : per_frame_res)
 		{
 			// init sync res
-			res.sync.fence_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-			ThrowIfFailed(dev->CreateFence(res.sync.fence_val_to_wait_for, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(res.sync.fence.GetAddressOf())), DET_ERR("Failed to create fence"));
+			//res.sync.fence_event = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+			//ThrowIfFailed(dev->CreateFence(res.sync.fence_val_to_wait_for, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(res.sync.fence.GetAddressOf())), DET_ERR("Failed to create fence"));
+			res.sync = SyncRes(dev);
+
 
 			// init dq ator & cmd list
 			constexpr auto q_type = D3D12_COMMAND_LIST_TYPE_DIRECT;
@@ -195,8 +220,9 @@ int main()
 		bd.data_size = sizeof(CBData);
 		bd.element_count = 1;
 		bd.element_size = sizeof(CBData);
-		bd.usage_cpu = UsageIntentCPU::eUpdateOnceOrMorePerFrame;	// transient
-		bd.usage_gpu = UsageIntentGPU::eConstantRead;
+		bd.usage_cpu = UsageIntentCPU::eUpdateOnce;			// transient
+		bd.usage_gpu = UsageIntentGPU::eReadOncePerFrame; 
+		bd.flag = BufferFlag::eConstant;
 		auto buf_handle = buf_mgr.create_buffer(bd);
 
 		DXBufferDesc bd2{};
@@ -206,7 +232,8 @@ int main()
 		bd2.element_count = 1;
 		bd2.element_size = sizeof(CBData);
 		bd2.usage_cpu = UsageIntentCPU::eUpdateSometimes;	// persistent
-		bd2.usage_gpu = UsageIntentGPU::eConstantRead;
+		bd2.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+		bd2.flag = BufferFlag::eConstant;
 		auto buf_handle2 = buf_mgr.create_buffer(bd2);
 
 
@@ -385,7 +412,7 @@ int main()
 
 			
 			cpu_pf.profile_begin("allocate dynamic descs");
-			for (int i = 0; i < 50; ++i)
+			for (int i = 0; i < 1; ++i)
 			{
 				gpu_dheap.allocate_dynamic(30);
 				gpu_dheap.allocate_dynamic(30);
@@ -511,11 +538,14 @@ int main()
 			gfx_sc->present(vsync);
 
 			// signal when this frame is no longer in flight
-			frame_res.sync.fence_val_to_wait_for = gfx_ctx->get_next_fence_value();
-			ThrowIfFailed(dq->Signal(
-				frame_res.sync.fence.Get(), 
-				frame_res.sync.fence_val_to_wait_for), 
-				DET_ERR("Cant add a signal request to queue"));
+			frame_res.sync.signal(dq, gfx_ctx->get_next_fence_value());
+
+			//frame_res.sync.fence_val_to_wait_for = gfx_ctx->get_next_fence_value();
+			//ThrowIfFailed(dq->Signal(
+			//	frame_res.sync.fence.Get(), 
+			//	frame_res.sync.fence_val_to_wait_for), 
+			//	DET_ERR("Cant add a signal request to queue"));
+
 			frame_res.prev_surface_idx = surface_idx;
 
 			g_input->frame_end();

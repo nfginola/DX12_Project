@@ -24,11 +24,8 @@ enum class UsageIntentCPU
 
 	eUpdateNever,					// Maps to device-local memory
 	eUpdateSometimes,				// Maps to device-local memory
-	eUpdateOnce,					// Upload if GPU intends to read once OR device-local if GPU intends to read many times
-	eUpdateMultipleTimesPerFrame,	// Upload if GPU intends to read onece OR device-local if GPU intends to read many times
-
-
-	eUpdateOnceOrMorePerFrame	// Maps to host-local memory (upload heap)
+	eUpdateOnce,					// Upload if GPU intends to read once OR device-local if GPU intends to read many times   (transient)
+	eUpdateMultipleTimesPerFrame,	// Upload if GPU intends to read onece OR device-local if GPU intends to read many times  (transient)
 };
 
 enum class UsageIntentGPU
@@ -37,13 +34,13 @@ enum class UsageIntentGPU
 
 	eReadOncePerFrame,
 	eReadMultipleTimesPerFrame,
+};
 
-	// We dont need these below since they are handled outside (by descriptors, which are orthogonal to the resources)
-	eVertexRead,	// Maps to VBV
-	eIndexRead,		// Maps to IBV
-	eConstantRead,	// Maps to CBV
-	eShaderRead,	// Maps to SRV
-	eReadWrite		// Maps to UAV
+enum class BufferFlag
+{
+	eInvalid,
+	eConstant,
+	eNonConstant
 };
 
 enum class ShaderModel

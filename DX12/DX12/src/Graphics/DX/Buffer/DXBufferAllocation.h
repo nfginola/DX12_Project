@@ -38,8 +38,8 @@ public:
 	uint8_t* mapped_memory() const { assert(mappable()); return m_mapped_memory; }
 
 	// Identiies whether this allocation belongs to an internal manager handling the resource or not.
-	// This identiies whether we are allowed to transition or not, which is the responsibility of the caller to check
-	// prior to using the base buffer to transition
+	// This identiies whether we are allowed to transition the state of the underlying resource or not, which is the responsibility of 
+	// the caller to check prior to using the base buffer to transition
 	bool transition_allowed() const { return m_is_submanaged; }
 
 private:
