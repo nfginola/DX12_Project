@@ -327,6 +327,8 @@ int main()
 
 			cpu_pf.frame_begin();
 			gpu_pf.frame_begin(surface_idx);
+
+
 			g_gui_ctx->frame_begin();
 
 			gpu_dheap.frame_begin(surface_idx);

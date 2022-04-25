@@ -158,6 +158,15 @@ private:
 
 	std::unique_ptr<DXBufferRingPoolAllocator> m_constant_ring_buf;
 
+
+	// one for each FIF since we resource states can be different..
+	/*
+		
+	"At any given time, a subresource is in exactly one state, determined by the set of D3D12_RESOURCE_STATES flags supplied to ResourceBarrier. 
+	The application must ensure that the before and after states of consecutive calls to ResourceBarrier agree."	
+	https://docs.microsoft.com/en-us/windows/win32/direct3d12/using-resource-barriers-to-synchronize-resource-states-in-direct3d-12
+	
+	*/
 	// one for each FIF since we resource states can be different..
 	std::vector<std::unique_ptr<DXBufferPoolAllocator>> m_constant_persistent_bufs;
 	//std::unique_ptr<DXBufferPoolAllocator> m_constant_persistent_buf;

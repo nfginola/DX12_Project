@@ -2,12 +2,13 @@
 #include "DXCommon.h"
 
 #include "DXBufferManager.h"
+#include "Profiler/GPUProfiler.h"
 
 // Async copy queue
 class DXUploadContext
 {
 public:
-	DXUploadContext(cptr<ID3D12Device> dev, DXBufferManager* buf_mgr, uint32_t max_fif);
+	DXUploadContext(cptr<ID3D12Device> dev, DXBufferManager* buf_mgr, uint32_t max_fif, GPUProfiler* profiler = nullptr);
 
 	void frame_begin(uint32_t frame_idx);
 
@@ -53,6 +54,8 @@ private:
 
 	uint32_t m_max_fif = 0;
 	uint32_t m_curr_frame_idx = 0;
+
+	GPUProfiler* m_profiler = nullptr;
 
 };
 

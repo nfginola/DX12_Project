@@ -4,11 +4,15 @@
 
 static int thing = 0;
 
-DXUploadContext::DXUploadContext(cptr<ID3D12Device> dev, DXBufferManager* buf_mgr, uint32_t max_fif) :
+DXUploadContext::DXUploadContext(cptr<ID3D12Device> dev, DXBufferManager* buf_mgr, uint32_t max_fif, GPUProfiler* profiler) :
 	m_dev(dev),
 	m_buf_mgr(buf_mgr),
-	m_max_fif(max_fif)
+	m_max_fif(max_fif),
+	m_profiler(profiler)
 {
+	if (profiler)
+		assert(profiler->get_type() == GPUProfiler::QueueType::eCopy);
+
 	D3D12_COMMAND_QUEUE_DESC desc{};
 	desc.Type = D3D12_COMMAND_LIST_TYPE_COPY;
 	auto hr = dev->CreateCommandQueue(&desc, IID_PPV_ARGS(m_copy_queue.GetAddressOf()));
@@ -48,6 +52,9 @@ void DXUploadContext::frame_begin(uint32_t frame_idx)
 
 	//m_buf_mgr->m_constant_persistent_bufs[m_curr_frame_idx]->set_state(D3D12_RESOURCE_STATE_COMMON, before_copy);
 	//m_buf_mgr->m_constant_persistent_bufs[m_curr_frame_idx]->set_state(D3D12_RESOURCE_STATE_COPY_DEST, m_cmdls[frame_idx].Get());
+	// 
+	if (m_profiler)
+		m_profiler->profile_begin(m_cmdls[frame_idx].Get(), m_copy_queue.Get(), "async copy");
 
 	std::string event_name = "copy thing #" + std::to_string(thing++);
 	PIXBeginEvent(m_cmdls[frame_idx].Get(), PIX_COLOR(200, 0, 200), event_name.c_str());
@@ -66,6 +73,8 @@ void DXUploadContext::upload_data(void* data, size_t size, BufferHandle hdl)
 void DXUploadContext::submit_work(uint32_t sig_val)
 {
 	auto cmdl = m_cmdls[m_curr_frame_idx].Get();
+	if (m_profiler)
+		m_profiler->profile_end(m_cmdls[m_curr_frame_idx].Get(), "async copy");
 	cmdl->Close();
 	ID3D12CommandList* cmdls[] = { cmdl };
 	m_copy_queue->ExecuteCommandLists(1, cmdls);

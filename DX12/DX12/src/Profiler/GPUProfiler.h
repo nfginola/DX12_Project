@@ -10,6 +10,7 @@ class GPUProfiler
 public:
 	enum class QueueType
 	{
+		eInvalid,
 		eDirectOrCompute,
 		eCopy
 	};
@@ -39,6 +40,8 @@ public:
 	void frame_begin(uint32_t frame_idx);
 	void frame_end(ID3D12GraphicsCommandList* cmdl);
 
+	GPUProfiler::QueueType get_type() const;
+
 
 private:
 	static constexpr size_t QUERY_SIZE = sizeof(UINT64);	// Timestamp ticks are UINT64 https://docs.microsoft.com/en-us/windows/win32/direct3d12/timing
@@ -54,4 +57,6 @@ private:
 	std::map<std::string, ProfileData> m_profiles;
 
 	bool m_in_frame;
+
+	QueueType m_type = QueueType::eInvalid;
 };

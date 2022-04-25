@@ -11,7 +11,8 @@ GPUProfiler::GPUProfiler(ID3D12Device* dev, QueueType queue_type, uint8_t max_fi
 	m_max_queries_per_frame(max_profiles * 2),
 	m_curr_frame_idx(0),
 	m_curr_scope_profile(nullptr),
-	m_in_frame(false)
+	m_in_frame(false),
+	m_type(queue_type)
 {
 	const auto total_max_queries = max_profiles * 2 * max_fif;
 
@@ -149,6 +150,11 @@ void GPUProfiler::frame_end(ID3D12GraphicsCommandList* cmdl)
 		m_curr_frame_idx * m_max_queries_per_frame * QUERY_SIZE);	// offset (in bytes) from target 
 
 	m_in_frame = false;
+}
+
+GPUProfiler::QueueType GPUProfiler::get_type() const
+{
+	return m_type;
 }
 
 const GPUProfiler::ProfileData& GPUProfiler::get_curr_scope_profile()
