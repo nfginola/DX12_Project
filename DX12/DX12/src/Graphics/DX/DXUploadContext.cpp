@@ -75,6 +75,11 @@ void DXUploadContext::submit_work(uint32_t sig_val)
 	auto cmdl = m_cmdls[m_curr_frame_idx].Get();
 	if (m_profiler)
 		m_profiler->profile_end(m_cmdls[m_curr_frame_idx].Get(), "async copy");
+
+	// assuming that submit_work is called only once per frame, otherwise we have to make a separate function
+	if (m_profiler)
+		m_profiler->frame_end(m_cmdls[m_curr_frame_idx].Get());
+
 	cmdl->Close();
 	ID3D12CommandList* cmdls[] = { cmdl };
 	m_copy_queue->ExecuteCommandLists(1, cmdls);
@@ -125,11 +130,12 @@ void DXUploadContext::update_constant(void* data, size_t size, DXBufferManager::
 			(res->usage_cpu == UsageIntentCPU::eUpdateOnce && res->usage_gpu == UsageIntentGPU::eReadMultipleTimesPerFrame)
 		)
 	{
-		// push deletion request
+		// push delayed deallocation
 		auto del_func = [this, frame_idx = res->frame_idx_allocation, alloc = std::move(res->alloc)]() mutable
 		{
 			m_buf_mgr->m_constant_persistent_bufs[frame_idx]->deallocate(std::move(alloc));
 		};
+		// last time it was used is likely this frame (conservative)
 		m_buf_mgr->m_deletion_queue.push({ m_curr_frame_idx, del_func });
 
 		// grab new version

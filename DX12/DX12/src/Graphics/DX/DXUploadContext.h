@@ -4,7 +4,12 @@
 #include "DXBufferManager.h"
 #include "Profiler/GPUProfiler.h"
 
-// Async copy queue
+/*
+
+	Work submission extension to BufferManager and TextureManager.
+	This class accesses internals of BufferManager and TextureManager to do work.
+
+*/
 class DXUploadContext
 {
 public:

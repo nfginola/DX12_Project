@@ -118,11 +118,11 @@ int main()
 		auto main_scissor = CD3DX12_RECT(0, 0, CLIENT_WIDTH, CLIENT_HEIGHT);
 
 
-
 		// Setup profiler
 		dev->SetStablePowerState(false);
 		uint8_t pf_latency = max_FIF;
 		GPUProfiler gpu_pf(dev, GPUProfiler::QueueType::eDirectOrCompute, pf_latency);
+		//GPUProfiler gpu_pf_copy(dev, GPUProfiler::QueueType::eCopy, pf_latency);
 		CPUProfiler cpu_pf(pf_latency);
 
 		// Allocate from main gpu dheap for ImGUI
@@ -327,6 +327,7 @@ int main()
 
 			cpu_pf.frame_begin();
 			gpu_pf.frame_begin(surface_idx);
+			//gpu_pf_copy.frame_begin(surface_idx);
 
 
 			g_gui_ctx->frame_begin();
@@ -355,20 +356,35 @@ int main()
 			if (show_pf)
 			{
 				// query profiler results
-				std::cout << "GPU:\n";
-				const auto& profiles = gpu_pf.get_profiles();
-				for (const auto& [_, profile] : profiles)
 				{
-					std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
+					std::cout << "GPU:\n";
+					const auto& profiles = gpu_pf.get_profiles();
+					for (const auto& [_, profile] : profiles)
+					{
+						std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
+					}
 				}
+				//{
+				//	std::cout << "GPU Copy:\n";
+				//	const auto& profiles = gpu_pf_copy.get_profiles();
+				//	for (const auto& [_, profile] : profiles)
+				//	{
+				//		std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
+				//	}
+				//}
+
+
 				std::cout << "\n";
 
-				std::cout << "CPU:\n";
-				const auto& cpu_profiles = cpu_pf.get_profiles();
-				for (const auto& [_, profile] : cpu_profiles)
 				{
-					std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
+					std::cout << "CPU:\n";
+					const auto& cpu_profiles = cpu_pf.get_profiles();
+					for (const auto& [_, profile] : cpu_profiles)
+					{
+						std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
+					}
 				}
+
 				std::cout << "========================================\n";
 			}
 
@@ -434,7 +450,6 @@ int main()
 			gpu_pf.profile_end(dq_cmdl, "main draw");
 
 			// render imgui data
-			//dq_cmdl->SetDescriptorHeaps(1, dheap_for_imgui.GetAddressOf());		// We should reserve a single descriptor element on our main render desc heap
 			g_gui_ctx->render(dq_cmdl);
 
 			// transition
