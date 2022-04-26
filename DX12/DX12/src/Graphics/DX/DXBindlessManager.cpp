@@ -118,6 +118,9 @@ BindlessHandle DXBindlessManager::create_bindless(const DXBindlessDesc& desc)
 void DXBindlessManager::destroy_bindless(BindlessHandle handle)
 {
 	auto res = m_handles.get_resource(handle.handle);
+
+	// push a deallocation request
+	// allows descriptor stomping after a full FIF cycle (guaranteed that this bindless group is not in use anymore!
 	auto del_func = [this, res, curr_frame = m_curr_frame_idx]()
 	{
 		// deallocate descriptors to allow re-use (stomping)
