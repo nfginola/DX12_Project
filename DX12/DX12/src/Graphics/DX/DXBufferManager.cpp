@@ -188,14 +188,48 @@ DXBufferManager::InternalBufferResource* DXBufferManager::create_constant(const 
 		resource->alloc = alloc;
 		resource->is_transient = false;
 
+		// grab temp staging memory
+		auto staging = m_constant_ring_buf->allocate(requested_size);
+
+		// copy data to staging
+		auto dst = staging.mapped_memory();
+		auto src = desc.data;
+		std::memcpy(dst, src, desc.data_size);
+
+		// schedule GPU-GPU copy to new version
+		auto upload_func = [staging, alloc, requested_size](ID3D12GraphicsCommandList* cmdl)
+		{
+			cmdl->CopyBufferRegion(
+				alloc.base_buffer(), alloc.offset_from_base(),
+				staging.base_buffer(), staging.offset_from_base(), requested_size);
+		};
+		m_deferred_init_copies.push(upload_func);
 	}
 	// Only updates sometimes every X frames
 	else if (usage_cpu == UsageIntentCPU::eUpdateSometimes)
 	{
-		//auto alloc = m_constant_persistent_buf->allocate(requested_size);
 		auto alloc = m_constant_persistent_bufs[m_curr_frame_idx]->allocate(requested_size);
 		resource->alloc = alloc;
 		resource->is_transient = false;
+
+		// grab temp staging memory
+		auto staging = m_constant_ring_buf->allocate(requested_size);
+
+		// copy data to staging
+		auto dst = staging.mapped_memory();
+		auto src = desc.data;
+		std::memcpy(dst, src, desc.data_size);
+
+		// schedule GPU-GPU copy to new version
+		auto upload_func = [staging, alloc, requested_size](ID3D12GraphicsCommandList* cmdl)
+		{
+			cmdl->CopyBufferRegion(
+				alloc.base_buffer(), alloc.offset_from_base(),
+				staging.base_buffer(), staging.offset_from_base(), requested_size);
+		};
+		m_deferred_init_copies.push(upload_func);
+
+
 	}
 	// Write-once-read-once --> MSFT recommends Upload Heap
 	// https://docs.microsoft.com/en-us/windows/win32/direct3d12/uploading-resources
@@ -205,6 +239,9 @@ DXBufferManager::InternalBufferResource* DXBufferManager::create_constant(const 
 		auto alloc = m_constant_ring_buf->allocate(requested_size);
 		resource->alloc = alloc;
 		resource->is_transient = true;
+
+		assert(alloc.mappable());
+		std::memcpy(alloc.mapped_memory(), desc.data, desc.data_size);
 	}
 	else if (usage_cpu == UsageIntentCPU::eUpdateOnce && usage_gpu == UsageIntentGPU::eReadMultipleTimesPerFrame)
 	{

@@ -233,17 +233,6 @@ int main()
 				ShaderType::ePixel,
 				L"main");
 
-			//D3D12_DESCRIPTOR_RANGE cbv_range{};
-			//cbv_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-			//cbv_range.NumDescriptors = 1;
-
-			D3D12_DESCRIPTOR_RANGE tex_range{};
-			tex_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-			tex_range.NumDescriptors = 1;
-			tex_range.BaseShaderRegister = 0;
-			tex_range.RegisterSpace = 0;
-			tex_range.OffsetInDescriptorsFromTableStart = 0;
-
 			D3D12_DESCRIPTOR_RANGE samp_range{};
 			samp_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
 			samp_range.NumDescriptors = 1;
@@ -251,30 +240,26 @@ int main()
 			samp_range.RegisterSpace = 0;
 			samp_range.OffsetInDescriptorsFromTableStart = 0;
 
-
 			// testing bindless
 			D3D12_DESCRIPTOR_RANGE view_range{};
-			view_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+			view_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 			view_range.NumDescriptors = -1;
 			view_range.BaseShaderRegister = 0;
 			view_range.RegisterSpace = 3;
 			view_range.OffsetInDescriptorsFromTableStart = 0;
 
 			D3D12_DESCRIPTOR_RANGE access_range{};
-			access_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+			access_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
 			access_range.NumDescriptors = -1;
 			access_range.BaseShaderRegister = 0;
 			access_range.RegisterSpace = 3;
-			access_range.OffsetInDescriptorsFromTableStart = bindless_mgr.offset_to_access_part();
-
-
+			access_range.OffsetInDescriptorsFromTableStart = 0;
 
 			// setup rootsig
 			rsig = RootSigBuilder()
 				//.push_table({ cbv_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
 				.push_constant(7, 0, 1, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_index"])
 				.push_cbv(0, 0, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
-				.push_table({ tex_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_tex"])
 				.push_table({ samp_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_samp"])
 				.push_table({ view_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_views"])
 				.push_table({ access_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_access"])
@@ -294,27 +279,7 @@ int main()
 
 		DXUploadContext up_ctx(dev, &buf_mgr, max_FIF);
 
-
-		DXTextureDesc tdesc{};
-		tdesc.filepath = "textures/hootle.png";
-		tdesc.usage_cpu = UsageIntentCPU::eUpdateNever;
-		tdesc.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
-		auto tex_hdl = tex_mgr.create_texture(tdesc);
-		
-
-		auto tex_desc = gpu_dheap.allocate_static(1);
-		auto tex_res = tex_mgr.get_resource(tex_hdl);
-
-		D3D12_SHADER_RESOURCE_VIEW_DESC vdesc{};
-		vdesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
-		vdesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-		vdesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		vdesc.Texture2D.MipLevels = -1;
-		vdesc.Texture2D.MostDetailedMip = 0;
-		vdesc.Texture2D.PlaneSlice = 0;
-		vdesc.Texture2D.ResourceMinLODClamp = 0;
-		dev->CreateShaderResourceView(tex_res, &vdesc, tex_desc.cpu_handle());
-
+		// create dynamic sampler
 		auto samp_desc = gpu_dheap_sampler.allocate_static(1);
 		D3D12_SAMPLER_DESC sdesc{};
 		sdesc.Filter = D3D12_FILTER_ANISOTROPIC;
@@ -328,13 +293,46 @@ int main()
 		dev->CreateSampler(&sdesc, samp_desc.cpu_handle());
 
 
+
+		// load texture
+		TextureHandle tex_hdl;
+		{
+			DXTextureDesc tdesc{};
+			tdesc.filepath = "textures/hootle.png";
+			tdesc.usage_cpu = UsageIntentCPU::eUpdateNever;
+			tdesc.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+			tex_hdl = tex_mgr.create_texture(tdesc);
+		}
+		TextureHandle tex_hdl2;
+		{
+			DXTextureDesc tdesc{};
+			tdesc.filepath = "textures/scenery.jpg";
+			tdesc.usage_cpu = UsageIntentCPU::eUpdateNever;
+			tdesc.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+			tex_hdl2 = tex_mgr.create_texture(tdesc);
+		}
+
+		/*			
+			Material
+			{
+				std::unordered_map<TextureType, TextureHandle> textures;	// holds the resources
+				BindlessHandle bindless;									// holds the views to the resources
+
+				// Optionally, a Pipeline
+			}
+		
+		*/
+
+
 		// allocate bindless primitive
+		// mat1
 		DXBindlessDesc bind_d{};
 		bind_d.diffuse_tex = tex_hdl;
 		auto bindless_hdl = bindless_mgr.create_bindless(bind_d);
 
-		
-
+		// mat2
+		bind_d.diffuse_tex = tex_hdl2;
+		auto bindless_hdl2 = bindless_mgr.create_bindless(bind_d);
 
 
 		MSG msg{};
@@ -420,13 +418,13 @@ int main()
 			dq_cmdl->Reset(dq_ator, nullptr);
 
 			up_ctx.frame_begin(surface_idx);
+			bindless_mgr.frame_begin(surface_idx);
 
-			up_ctx.upload_data(&this_data, sizeof(CBData), buf_handle2);
-
-
-			up_ctx.submit_work(gfx_ctx->get_next_fence_value());
-
+		
+			// upload data
 			// force direct queue to wait on the GPU for async copy to be done before submitting this frame
+			up_ctx.upload_data(&this_data, sizeof(CBData), buf_handle2);
+			up_ctx.submit_work(gfx_ctx->get_next_fence_value());
 			up_ctx.wait_for_async_copy(dq);
 
 			PIXBeginEvent(dq_cmdl, PIX_COLOR(0, 200, 200), "Direct Queue Main");
@@ -452,7 +450,6 @@ int main()
 			dq_cmdl->OMSetRenderTargets(1, &rtv_hdl, false, nullptr);
 	
 			// set main desc heap
-			//dq_cmdl->SetDescriptorHeaps(1, gpu_main_dheap.GetAddressOf());
 			ID3D12DescriptorHeap* dheaps[] = { gpu_dheap.get_desc_heap(), gpu_dheap_sampler.get_desc_heap() };
 			dq_cmdl->SetDescriptorHeaps(_countof(dheaps), dheaps);
 
@@ -464,19 +461,25 @@ int main()
 			dq_cmdl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		
 			buf_mgr.bind_as_direct_arg(dq_cmdl, buf_handle2, params["my_cbv"], RootArgDest::eGraphics);
-			dq_cmdl->SetGraphicsRootDescriptorTable(params["my_tex"], tex_desc.gpu_handle());
 			dq_cmdl->SetGraphicsRootDescriptorTable(params["my_samp"], samp_desc.gpu_handle());
 			
-			dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.index_in_descs(bindless_hdl), 0);
+			// per frame
 			dq_cmdl->SetGraphicsRootDescriptorTable(params["bindless_views"], bindless_mgr.get_views_start());
 			dq_cmdl->SetGraphicsRootDescriptorTable(params["bindless_access"], bindless_mgr.get_access_start());
-
 
 			dq_cmdl->SetPipelineState(pipe.Get());
 			gpu_pf.profile_end(dq_cmdl, "main draw setup");
 
 			gpu_pf.profile_begin(dq_cmdl, dq, "main draw");
+
+			// per material
+			dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.index_in_descs(bindless_hdl), 0);
 			dq_cmdl->DrawInstanced(6, 1, 0, 0);
+
+			dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.index_in_descs(bindless_hdl2), 0);
+			dq_cmdl->DrawInstanced(6, 1, 0, 0);
+
+
 			gpu_pf.profile_end(dq_cmdl, "main draw");
 
 			// render imgui data

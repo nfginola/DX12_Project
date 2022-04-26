@@ -168,5 +168,9 @@ private:
 
 
 	std::queue<std::pair<uint32_t, std::function<void()>>> m_deletion_queue;		// pair: [frame idx to delete on, deletion function]
+
+
+	// Defers to the initialization of data on device-local onto the first frame (handled by UploadContext)
+	std::queue<std::function<void(ID3D12GraphicsCommandList*)>> m_deferred_init_copies;
 };
 

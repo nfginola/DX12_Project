@@ -34,7 +34,7 @@ public:
 		DXTextureManager* tex_mgr					// texture creation interface to access internals
 	);
 
-	void begin_frame(uint32_t frame_idx);
+	void frame_begin(uint32_t frame_idx);
 
 	BindlessHandle create_bindless(const DXBindlessDesc& desc);
 

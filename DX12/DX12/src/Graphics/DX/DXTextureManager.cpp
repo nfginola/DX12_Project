@@ -19,7 +19,14 @@ TextureHandle DXTextureManager::create_texture(const DXTextureDesc& desc)
 		assert(false);
 
 	cptr<ID3D12Resource> res;
-	auto hr = DirectX::CreateWICTextureFromFile(m_dev.Get(), *m_up_batch.get(), desc.filepath.c_str(), res.GetAddressOf(), true);
+	// force SRGB (we do gamma correct rendering)
+	auto hr = DirectX::CreateWICTextureFromFileEx(m_dev.Get(), *m_up_batch.get(), desc.filepath.c_str(), 0, D3D12_RESOURCE_FLAG_NONE,
+		DirectX::WIC_LOADER_FLAGS::WIC_LOADER_FORCE_SRGB | 
+		DirectX::WIC_LOADER_FLAGS::WIC_LOADER_MIP_AUTOGEN |
+		DirectX::WIC_LOADER_FLAGS::WIC_LOADER_FORCE_RGBA32 |
+		DirectX::WIC_LOADER_FLAGS::WIC_LOADER_FIT_POW2,		// It seems like it sometimes uses BGRA instead..
+		res.GetAddressOf());
+
 	if (FAILED(hr))
 		assert(false);
 

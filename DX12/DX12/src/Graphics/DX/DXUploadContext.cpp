@@ -41,18 +41,25 @@ DXUploadContext::DXUploadContext(cptr<ID3D12Device> dev, DXBufferManager* buf_mg
 
 void DXUploadContext::frame_begin(uint32_t frame_idx)
 {
-	// Assuming that resources that are used have been transitioned to Common state (for use on Copy queue)
+	// Assuming that resources that are used have been transitioned or decayed to Common state (for use on Copy queue) upon entering here
+	// We can rely on this for the majority of the time, such as when we utilize common state promotion for our resources
 	m_curr_frame_idx = frame_idx;
 
 	m_ators[frame_idx]->Reset();
 	m_cmdls[frame_idx]->Reset(m_ators[frame_idx].Get(), nullptr);
 
-	// the deault buffer promoted to VERTEX AND CONST BUF decay by itself upon completion on the main queue, 
-	// meaning that for copies --> it is ready to be used on the Copy queue
+	// Upload initial data for device-local memory (if any) requested upon load on the Buffer Manager
+	if (!m_buf_mgr->m_deferred_init_copies.empty())
+	{
+		auto upload_func = m_buf_mgr->m_deferred_init_copies.front();
 
-	//m_buf_mgr->m_constant_persistent_bufs[m_curr_frame_idx]->set_state(D3D12_RESOURCE_STATE_COMMON, before_copy);
-	//m_buf_mgr->m_constant_persistent_bufs[m_curr_frame_idx]->set_state(D3D12_RESOURCE_STATE_COPY_DEST, m_cmdls[frame_idx].Get());
-	// 
+		// call upload func on the copy queue
+		upload_func(m_cmdls[frame_idx].Get());
+
+		m_buf_mgr->m_deferred_init_copies.pop();
+	}
+	
+
 	if (m_profiler)
 		m_profiler->profile_begin(m_cmdls[frame_idx].Get(), m_copy_queue.Get(), "async copy");
 

@@ -29,14 +29,15 @@ DXBindlessManager::DXBindlessManager(
 		// for this implementation, we will be placing the access part right after the views
 		m_offset_to_access_part = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;	
 
-		m_view_desc_ator = std::make_unique<DXDescriptorPool>(dev, std::move(access_cbvs), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		m_access_desc_ator = std::make_unique<DXDescriptorPool>(dev, std::move(views), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		m_view_desc_ator = std::make_unique<DXDescriptorPool>(dev, std::move(views), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		m_access_desc_ator = std::make_unique<DXDescriptorPool>(dev, std::move(access_cbvs), D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	}
 }
 
-void DXBindlessManager::begin_frame(uint32_t frame_idx)
+void DXBindlessManager::frame_begin(uint32_t frame_idx)
 {
 	m_curr_frame_idx = frame_idx;
+	
 	while (!m_deletion_queue.empty())
 	{
 		auto el = m_deletion_queue.front();
