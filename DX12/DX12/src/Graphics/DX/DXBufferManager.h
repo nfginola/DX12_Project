@@ -14,10 +14,12 @@ class DXConstantStaticBuffer;
 // Strongly typed handle to a buffer for the application to hold on to
 struct BufferHandle
 {
+public:
+	BufferHandle() = default;
 private:
 	BufferHandle(uint64_t handle_) : handle(handle_) {}
 	friend class DXBufferManager;
-	uint64_t handle;
+	uint64_t handle = 0;
 };
 
 
@@ -47,18 +49,11 @@ public:
 
 	BufferHandle create_buffer(const DXBufferDesc& desc);
 	void destroy_buffer(BufferHandle hdl);
-
-	// Maybe should be moved to an DXCopyManager?					// Handles CPU-GPU and GPU-GPU copies and handles potentialy Waits associated with GPU-GPU copies
-	//void upload_data(void* data, size_t size, BufferHandle hdl);
-	// join-point for potential async copies that need completion guarantee prior to pipeline invocations (e.g draws)
-	//void wait_on_queue(ID3D12CommandQueue* queue);
 	 
-
-
 	// Maybe should be moved to a DXRootArgBinder which has a reference to a BufferManager and a TextureManager?
 	void bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, BufferHandle buf, UINT param_idx, RootArgDest dest);
 
-
+	void create_view_for(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor);
 
 	
 private:
@@ -77,7 +72,7 @@ private:
 		uint32_t frame_idx_allocation = 0;
 
 		uint64_t handle = 0;
-		void destroy() { /* destruction is done externally */ }
+		void destroy() { alloc.~alloc(); }
 	};
 
 	InternalBufferResource* get_internal_buf(BufferHandle handle);

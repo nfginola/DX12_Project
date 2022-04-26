@@ -1,12 +1,10 @@
 #include "pch.h"
 #include "DXDescriptorHeapGPU.h"
 
-DXDescriptorHeapGPU::DXDescriptorHeapGPU(cptr<ID3D12Device> dev, D3D12_DESCRIPTOR_HEAP_TYPE type) :
+DXDescriptorHeapGPU::DXDescriptorHeapGPU(cptr<ID3D12Device> dev, D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t max_descriptors) :
 	m_dev(dev),
 	m_type(type)
 {
-	constexpr auto max_descriptors = 6000;
-
 	m_base_main_pool = std::make_unique<DXDescriptorPool>(dev, type, max_descriptors, true);
 	// static part first half
 	auto static_alloc = m_base_main_pool->allocate(max_descriptors / 2);	

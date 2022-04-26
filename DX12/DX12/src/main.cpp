@@ -33,6 +33,11 @@
 
 #include "Graphics/DX/DXUploadContext.h"
 
+#include "Graphics/DX/DXTextureManager.h"
+
+#include "Graphics/DX/DXBindlessManager.h"
+
+
 static bool g_app_running = false;
 Input* g_input = nullptr;
 GUIContext* g_gui_ctx = nullptr;
@@ -43,12 +48,17 @@ int main()
 {
 	g_app_running = true;
 #if defined(_DEBUG)
-	constexpr auto debug_on = false;
+	constexpr auto debug_on = true;
 #else
 	constexpr auto debug_on = false;
 #endif
 	const UINT CLIENT_WIDTH = 1600;
 	const UINT CLIENT_HEIGHT = 900;
+
+	// Initialize WIC
+	HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	if (FAILED(hr))
+		assert(false);
 
 	// https://docs.microsoft.com/en-us/visualstudio/debugger/finding-memory-leaks-using-the-crt-library?view=vs-2022
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -102,7 +112,8 @@ int main()
 		}
 
 		DXDescriptorHeapCPU cpu_rtv_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-		DXDescriptorHeapGPU gpu_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		DXDescriptorHeapGPU gpu_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 6000);
+		DXDescriptorHeapGPU gpu_dheap_sampler(dev, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 2000);
 
 
 		// Allocate and use descriptor for RTVs
@@ -167,7 +178,8 @@ int main()
 
 		g_gui_ctx->add_persistent_ui("test", ui_cb);
 
-		
+
+
 		DXBufferManager buf_mgr(dev, max_FIF);
 		
 		struct CBData
@@ -199,72 +211,12 @@ int main()
 		bd2.flag = BufferFlag::eConstant;
 		auto buf_handle2 = buf_mgr.create_buffer(bd2);
 
-		std::vector<BufferHandle> hdls;
-		for (int i = 0; i < 1000; ++i)
-		{
-			DXBufferDesc bd_new{};
-			bd_new.element_count = 1;
-			bd_new.element_size = 1024;
-			bd_new.usage_cpu = UsageIntentCPU::eUpdateSometimes;	// persistent
-			bd_new.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
-			bd_new.flag = BufferFlag::eConstant;
-			auto handle = buf_mgr.create_buffer(bd_new);
-			hdls.push_back(handle);
-		}
+		// setup texture manager
+		DXTextureManager tex_mgr(dev, dq);
 
-
-		void* some_mem = (void*)std::malloc(1024);
-		std::memset(some_mem, 1, 1024);
-
-
-
-		/*	
-			Much easier to NOT suballocate memory for structured buffers due to their inherently dynamic element size.
-			Rather, make a committed one for each structured buffer and anassociated SRV!
-
-			Same applies to UAV
-
-			We'll take a look into this in more detail (about suballoating here..) during summer!
-
-			DANGER!:
-
-				When allocating persistent constant buffers, we need to make sure the newest copy is updated to all other copies!
-				If we have max 3 frames in flight, we will allocate x3 of the requested buffer   ::   [0, 1, 2]
-
-				if we update on 2 --> 0 and 1 are still in flight, but they need to be updated too!
-				what to do?
-
-				On update (2):
-					- Staging copy to CPU and copy from staging to (2)
-					- Schedule a copy from (2) to (0) when (0) is not in flight anymore		ONLY if no updates were requested again for this resource this frame
-						Otherwise, discard all and restart process
-					- Schedule a copy from (2) to (1) when (1) is not in flight anymore		ONLY if no updates were requested again for this resource this frame
-
-				Should we do on a copy queue?
-					Import our UploadContext
-
-					destination = transient_staging.mapped_memory;
-					offsetted_buffer_info = transient_staging....
-
-						UploadContext->staging_upload(void* data, size_t size, uint8_t* destination);
-						UploadContext->copy_buffer_region(dst..., src...);
-
-						FenceResoure fence_to_wait_for = UploadContext->signal(value);
-						// fenceResource contains ID3D12Fence*, fence value to wait for and the WIN event!
-						
-						// called prior to draw call (just like mentioned below in BufferManager.sync())
-						FenceResource.wait(graphicsQueue);
-
-				We can just schedule a copy at frame_begin to keep it simple
-				and if there was a new update request, it would mean THAT copy above + a CPU to staging and staging to device-local (extra copy)
-				https://asawicki.info/news_1722_secrets_of_direct3d_12_copies_to_the_same_buffer
-				This is actually fine! Since the GPU serializes the copy, meaning we will have the latest copy request data up :)
-
-				We should have some:
-				BufferManager.sync();		// Prior to draw call invocations to have spot where we can guarantee buffer copies before usage!
-				
-
-		*/
+		// allocate space for bindless views
+		auto bindless_part = gpu_dheap.allocate_static(2000);
+		DXBindlessManager bindless_mgr(dev, std::move(bindless_part), &buf_mgr, &tex_mgr);
 
 
 		cptr<ID3D12RootSignature> rsig;
@@ -281,14 +233,51 @@ int main()
 				ShaderType::ePixel,
 				L"main");
 
-			D3D12_DESCRIPTOR_RANGE cbv_range{};
-			cbv_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-			cbv_range.NumDescriptors = 1;
+			//D3D12_DESCRIPTOR_RANGE cbv_range{};
+			//cbv_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+			//cbv_range.NumDescriptors = 1;
+
+			D3D12_DESCRIPTOR_RANGE tex_range{};
+			tex_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+			tex_range.NumDescriptors = 1;
+			tex_range.BaseShaderRegister = 0;
+			tex_range.RegisterSpace = 0;
+			tex_range.OffsetInDescriptorsFromTableStart = 0;
+
+			D3D12_DESCRIPTOR_RANGE samp_range{};
+			samp_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER;
+			samp_range.NumDescriptors = 1;
+			samp_range.BaseShaderRegister = 0;
+			samp_range.RegisterSpace = 0;
+			samp_range.OffsetInDescriptorsFromTableStart = 0;
+
+
+			// testing bindless
+			D3D12_DESCRIPTOR_RANGE view_range{};
+			view_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
+			view_range.NumDescriptors = -1;
+			view_range.BaseShaderRegister = 0;
+			view_range.RegisterSpace = 3;
+			view_range.OffsetInDescriptorsFromTableStart = 0;
+
+			D3D12_DESCRIPTOR_RANGE access_range{};
+			access_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+			access_range.NumDescriptors = -1;
+			access_range.BaseShaderRegister = 0;
+			access_range.RegisterSpace = 3;
+			access_range.OffsetInDescriptorsFromTableStart = bindless_mgr.offset_to_access_part();
+
+
 
 			// setup rootsig
 			rsig = RootSigBuilder()
 				//.push_table({ cbv_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
+				.push_constant(7, 0, 1, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_index"])
 				.push_cbv(0, 0, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
+				.push_table({ tex_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_tex"])
+				.push_table({ samp_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_samp"])
+				.push_table({ view_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_views"])
+				.push_table({ access_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_access"])
 				.build(dev);
 
 			auto ds = DepthStencilDescBuilder()
@@ -303,9 +292,50 @@ int main()
 				.build(dev);
 		}
 
-
-
 		DXUploadContext up_ctx(dev, &buf_mgr, max_FIF);
+
+
+		DXTextureDesc tdesc{};
+		tdesc.filepath = "textures/hootle.png";
+		tdesc.usage_cpu = UsageIntentCPU::eUpdateNever;
+		tdesc.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+		auto tex_hdl = tex_mgr.create_texture(tdesc);
+		
+
+		auto tex_desc = gpu_dheap.allocate_static(1);
+		auto tex_res = tex_mgr.get_resource(tex_hdl);
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC vdesc{};
+		vdesc.Format = DXGI_FORMAT_B8G8R8A8_UNORM_SRGB;
+		vdesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		vdesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		vdesc.Texture2D.MipLevels = -1;
+		vdesc.Texture2D.MostDetailedMip = 0;
+		vdesc.Texture2D.PlaneSlice = 0;
+		vdesc.Texture2D.ResourceMinLODClamp = 0;
+		dev->CreateShaderResourceView(tex_res, &vdesc, tex_desc.cpu_handle());
+
+		auto samp_desc = gpu_dheap_sampler.allocate_static(1);
+		D3D12_SAMPLER_DESC sdesc{};
+		sdesc.Filter = D3D12_FILTER_ANISOTROPIC;
+		sdesc.AddressU = sdesc.AddressV = sdesc.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		sdesc.MipLODBias = 0;
+		sdesc.MaxAnisotropy = 8;
+		sdesc.ComparisonFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
+		sdesc.BorderColor[0] = sdesc.BorderColor[1] = sdesc.BorderColor[2] = sdesc.BorderColor[3] = 1.f;
+		sdesc.MinLOD = 0.f;
+		sdesc.MaxLOD = D3D12_FLOAT32_MAX;
+		dev->CreateSampler(&sdesc, samp_desc.cpu_handle());
+
+
+		// allocate bindless primitive
+		DXBindlessDesc bind_d{};
+		bind_d.diffuse_tex = tex_hdl;
+		auto bindless_hdl = bindless_mgr.create_bindless(bind_d);
+
+		
+
+
 
 		MSG msg{};
 		while (g_app_running)
@@ -328,14 +358,11 @@ int main()
 			cpu_pf.frame_begin();
 			gpu_pf.frame_begin(surface_idx);
 			//gpu_pf_copy.frame_begin(surface_idx);
-
-
 			g_gui_ctx->frame_begin();
 
 			gpu_dheap.frame_begin(surface_idx);
 
 
-			
 			cpu_pf.profile_begin("buf mgr frame begin");
 			buf_mgr.frame_begin(surface_idx);
 
@@ -395,10 +422,6 @@ int main()
 			up_ctx.frame_begin(surface_idx);
 
 			up_ctx.upload_data(&this_data, sizeof(CBData), buf_handle2);
-			for (int i = 0; i < hdls.size(); ++i)
-			{
-				up_ctx.upload_data(some_mem, 1024, hdls[i]);
-			}
 
 
 			up_ctx.submit_work(gfx_ctx->get_next_fence_value());
@@ -430,8 +453,8 @@ int main()
 	
 			// set main desc heap
 			//dq_cmdl->SetDescriptorHeaps(1, gpu_main_dheap.GetAddressOf());
-			ID3D12DescriptorHeap* dheaps[] = { gpu_dheap.get_desc_heap() };
-			dq_cmdl->SetDescriptorHeaps(1, dheaps);
+			ID3D12DescriptorHeap* dheaps[] = { gpu_dheap.get_desc_heap(), gpu_dheap_sampler.get_desc_heap() };
+			dq_cmdl->SetDescriptorHeaps(_countof(dheaps), dheaps);
 
 			// main draw
 			gpu_pf.profile_begin(dq_cmdl, dq, "main draw setup");
@@ -441,12 +464,19 @@ int main()
 			dq_cmdl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		
 			buf_mgr.bind_as_direct_arg(dq_cmdl, buf_handle2, params["my_cbv"], RootArgDest::eGraphics);
+			dq_cmdl->SetGraphicsRootDescriptorTable(params["my_tex"], tex_desc.gpu_handle());
+			dq_cmdl->SetGraphicsRootDescriptorTable(params["my_samp"], samp_desc.gpu_handle());
 			
+			dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.index_in_descs(bindless_hdl), 0);
+			dq_cmdl->SetGraphicsRootDescriptorTable(params["bindless_views"], bindless_mgr.get_views_start());
+			dq_cmdl->SetGraphicsRootDescriptorTable(params["bindless_access"], bindless_mgr.get_access_start());
+
+
 			dq_cmdl->SetPipelineState(pipe.Get());
 			gpu_pf.profile_end(dq_cmdl, "main draw setup");
 
 			gpu_pf.profile_begin(dq_cmdl, dq, "main draw");
-			dq_cmdl->DrawInstanced(6, 10000, 0, 0);
+			dq_cmdl->DrawInstanced(6, 1, 0, 0);
 			gpu_pf.profile_end(dq_cmdl, "main draw");
 
 			// render imgui data
@@ -495,7 +525,6 @@ int main()
 		delete g_input;
 		delete g_gui_ctx;
 
-		free(some_mem);
 
 		g_input = nullptr;
 		g_gui_ctx = nullptr;

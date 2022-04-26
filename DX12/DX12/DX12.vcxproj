@@ -161,6 +161,8 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Graphics\DX\DXBindlessManager.cpp" />
+    <ClCompile Include="src\Graphics\DX\Texture\DXTexture.cpp" />
     <ClCompile Include="src\Graphics\DX\DXUploadContext.cpp" />
     <ClCompile Include="src\Graphics\DX\Descriptor\DXDescriptorHeapGPU.cpp" />
     <ClCompile Include="src\Graphics\DX\Descriptor\DXDescriptorHeapCPU.cpp" />
@@ -187,6 +189,7 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </ClCompile>
     <ClCompile Include="src\Window.cpp" />
     <ClCompile Include="src\Utilities\Stopwatch.cpp" />
+    <ClCompile Include="src\Graphics\DX\DXTextureManager.cpp" />
     <ClCompile Include="vendor\imgui-docking\backends\imgui_impl_dx12.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
@@ -217,6 +220,8 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Graphics\DX\DXBindlessManager.h" />
+    <ClInclude Include="src\Graphics\DX\Texture\DXTexture.h" />
     <ClInclude Include="src\Graphics\DX\DXUploadContext.h" />
     <ClInclude Include="src\Graphics\DX\Descriptor\DXDescriptorHeapGPU.h" />
     <ClInclude Include="src\Graphics\DX\Descriptor\DXDescriptorHeapCPU.h" />
@@ -245,6 +250,7 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     <ClInclude Include="src\pch.h" />
     <ClInclude Include="src\Window.h" />
     <ClInclude Include="src\Utilities\Stopwatch.h" />
+    <ClInclude Include="src\Graphics\DX\DXTextureManager.h" />
     <ClInclude Include="vendor\imgui-docking\backends\imgui_impl_dx12.h" />
     <ClInclude Include="vendor\imgui-docking\backends\imgui_impl_win32.h" />
     <ClInclude Include="vendor\imgui-docking\imconfig.h" />

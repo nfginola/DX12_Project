@@ -121,6 +121,16 @@ void DXBufferManager::bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, Buffer
 
 }
 
+void DXBufferManager::create_view_for(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor)
+{
+	auto res = m_handles.get_resource(handle.handle);
+
+	D3D12_CONSTANT_BUFFER_VIEW_DESC d{};
+	d.BufferLocation = res->alloc.gpu_adr();
+	d.SizeInBytes = res->alloc.size();
+	m_dev->CreateConstantBufferView(&d, descriptor);
+}
+
 void DXBufferManager::frame_begin(uint32_t frame_idx)
 {
 	m_curr_frame_idx = frame_idx;

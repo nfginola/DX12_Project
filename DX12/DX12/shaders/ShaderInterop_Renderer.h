@@ -15,5 +15,10 @@ struct InterOp_DirectionalLightData
 	float3 color;
 };
 
+struct BindlessElement
+{
+	uint diffuse_idx;
+};
+
 
 #endif

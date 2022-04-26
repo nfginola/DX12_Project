@@ -203,7 +203,7 @@ public:
 			std::string msg = "Compilation failed with errors:\n";
 			msg += std::string((const char*)error->GetBufferPointer());
 
-			OutputDebugStringA(msg.c_str());
+			std::cout << msg.c_str() << "\n";
 
 			throw std::runtime_error("Failed to compile shader");
 		}

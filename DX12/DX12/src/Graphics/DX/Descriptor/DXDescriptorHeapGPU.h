@@ -10,7 +10,7 @@ class DXDescriptorHeapGPU
 {
 
 public:
-	DXDescriptorHeapGPU(cptr<ID3D12Device> dev, D3D12_DESCRIPTOR_HEAP_TYPE type);
+	DXDescriptorHeapGPU(cptr<ID3D12Device> dev, D3D12_DESCRIPTOR_HEAP_TYPE type, uint32_t max_descriptors = 2000);
 
 	void frame_begin(uint32_t frame_idx);
 

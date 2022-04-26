@@ -43,6 +43,13 @@ enum class BufferFlag
 	eNonConstant
 };
 
+enum class TextureFlag
+{
+	eInvalid,
+	eNonSRGB,
+	eSRGB
+};
+
 enum class ShaderModel
 {
 	e6_0
