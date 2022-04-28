@@ -4,8 +4,9 @@
 #include "Graphics/DX/DXCommon.h"
 
 
-#include "Buffer/DXBufferPoolAllocator.h"
-#include "Buffer/DXBufferRingPoolAllocator.h"
+#include "Buffer/DXBufferPoolAllocator.h"			// Suballocators
+#include "Buffer/DXBufferRingPoolAllocator.h"		// Suballocators
+#include "Buffer/DXBufferGenericAllocator.h"		// Committed resource allocator
 
 // Allocation algorithms for constant data management
 class DXConstantRingBuffer;
@@ -28,7 +29,6 @@ struct DXBufferDesc
 	UsageIntentCPU usage_cpu = UsageIntentCPU::eInvalid;
 	UsageIntentGPU usage_gpu = UsageIntentGPU::eInvalid;
 	BufferFlag flag = BufferFlag::eInvalid;
-	//bool is_constant = false;
 
 	uint32_t element_size = 0;
 	uint32_t element_count = 0;
@@ -53,9 +53,10 @@ public:
 	// Maybe should be moved to a DXRootArgBinder which has a reference to a BufferManager and a TextureManager?
 	void bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, BufferHandle buf, UINT param_idx, RootArgDest dest);
 
-	void create_view_for(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor);
-
+	void create_cbv(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor);	// constant view
+	void create_srv(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor, uint32_t start_el, uint32_t num_el, bool raw = false);		// structured view
 	
+
 private:
 	friend class DXUploadContext;
 
@@ -81,6 +82,7 @@ private:
 private:
 
 	InternalBufferResource* create_constant(const DXBufferDesc& desc);
+	InternalBufferResource* create_non_constant(const DXBufferDesc& desc);
 	void destroy_constant(InternalBufferResource* res);
 
 private:
@@ -172,5 +174,7 @@ private:
 
 	// Defers to the initialization of data on device-local onto the first frame (handled by UploadContext)
 	std::queue<std::function<void(ID3D12GraphicsCommandList*)>> m_deferred_init_copies;
+
+	std::unique_ptr<DXBufferGenericAllocator> m_committed_def_ator;
 };
 

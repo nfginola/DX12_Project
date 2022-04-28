@@ -54,6 +54,7 @@ DXBufferMemPool::DXBufferMemPool(ID3D12Device* dev, uint16_t element_size, uint3
 			m_buffer.Get(),
 			alloc_id * element_size,
 			element_size,
+			element_size,
 			m_base_gpu_adr + (uint64_t)alloc_id * element_size,
 			true,
 			m_base_cpu_adr ? m_base_cpu_adr + (uint64_t)alloc_id * element_size : nullptr

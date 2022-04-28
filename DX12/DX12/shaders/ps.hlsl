@@ -25,7 +25,6 @@ ConstantBuffer<BindlessElement> access_bufs[] : register(b0, space3);       // B
 Texture2D bindless_texs[] : register(t0, space3);
 
 
-
 float4 main(VSOut input) : SV_TARGET0
 {    
     BindlessElement bindless_el = access_bufs[bindless_index.index];

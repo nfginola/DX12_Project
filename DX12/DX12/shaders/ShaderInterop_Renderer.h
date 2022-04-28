@@ -20,5 +20,12 @@ struct BindlessElement
 	uint diffuse_idx;
 };
 
+// Interleaved buffer
+struct VertexPullElement
+{
+	float3 position;
+	float2 uv;
+};
+
 
 #endif

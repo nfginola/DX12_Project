@@ -35,6 +35,8 @@ DXBufferManager::DXBufferManager(Microsoft::WRL::ComPtr<ID3D12Device> dev, uint3
 		auto pool_for_ring = std::make_unique<DXBufferPoolAllocator>(dev, pool_infos, D3D12_HEAP_TYPE_UPLOAD);
 		m_constant_ring_buf = std::make_unique<DXBufferRingPoolAllocator>(std::move(pool_for_ring));
 	}
+
+	m_committed_def_ator = std::make_unique<DXBufferGenericAllocator>(m_dev, D3D12_HEAP_TYPE_DEFAULT);
 }
 
 BufferHandle DXBufferManager::create_buffer(const DXBufferDesc& desc)
@@ -55,7 +57,9 @@ BufferHandle DXBufferManager::create_buffer(const DXBufferDesc& desc)
 	}
 	else
 	{
-		assert(false);
+		res = create_non_constant(desc);
+		res->is_constant = false;
+
 	}
 
 	// fill out common metadata
@@ -94,6 +98,11 @@ void DXBufferManager::bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, Buffer
 		if (dest == RootArgDest::eGraphics)
 			cmdl->SetGraphicsRootConstantBufferView(param_idx, res->alloc.gpu_adr());
 	}
+	else
+	{
+		if (dest == RootArgDest::eGraphics)
+			cmdl->SetGraphicsRootShaderResourceView(param_idx, res->alloc.gpu_adr());
+	}
 
 	//switch (res->usage_gpu)
 	//{
@@ -121,7 +130,7 @@ void DXBufferManager::bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, Buffer
 
 }
 
-void DXBufferManager::create_view_for(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor)
+void DXBufferManager::create_cbv(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor)
 {
 	auto res = m_handles.get_resource(handle.handle);
 
@@ -129,6 +138,22 @@ void DXBufferManager::create_view_for(BufferHandle handle, D3D12_CPU_DESCRIPTOR_
 	d.BufferLocation = res->alloc.gpu_adr();
 	d.SizeInBytes = res->alloc.size();
 	m_dev->CreateConstantBufferView(&d, descriptor);
+}
+
+void DXBufferManager::create_srv(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor, uint32_t start_el, uint32_t num_el, bool raw)
+{
+	D3D12_SHADER_RESOURCE_VIEW_DESC d{};
+	const auto& alloc = m_handles.get_resource(handle.handle)->alloc;
+	auto res_d = alloc.base_buffer()->GetDesc();
+
+	d.Format = res_d.Format;
+	d.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	d.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+	d.Buffer.FirstElement = start_el;
+	d.Buffer.NumElements = num_el;
+	d.Buffer.StructureByteStride = alloc.element_size();
+	d.Buffer.Flags = raw ? D3D12_BUFFER_SRV_FLAG_RAW : D3D12_BUFFER_SRV_FLAG_NONE;
+	m_dev->CreateShaderResourceView(alloc.base_buffer(), &d, descriptor);
 }
 
 void DXBufferManager::frame_begin(uint32_t frame_idx)
@@ -271,6 +296,46 @@ DXBufferManager::InternalBufferResource* DXBufferManager::create_constant(const 
 	}
 	else
 		assert(false);
+
+	return resource;
+}
+
+DXBufferManager::InternalBufferResource* DXBufferManager::create_non_constant(const DXBufferDesc& desc)
+{
+	auto [handle, resource] = m_handles.get_next_free_handle();
+	resource->is_constant = true;
+
+	const auto& usage_cpu = desc.usage_cpu;
+	const auto& usage_gpu = desc.usage_gpu;
+	uint32_t requested_size = desc.element_count * desc.element_size;
+
+	// Immutable
+	if (desc.usage_cpu == UsageIntentCPU::eUpdateNever && desc.usage_gpu != UsageIntentGPU::eInvalid)
+	{
+		auto alloc = m_committed_def_ator->allocate(desc.element_count, desc.element_size);
+		resource->alloc = alloc;
+		resource->is_transient = false;
+
+		// grab temp staging memory
+		auto staging = m_constant_ring_buf->allocate(requested_size);
+
+		// copy data to staging
+		auto dst = staging.mapped_memory();
+		auto src = desc.data;
+		std::memcpy(dst, src, desc.data_size);
+
+		// schedule GPU-GPU copy to new version
+		auto upload_func = [staging, alloc, requested_size](ID3D12GraphicsCommandList* cmdl)
+		{
+			cmdl->CopyBufferRegion(
+				alloc.base_buffer(), alloc.offset_from_base(),
+				staging.base_buffer(), staging.offset_from_base(), requested_size);
+		};
+		m_deferred_init_copies.push(upload_func);
+	}
+	else
+		assert(false);		// other types not supported for now
+
 
 	return resource;
 }

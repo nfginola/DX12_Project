@@ -45,7 +45,7 @@ public:
 
 	ID3D12Resource* get_resource(TextureHandle tex);
 
-	void create_view_for(TextureHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor);
+	void create_srv(TextureHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor);
 
 private:
 	friend class DXUploadContext;

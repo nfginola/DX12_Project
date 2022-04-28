@@ -52,7 +52,7 @@ ID3D12Resource* DXTextureManager::get_resource(TextureHandle tex)
 	return m_handles.get_resource(tex.handle)->tex.resource();
 }
 
-void DXTextureManager::create_view_for(TextureHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor)
+void DXTextureManager::create_srv(TextureHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor)
 {
 	auto res = m_handles.get_resource(handle.handle);
 

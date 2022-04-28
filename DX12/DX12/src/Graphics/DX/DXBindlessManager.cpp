@@ -106,8 +106,8 @@ BindlessHandle DXBindlessManager::create_bindless(const DXBindlessDesc& desc)
 	auto access_desc = m_access_desc_ator->allocate(1);	// one persistent per tex group
 
 	// Create views for the resources
-	m_buf_mgr->create_view_for(access_hdl, access_desc.cpu_handle());
-	m_tex_mgr->create_view_for(desc.diffuse_tex, view_desc.cpu_handle());
+	m_buf_mgr->create_cbv(access_hdl, access_desc.cpu_handle());
+	m_tex_mgr->create_srv(desc.diffuse_tex, view_desc.cpu_handle());
 
 	res->access_alloc = std::move(access_desc);
 	res->view_alloc = std::move(view_desc);

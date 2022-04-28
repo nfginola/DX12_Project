@@ -260,6 +260,7 @@ int main()
 				//.push_table({ cbv_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
 				.push_constant(7, 0, 1, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_index"])
 				.push_cbv(0, 0, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
+				.push_srv(0, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_vertex"])
 				.push_table({ samp_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_samp"])
 				.push_table({ view_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_views"])
 				.push_table({ access_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_access"])
@@ -333,6 +334,28 @@ int main()
 		// mat2
 		bind_d.diffuse_tex = tex_hdl2;
 		auto bindless_hdl2 = bindless_mgr.create_bindless(bind_d);
+
+		// make vbuffer
+		static const VertexPullElement verts[] =
+		{
+			{ { -0.5f, 0.5f, 0.f }, { 0.f, 0.f } },
+			{ { 0.5f, -0.5f, 0.f }, { 1.0f, 1.f } },
+			{ { -0.5f, -0.5f, 0.f }, { 0.f, 1.f } },
+			{ { -0.5f, 0.5f, 0.f }, { 0.f, 0.f } },
+			{ { 0.5f, 0.5f, 0.f }, { 1.f, 0.f } },
+			{ { 0.5f, -0.5f, 0.f }, { 1.0f, 1.f } }
+		};
+		DXBufferDesc vbd{};
+		vbd.data = (void*)verts;
+		vbd.data_size = sizeof(verts);
+		vbd.element_count = _countof(verts);
+		vbd.element_size = sizeof(VertexPullElement);
+		vbd.usage_cpu = UsageIntentCPU::eUpdateNever;
+		vbd.usage_gpu = UsageIntentGPU::eReadOncePerFrame;	
+		vbd.flag = BufferFlag::eNonConstant;
+		auto vbo = buf_mgr.create_buffer(vbd);
+
+
 
 
 		MSG msg{};
@@ -471,6 +494,9 @@ int main()
 			gpu_pf.profile_end(dq_cmdl, "main draw setup");
 
 			gpu_pf.profile_begin(dq_cmdl, dq, "main draw");
+
+			// bind vertex
+			buf_mgr.bind_as_direct_arg(dq_cmdl, vbo, params["my_vertex"], RootArgDest::eGraphics);
 
 			// per material
 			dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.index_in_descs(bindless_hdl), 0);

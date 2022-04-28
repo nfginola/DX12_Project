@@ -27,8 +27,21 @@ public:
 
 	bool gpu_visible() const { return m_gpu_handle.ptr != 0; }
 
-	D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle() const { return m_cpu_handle; }
-	D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle() const { assert(gpu_visible()); return m_gpu_handle; }
+	D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle(uint32_t index = 0) const 
+	{ 
+		assert(index < m_descriptor_count);
+		D3D12_CPU_DESCRIPTOR_HANDLE hdl = m_cpu_handle;
+		hdl.ptr += m_descriptor_size * index;
+		return m_cpu_handle; 
+	}
+	D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle(uint32_t index = 0) const 
+	{ 
+		assert(gpu_visible()); 
+		assert(index < m_descriptor_count);
+		D3D12_GPU_DESCRIPTOR_HANDLE hdl = m_gpu_handle;
+		hdl.ptr += m_descriptor_size * index;
+		return hdl;
+	}
 
 private:
 	D3D12_CPU_DESCRIPTOR_HANDLE m_cpu_handle{};

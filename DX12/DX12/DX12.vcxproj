@@ -161,6 +161,7 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\Graphics\DX\Buffer\DXBufferGenericAllocator.cpp" />
     <ClCompile Include="src\Graphics\DX\DXBindlessManager.cpp" />
     <ClCompile Include="src\Graphics\DX\Texture\DXTexture.cpp" />
     <ClCompile Include="src\Graphics\DX\DXUploadContext.cpp" />
@@ -220,6 +221,7 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Graphics\DX\Buffer\DXBufferGenericAllocator.h" />
     <ClInclude Include="src\Graphics\DX\DXBindlessManager.h" />
     <ClInclude Include="src\Graphics\DX\Texture\DXTexture.h" />
     <ClInclude Include="src\Graphics\DX\DXUploadContext.h" />
