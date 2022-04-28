@@ -7,7 +7,7 @@
 class CPUProfiler
 {
 public:
-	static constexpr uint64_t MAX_FRAME_LATENCY = 5;	// Holds as far as 5 frames back of CPU times
+	static constexpr uint64_t MAX_FRAME_LATENCY = 15;	// Holds as far as n frames back of CPU times
 public:
 	struct ProfileData
 	{

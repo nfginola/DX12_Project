@@ -184,11 +184,11 @@ int main()
 		
 		struct CBData
 		{
-			DirectX::XMFLOAT3 color;
+			DirectX::XMFLOAT3 offset;
 		};
 
 		CBData init{};
-		init.color = { 1.f, 1.f, 1.f };
+		init.offset = { 0.f, 0.f, 0.f };
 
 		DXBufferDesc bd{};
 		bd.data = &init;
@@ -201,7 +201,7 @@ int main()
 		auto buf_handle = buf_mgr.create_buffer(bd);
 
 		DXBufferDesc bd2{};
-		init.color = { 0.3, 0.8, 0.1 };
+		init.offset = { 0.f, 0.f, 0.f };
 		bd2.data = &init;
 		bd2.data_size = sizeof(CBData);
 		bd2.element_count = 1;
@@ -259,7 +259,7 @@ int main()
 			rsig = RootSigBuilder()
 				//.push_table({ cbv_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
 				.push_constant(7, 0, 1, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_index"])
-				.push_cbv(0, 0, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
+				.push_cbv(0, 0, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_cbv"])
 				.push_srv(0, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_vertex"])
 				.push_table({ samp_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_samp"])
 				.push_table({ view_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_views"])
@@ -336,14 +336,23 @@ int main()
 		auto bindless_hdl2 = bindless_mgr.create_bindless(bind_d);
 
 		// make vbuffer
+		//static const VertexPullElement verts[] =
+		//{
+		//	{ { -0.5f, 0.5f, 0.f }, { 0.f, 0.f } },
+		//	{ { 0.5f, -0.5f, 0.f }, { 1.0f, 1.f } },
+		//	{ { -0.5f, -0.5f, 0.f }, { 0.f, 1.f } },
+		//	{ { -0.5f, 0.5f, 0.f }, { 0.f, 0.f } },
+		//	{ { 0.5f, 0.5f, 0.f }, { 1.f, 0.f } },
+		//	{ { 0.5f, -0.5f, 0.f }, { 1.0f, 1.f } }
+		//};
 		static const VertexPullElement verts[] =
 		{
-			{ { -0.5f, 0.5f, 0.f }, { 0.f, 0.f } },
-			{ { 0.5f, -0.5f, 0.f }, { 1.0f, 1.f } },
-			{ { -0.5f, -0.5f, 0.f }, { 0.f, 1.f } },
-			{ { -0.5f, 0.5f, 0.f }, { 0.f, 0.f } },
-			{ { 0.5f, 0.5f, 0.f }, { 1.f, 0.f } },
-			{ { 0.5f, -0.5f, 0.f }, { 1.0f, 1.f } }
+			{ { -0.75f, 0.25f, 0.f }, { 0.f, 0.f } },
+			{ { 0.25f, -0.75f, 0.f }, { 1.0f, 1.f } },
+			{ { -0.75f, -0.75f, 0.f }, { 0.f, 1.f } },
+			{ { -0.75f, 0.25f, 0.f }, { 0.f, 0.f } },
+			{ { 0.25f, 0.25f, 0.f }, { 1.f, 0.f } },
+			{ { 0.25f, -0.75f, 0.f }, { 1.0f, 1.f } }
 		};
 		DXBufferDesc vbd{};
 		vbd.data = (void*)verts;
@@ -355,12 +364,32 @@ int main()
 		vbd.flag = BufferFlag::eNonConstant;
 		auto vbo = buf_mgr.create_buffer(vbd);
 
+		static const VertexPullElement verts2[] =
+		{
+			{ { -0.25f, 0.75f, 0.f }, { 0.f, 0.f } },
+			{ { 0.75f, -0.25f, 0.f }, { 1.0f, 1.f } },
+			{ { -0.25f, -0.25f, 0.f }, { 0.f, 1.f } },
+			{ { -0.25f, 0.75f, 0.f }, { 0.f, 0.f } },
+			{ { 0.75f, 0.75f, 0.f }, { 1.f, 0.f } },
+			{ { 0.75f, -0.25f, 0.f }, { 1.0f, 1.f } }
+		};
+		DXBufferDesc vbd2{};
+		vbd2.data = (void*)verts2;
+		vbd2.data_size = sizeof(verts2);
+		vbd2.element_count = _countof(verts2);
+		vbd2.element_size = sizeof(VertexPullElement);
+		vbd2.usage_cpu = UsageIntentCPU::eUpdateNever;
+		vbd2.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+		vbd2.flag = BufferFlag::eNonConstant;
+		auto vbo2 = buf_mgr.create_buffer(vbd2);
 
 
 
+		uint64_t frame_count = 0;
 		MSG msg{};
 		while (g_app_running)
 		{
+			++frame_count;
 			win->pump_messages();
 			if (!g_app_running)		// Early exit if WMs see exit request
 				break;
@@ -388,13 +417,9 @@ int main()
 			buf_mgr.frame_begin(surface_idx);
 
 
-			std::array<DirectX::SimpleMath::Vector3, 3> colors;
-			colors[0] = { 1.f, 0.f, 0.f };
-			colors[1] = { 0.f, 1.f, 0.f };
-			colors[2] = { 0.f, 0.f, 1.f };
-
+			DirectX::SimpleMath::Vector3 offset = { sinf(frame_count / 35.f) * 0.10f, 0.f, 0.f };
 			CBData this_data{};
-			this_data.color = colors[surface_idx];
+			this_data.offset = offset;
 
 
 			cpu_pf.profile_end("buf mgr frame begin");
@@ -442,7 +467,6 @@ int main()
 
 			up_ctx.frame_begin(surface_idx);
 			bindless_mgr.frame_begin(surface_idx);
-
 		
 			// upload data
 			// force direct queue to wait on the GPU for async copy to be done before submitting this frame
@@ -500,10 +524,12 @@ int main()
 
 			// per material
 			dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.index_in_descs(bindless_hdl), 0);
-			dq_cmdl->DrawInstanced(6, 1, 0, 0);
+			dq_cmdl->DrawInstanced(buf_mgr.get_element_count(vbo), 1, 0, 0);
+
+			buf_mgr.bind_as_direct_arg(dq_cmdl, vbo2, params["my_vertex"], RootArgDest::eGraphics);
 
 			dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.index_in_descs(bindless_hdl2), 0);
-			dq_cmdl->DrawInstanced(6, 1, 0, 0);
+			dq_cmdl->DrawInstanced(buf_mgr.get_element_count(vbo2), 1, 0, 0);
 
 
 			gpu_pf.profile_end(dq_cmdl, "main draw");

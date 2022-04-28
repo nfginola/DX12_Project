@@ -6,17 +6,11 @@ struct VSOut
     float2 uv : UV;
 };
 
-struct TestCB
-{
-    float3 color;
-};
-
 struct BindlessIndex
 {
     uint index;
 };
 
-ConstantBuffer<TestCB> cb : register(b0, space0);
 
 SamplerState samp : register(s0, space0);
 

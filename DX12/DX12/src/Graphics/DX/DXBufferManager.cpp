@@ -156,6 +156,11 @@ void DXBufferManager::create_srv(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDL
 	m_dev->CreateShaderResourceView(alloc.base_buffer(), &d, descriptor);
 }
 
+uint32_t DXBufferManager::get_element_count(BufferHandle handle)
+{
+	return m_handles.get_resource(handle.handle)->alloc.element_count();
+}
+
 void DXBufferManager::frame_begin(uint32_t frame_idx)
 {
 	m_curr_frame_idx = frame_idx;

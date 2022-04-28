@@ -24,6 +24,7 @@ public:
 		m_offset_from_base(offset_from_base),
 		m_total_size(total_size),
 		m_element_size(element_size),
+		m_element_count(m_total_size / m_element_size),
 		m_gpu_address(gpu_adr),
 		m_is_submanaged(is_submanaged),
 		m_mapped_memory(mapped_memory)
@@ -32,7 +33,8 @@ public:
 	ID3D12Resource* base_buffer() const { return m_base_buffer.Get(); }
 	uint32_t offset_from_base() const { return m_offset_from_base; }
 	uint32_t size() const { return m_total_size; }
-	uint32_t element_size() const { return m_element_size; };
+	uint32_t element_size() const { return m_element_size; }
+	uint32_t element_count() const { return m_element_count; }
 	D3D12_GPU_VIRTUAL_ADDRESS gpu_adr() const { return m_gpu_address; }
 
 	bool mappable() const { return m_mapped_memory != nullptr; }
@@ -49,6 +51,7 @@ private:
 	uint32_t m_offset_from_base = 0;
 	uint32_t m_total_size = 0;			
 	uint32_t m_element_size = 0;
+	uint32_t m_element_count = 0;
 
 	uint8_t* m_mapped_memory = nullptr;					// CPU updateable memory (optional)
 	D3D12_GPU_VIRTUAL_ADDRESS m_gpu_address{};			// GPU address to bind as immediate root argument

@@ -56,6 +56,7 @@ public:
 	void create_cbv(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor);	// constant view
 	void create_srv(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor, uint32_t start_el, uint32_t num_el, bool raw = false);		// structured view
 	
+	uint32_t get_element_count(BufferHandle handle);
 
 private:
 	friend class DXUploadContext;
