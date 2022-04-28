@@ -156,6 +156,18 @@ void DXBufferManager::create_srv(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDL
 	m_dev->CreateShaderResourceView(alloc.base_buffer(), &d, descriptor);
 }
 
+D3D12_INDEX_BUFFER_VIEW DXBufferManager::get_ibv(BufferHandle handle, DXGI_FORMAT format)
+{
+	const auto& alloc = m_handles.get_resource(handle.handle)->alloc;
+	auto res_d = alloc.base_buffer()->GetDesc();
+
+	D3D12_INDEX_BUFFER_VIEW ibv{};
+	ibv.BufferLocation = alloc.gpu_adr();
+	ibv.Format = format;
+	ibv.SizeInBytes = alloc.size();
+	return ibv;
+}
+
 uint32_t DXBufferManager::get_element_count(BufferHandle handle)
 {
 	return m_handles.get_resource(handle.handle)->alloc.element_count();

@@ -27,5 +27,16 @@ struct VertexPullElement
 	float2 uv;
 };
 
+// Non-interleaved buffers
+struct VertexPullPosition
+{
+	float3 position;
+};
+
+struct VertexPullUV
+{
+	float2 uv;
+};
+
 
 #endif

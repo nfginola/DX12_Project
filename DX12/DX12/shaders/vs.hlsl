@@ -30,7 +30,9 @@ struct TestCB
 
 ConstantBuffer<TestCB> cb : register(b0, space0);
 
-StructuredBuffer<VertexPullElement> vertices : register(t0, space5);
+//StructuredBuffer<VertexPullElement> vertices : register(t0, space5);
+StructuredBuffer<VertexPullPosition> vertices : register(t0, space5);
+StructuredBuffer<VertexPullUV> uvs : register(t1, space5);
 
 
 VSOut main( uint vertID : SV_VertexID )
@@ -41,7 +43,7 @@ VSOut main( uint vertID : SV_VertexID )
     //output.pos = float4(verts[vertID].pos.xyz, 1.f);
     //output.uv = verts[vertID].uv;
     output.pos = float4(vertices[vertID].position + cb.offset, 1.f);
-    output.uv = vertices[vertID].uv, 1.f;
+    output.uv = uvs[vertID].uv, 1.f;
     
 	return output;
 }

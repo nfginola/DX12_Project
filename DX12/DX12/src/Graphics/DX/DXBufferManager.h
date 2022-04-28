@@ -55,7 +55,8 @@ public:
 
 	void create_cbv(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor);	// constant view
 	void create_srv(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor, uint32_t start_el, uint32_t num_el, bool raw = false);		// structured view
-	
+	D3D12_INDEX_BUFFER_VIEW get_ibv(BufferHandle handle, DXGI_FORMAT format = DXGI_FORMAT_R32_UINT);
+
 	uint32_t get_element_count(BufferHandle handle);
 
 private:

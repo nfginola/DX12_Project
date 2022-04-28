@@ -260,7 +260,8 @@ int main()
 				//.push_table({ cbv_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
 				.push_constant(7, 0, 1, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_index"])
 				.push_cbv(0, 0, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_cbv"])
-				.push_srv(0, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_vertex"])
+				.push_srv(0, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_pos"])
+				.push_srv(1, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_uv"])
 				.push_table({ samp_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_samp"])
 				.push_table({ view_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_views"])
 				.push_table({ access_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_access"])
@@ -335,54 +336,146 @@ int main()
 		bind_d.diffuse_tex = tex_hdl2;
 		auto bindless_hdl2 = bindless_mgr.create_bindless(bind_d);
 
-		// make vbuffer
+		//// make vbuffer
+		////static const VertexPullElement verts[] =
+		////{
+		////	{ { -0.5f, 0.5f, 0.f }, { 0.f, 0.f } },
+		////	{ { 0.5f, -0.5f, 0.f }, { 1.0f, 1.f } },
+		////	{ { -0.5f, -0.5f, 0.f }, { 0.f, 1.f } },
+		////	{ { -0.5f, 0.5f, 0.f }, { 0.f, 0.f } },
+		////	{ { 0.5f, 0.5f, 0.f }, { 1.f, 0.f } },
+		////	{ { 0.5f, -0.5f, 0.f }, { 1.0f, 1.f } }
+		////};
 		//static const VertexPullElement verts[] =
 		//{
-		//	{ { -0.5f, 0.5f, 0.f }, { 0.f, 0.f } },
-		//	{ { 0.5f, -0.5f, 0.f }, { 1.0f, 1.f } },
-		//	{ { -0.5f, -0.5f, 0.f }, { 0.f, 1.f } },
-		//	{ { -0.5f, 0.5f, 0.f }, { 0.f, 0.f } },
-		//	{ { 0.5f, 0.5f, 0.f }, { 1.f, 0.f } },
-		//	{ { 0.5f, -0.5f, 0.f }, { 1.0f, 1.f } }
+		//	{ { -0.75f, 0.25f, 0.f }, { 0.f, 0.f } },
+		//	{ { 0.25f, -0.75f, 0.f }, { 1.0f, 1.f } },
+		//	{ { -0.75f, -0.75f, 0.f }, { 0.f, 1.f } },
+		//	{ { -0.75f, 0.25f, 0.f }, { 0.f, 0.f } },
+		//	{ { 0.25f, 0.25f, 0.f }, { 1.f, 0.f } },
+		//	{ { 0.25f, -0.75f, 0.f }, { 1.0f, 1.f } }
 		//};
-		static const VertexPullElement verts[] =
-		{
-			{ { -0.75f, 0.25f, 0.f }, { 0.f, 0.f } },
-			{ { 0.25f, -0.75f, 0.f }, { 1.0f, 1.f } },
-			{ { -0.75f, -0.75f, 0.f }, { 0.f, 1.f } },
-			{ { -0.75f, 0.25f, 0.f }, { 0.f, 0.f } },
-			{ { 0.25f, 0.25f, 0.f }, { 1.f, 0.f } },
-			{ { 0.25f, -0.75f, 0.f }, { 1.0f, 1.f } }
-		};
-		DXBufferDesc vbd{};
-		vbd.data = (void*)verts;
-		vbd.data_size = sizeof(verts);
-		vbd.element_count = _countof(verts);
-		vbd.element_size = sizeof(VertexPullElement);
-		vbd.usage_cpu = UsageIntentCPU::eUpdateNever;
-		vbd.usage_gpu = UsageIntentGPU::eReadOncePerFrame;	
-		vbd.flag = BufferFlag::eNonConstant;
-		auto vbo = buf_mgr.create_buffer(vbd);
+		//DXBufferDesc vbd{};
+		//vbd.data = (void*)verts;
+		//vbd.data_size = sizeof(verts);
+		//vbd.element_count = _countof(verts);
+		//vbd.element_size = sizeof(VertexPullElement);
+		//vbd.usage_cpu = UsageIntentCPU::eUpdateNever;
+		//vbd.usage_gpu = UsageIntentGPU::eReadOncePerFrame;	
+		//vbd.flag = BufferFlag::eNonConstant;
+		//auto vbo = buf_mgr.create_buffer(vbd);
 
-		static const VertexPullElement verts2[] =
+		//static const VertexPullElement verts2[] =
+		//{
+		//	{ { -0.25f, 0.75f, 0.f }, { 0.f, 0.f } },
+		//	{ { 0.75f, -0.25f, 0.f }, { 1.0f, 1.f } },
+		//	{ { -0.25f, -0.25f, 0.f }, { 0.f, 1.f } },
+		//	{ { -0.25f, 0.75f, 0.f }, { 0.f, 0.f } },
+		//	{ { 0.75f, 0.75f, 0.f }, { 1.f, 0.f } },
+		//	{ { 0.75f, -0.25f, 0.f }, { 1.0f, 1.f } }
+		//};
+		//DXBufferDesc vbd2{};
+		//vbd2.data = (void*)verts2;
+		//vbd2.data_size = sizeof(verts2);
+		//vbd2.element_count = _countof(verts2);
+		//vbd2.element_size = sizeof(VertexPullElement);
+		//vbd2.usage_cpu = UsageIntentCPU::eUpdateNever;
+		//vbd2.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+		//vbd2.flag = BufferFlag::eNonConstant;
+		//auto vbo2 = buf_mgr.create_buffer(vbd2);
+
+		static const VertexPullPosition positions1[] =
 		{
-			{ { -0.25f, 0.75f, 0.f }, { 0.f, 0.f } },
-			{ { 0.75f, -0.25f, 0.f }, { 1.0f, 1.f } },
-			{ { -0.25f, -0.25f, 0.f }, { 0.f, 1.f } },
-			{ { -0.25f, 0.75f, 0.f }, { 0.f, 0.f } },
-			{ { 0.75f, 0.75f, 0.f }, { 1.f, 0.f } },
-			{ { 0.75f, -0.25f, 0.f }, { 1.0f, 1.f } }
+			{ { -0.75f, 0.25f, 0.f } },
+			{ { 0.25f, -0.75f, 0.f } },
+			{ { -0.75f, -0.75f, 0.f } },
+			{ { -0.75f, 0.25f, 0.f } },
+			{ { 0.25f, 0.25f, 0.f } },
+			{ { 0.25f, -0.75f, 0.f } }
+		};
+
+		DXBufferDesc vbd{};
+		vbd.data = (void*)positions1;
+		vbd.data_size = sizeof(positions1);
+		vbd.element_count = _countof(positions1);
+		vbd.element_size = sizeof(VertexPullPosition);
+		vbd.usage_cpu = UsageIntentCPU::eUpdateNever;
+		vbd.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+		vbd.flag = BufferFlag::eNonConstant;
+		auto vbo1_pos = buf_mgr.create_buffer(vbd);
+
+		static const VertexPullUV uvs1[] =
+		{
+			{ { 0.f, 0.f } },
+			{ { 1.0f, 1.f } },
+			{ { 0.f, 1.f } },
+			{ { 0.f, 0.f } },
+			{ { 1.f, 0.f } },
+			{ { 1.0f, 1.f } }
+		};
+		vbd.data = (void*)uvs1;
+		vbd.data_size = sizeof(uvs1);
+		vbd.element_count = _countof(uvs1);
+		vbd.element_size = sizeof(VertexPullUV);
+		auto vbo1_uv = buf_mgr.create_buffer(vbd);
+
+
+
+
+		static const VertexPullPosition positions2[] =
+		{
+			{ { -0.25f, 0.75f, 0.f } },
+			{ { 0.75f, -0.25f, 0.f } },
+			{ { -0.25f, -0.25f, 0.f } },
+			{ { -0.25f, 0.75f, 0.f } },
+			{ { 0.75f, 0.75f, 0.f } },
+			{ { 0.75f, -0.25f, 0.f } }
 		};
 		DXBufferDesc vbd2{};
-		vbd2.data = (void*)verts2;
-		vbd2.data_size = sizeof(verts2);
-		vbd2.element_count = _countof(verts2);
-		vbd2.element_size = sizeof(VertexPullElement);
+		vbd2.data = (void*)positions2;
+		vbd2.data_size = sizeof(positions2);
+		vbd2.element_count = _countof(positions2);
+		vbd2.element_size = sizeof(VertexPullPosition);
 		vbd2.usage_cpu = UsageIntentCPU::eUpdateNever;
 		vbd2.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
 		vbd2.flag = BufferFlag::eNonConstant;
-		auto vbo2 = buf_mgr.create_buffer(vbd2);
+		auto vbo2_pos = buf_mgr.create_buffer(vbd2);
 
+		static const VertexPullUV uvs2[] =
+		{
+			{ { 0.f, 0.f } },
+			{ { 1.0f, 1.f } },
+			{ { 0.f, 1.f } },
+			{ { 0.f, 0.f } },
+			{ { 1.f, 0.f } },
+			{ { 1.0f, 1.f } }
+		};
+		vbd2.data = (void*)uvs2;
+		vbd2.data_size = sizeof(uvs2);
+		vbd2.element_count = _countof(uvs2);
+		vbd2.element_size = sizeof(VertexPullUV);
+		auto vbo2_uv = buf_mgr.create_buffer(vbd2);
+
+		// notice how our geometry changes depending on the indices!
+		// we are applying an index buffer on vertex pulling!
+		
+		// create index buffer
+		static const uint32_t indices[] =
+		{
+			0, 1, 2, 3, 4, 5
+		};
+		DXBufferDesc ibd{};
+		ibd.data = (void*)indices;
+		ibd.data_size = sizeof(indices);
+		ibd.element_count = _countof(indices);
+		ibd.element_size = sizeof(uint32_t);
+		ibd.usage_cpu = UsageIntentCPU::eUpdateNever;
+		ibd.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+		ibd.flag = BufferFlag::eNonConstant;
+		auto ibo = buf_mgr.create_buffer(ibd);
+
+		// create index buffer view
+		auto ibv = buf_mgr.get_ibv(ibo);
 
 
 		uint64_t frame_count = 0;
@@ -519,17 +612,23 @@ int main()
 
 			gpu_pf.profile_begin(dq_cmdl, dq, "main draw");
 
-			// bind vertex
-			buf_mgr.bind_as_direct_arg(dq_cmdl, vbo, params["my_vertex"], RootArgDest::eGraphics);
+			// bind geom 1
+			buf_mgr.bind_as_direct_arg(dq_cmdl, vbo1_pos, params["my_pos"], RootArgDest::eGraphics);
+			buf_mgr.bind_as_direct_arg(dq_cmdl, vbo1_uv, params["my_uv"], RootArgDest::eGraphics);
+			dq_cmdl->IASetIndexBuffer(&ibv);
 
-			// per material
+			// bind mat 1
 			dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.index_in_descs(bindless_hdl), 0);
-			dq_cmdl->DrawInstanced(buf_mgr.get_element_count(vbo), 1, 0, 0);
+			dq_cmdl->DrawIndexedInstanced(buf_mgr.get_element_count(vbo1_pos), 1, 0, 0, 0);
 
-			buf_mgr.bind_as_direct_arg(dq_cmdl, vbo2, params["my_vertex"], RootArgDest::eGraphics);
+			// bind geom 2
+			buf_mgr.bind_as_direct_arg(dq_cmdl, vbo2_pos, params["my_pos"], RootArgDest::eGraphics);
+			buf_mgr.bind_as_direct_arg(dq_cmdl, vbo2_uv, params["my_uv"], RootArgDest::eGraphics);
+			dq_cmdl->IASetIndexBuffer(&ibv);
 
+			// bind mat 2
 			dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.index_in_descs(bindless_hdl2), 0);
-			dq_cmdl->DrawInstanced(buf_mgr.get_element_count(vbo2), 1, 0, 0);
+			dq_cmdl->DrawIndexedInstanced(buf_mgr.get_element_count(vbo2_pos), 1, 0, 0, 0);
 
 
 			gpu_pf.profile_end(dq_cmdl, "main draw");
