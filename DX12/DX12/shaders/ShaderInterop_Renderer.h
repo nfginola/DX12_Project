@@ -15,9 +15,21 @@ struct InterOp_DirectionalLightData
 	float3 color;
 };
 
+
+
+/*
+	Could be called Material Element
+*/
 struct BindlessElement
 {
 	uint diffuse_idx;
+	/*
+		spec idx
+		amb idx
+
+		tint color, etc..
+	
+	*/
 };
 
 // Interleaved buffer

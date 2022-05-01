@@ -156,7 +156,7 @@ uint64_t DXBindlessManager::offset_to_access_part() const
 	return m_offset_to_access_part;
 }
 
-uint64_t DXBindlessManager::index_in_descs(BindlessHandle handle)
+uint64_t DXBindlessManager::access_index(BindlessHandle handle)
 {
 	return m_handles.get_resource(handle.handle)->access_index;
 }

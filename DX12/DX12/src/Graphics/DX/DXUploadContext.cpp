@@ -49,7 +49,7 @@ void DXUploadContext::frame_begin(uint32_t frame_idx)
 	m_cmdls[frame_idx]->Reset(m_ators[frame_idx].Get(), nullptr);
 
 	// Upload initial data for device-local memory (if any) requested upon load on the Buffer Manager
-	if (!m_buf_mgr->m_deferred_init_copies.empty())
+	while (!m_buf_mgr->m_deferred_init_copies.empty())
 	{
 		auto upload_func = m_buf_mgr->m_deferred_init_copies.front();
 

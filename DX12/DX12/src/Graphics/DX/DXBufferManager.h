@@ -92,6 +92,7 @@ private:
 	HandlePool<InternalBufferResource> m_handles;
 	uint32_t m_curr_frame_idx = 0;
 
+	bool m_first_frame = true;
 	/*
 		For buffers with persistent locations,
 		we should create a View for them according to the usage specified by the user
@@ -178,5 +179,6 @@ private:
 	std::queue<std::function<void(ID3D12GraphicsCommandList*)>> m_deferred_init_copies;
 
 	std::unique_ptr<DXBufferGenericAllocator> m_committed_def_ator;
+	std::unique_ptr<DXBufferGenericAllocator> m_committed_upload_ator;
 };
 

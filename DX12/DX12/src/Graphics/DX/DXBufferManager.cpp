@@ -37,6 +37,7 @@ DXBufferManager::DXBufferManager(Microsoft::WRL::ComPtr<ID3D12Device> dev, uint3
 	}
 
 	m_committed_def_ator = std::make_unique<DXBufferGenericAllocator>(m_dev, D3D12_HEAP_TYPE_DEFAULT);
+	m_committed_upload_ator = std::make_unique<DXBufferGenericAllocator>(m_dev, D3D12_HEAP_TYPE_UPLOAD);
 }
 
 BufferHandle DXBufferManager::create_buffer(const DXBufferDesc& desc)
@@ -181,20 +182,24 @@ void DXBufferManager::frame_begin(uint32_t frame_idx)
 	m_constant_ring_buf->frame_begin(frame_idx);
 
 
-	// deallocate 
-	while (!m_deletion_queue.empty())
+	// deallocate
+	if (!m_first_frame)
 	{
-		auto el = m_deletion_queue.front();
-		if (el.first == frame_idx)
+		while (!m_deletion_queue.empty())
 		{
-			auto& del_func = el.second;
-			del_func();
-			m_deletion_queue.pop();
+			auto el = m_deletion_queue.front();
+			if (el.first == frame_idx)
+			{
+				auto& del_func = el.second;
+				del_func();
+				m_deletion_queue.pop();
+			}
+			else
+				break;
 		}
-		else
-			break;
 	}
-
+	else
+		m_first_frame = false;
 }
 
 
@@ -329,12 +334,10 @@ DXBufferManager::InternalBufferResource* DXBufferManager::create_non_constant(co
 	// Immutable
 	if (desc.usage_cpu == UsageIntentCPU::eUpdateNever && desc.usage_gpu != UsageIntentGPU::eInvalid)
 	{
-		auto alloc = m_committed_def_ator->allocate(desc.element_count, desc.element_size);
-		resource->alloc = alloc;
+		resource->alloc = std::move(m_committed_def_ator->allocate(desc.element_count, desc.element_size));
 		resource->is_transient = false;
-
 		// grab temp staging memory
-		auto staging = m_constant_ring_buf->allocate(requested_size);
+		auto staging = m_committed_upload_ator->allocate(desc.element_count, desc.element_size);
 
 		// copy data to staging
 		auto dst = staging.mapped_memory();
@@ -342,13 +345,20 @@ DXBufferManager::InternalBufferResource* DXBufferManager::create_non_constant(co
 		std::memcpy(dst, src, desc.data_size);
 
 		// schedule GPU-GPU copy to new version
-		auto upload_func = [staging, alloc, requested_size](ID3D12GraphicsCommandList* cmdl)
+		auto upload_func = [staging, alloc = resource->alloc, requested_size](ID3D12GraphicsCommandList* cmdl)
 		{
 			cmdl->CopyBufferRegion(
 				alloc.base_buffer(), alloc.offset_from_base(),
 				staging.base_buffer(), staging.offset_from_base(), requested_size);
 		};
 		m_deferred_init_copies.push(upload_func);
+
+		// remove staging later (we need to guarantee GPU-GPU copy)
+		auto del_func = [this, staging]() mutable
+		{
+			m_committed_upload_ator->deallocate(std::move(staging));
+		};
+		m_deletion_queue.push({ m_curr_frame_idx, del_func });		// defer destruction of staging until next frame
 	}
 	else
 		assert(false);		// other types not supported for now

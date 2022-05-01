@@ -33,7 +33,15 @@ DXBufferAllocation DXBufferGenericAllocator::allocate(uint32_t element_count, ui
 		nullptr,
 		IID_PPV_ARGS(buf.GetAddressOf()));
 
-	return DXBufferAllocation
+	uint8_t* mapped_start = nullptr;
+	// Persistently map if upload/readback buffer
+	if (m_heap_type == D3D12_HEAP_TYPE_UPLOAD || m_heap_type == D3D12_HEAP_TYPE_READBACK)
+	{
+		D3D12_RANGE no_read{};
+		buf->Map(0, &no_read, (void**)&mapped_start);
+	}
+
+	auto alloc = DXBufferAllocation
 	(
 		buf.Get(),
 		0,
@@ -41,6 +49,21 @@ DXBufferAllocation DXBufferGenericAllocator::allocate(uint32_t element_count, ui
 		element_size,
 		buf->GetGPUVirtualAddress(),
 		false,
-		nullptr
-	);;
+		mapped_start
+	);
+
+	// track
+	m_allocs.insert({ alloc.gpu_adr(), alloc });
+
+	return alloc;
+}
+
+void DXBufferGenericAllocator::deallocate(DXBufferAllocation&& alloc)
+{
+	auto it = m_allocs.find(alloc.gpu_adr());
+	if (it == m_allocs.cend())
+		assert(false);
+
+	// erase from internal tracker
+	m_allocs.erase(it);
 }

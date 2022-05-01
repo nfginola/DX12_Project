@@ -1,6 +1,8 @@
 #pragma once
 #include "DXCommon.h"
 
+#include <unordered_map>
+
 #include "Texture/DXTexture.h"
 #include "Utilities/HandlePool.h"
 
@@ -67,9 +69,10 @@ private:
 	cptr<ID3D12Device> m_dev;
 	cptr<ID3D12CommandQueue> m_wait_queue;
 
+	std::unordered_map<std::string, uint64_t> m_loaded_path_to_handle;
+
 	HandlePool<InternalTextureResource> m_handles;
 	
-
 	uptr<DirectX::ResourceUploadBatch> m_up_batch;
 
 };

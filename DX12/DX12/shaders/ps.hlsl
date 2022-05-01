@@ -16,7 +16,10 @@ SamplerState samp : register(s0, space0);
 
 ConstantBuffer<BindlessIndex> bindless_index : register(b7, space0);        // Root arg constant with index to Bindless Element arr
 
-ConstantBuffer<BindlessElement> access_bufs[] : register(b0, space3);       // Bindless Element holds indices to various Texture2D arrs (e.g diff/spec, etc.)
+// We dont need this if we use dynamic descriptor access
+ConstantBuffer<BindlessElement> access_bufs[] : register(b0, space3);       // Bindless Element holds metadata or bindless resources
+
+
 Texture2D bindless_texs[] : register(t0, space3);
 
 float4 main(VSOut input) : SV_TARGET0

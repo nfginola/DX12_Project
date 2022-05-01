@@ -10,8 +10,8 @@
 
 struct BindlessHandle
 {
-private:
 	BindlessHandle() = default;
+private:
 	BindlessHandle(uint64_t handle_) : handle(handle_) {}
 	friend class DXBindlessManager;
 	uint64_t handle = 0;
@@ -47,7 +47,7 @@ public:
 
 	uint64_t offset_to_access_part() const;
 
-	uint64_t index_in_descs(BindlessHandle handle);
+	uint64_t access_index(BindlessHandle handle);
 
 private:
 	struct InternalBindlessResource

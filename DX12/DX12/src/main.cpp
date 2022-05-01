@@ -119,6 +119,7 @@ int main()
 		}
 
 		DXDescriptorHeapCPU cpu_rtv_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		DXDescriptorHeapCPU cpu_dsv_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 		DXDescriptorHeapGPU gpu_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 6000);
 		DXDescriptorHeapGPU gpu_dheap_sampler(dev, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 2000);
 
@@ -130,6 +131,54 @@ int main()
 			auto hdl = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtv_alloc.cpu_handle())
 				.Offset(i, rtv_alloc.descriptor_size());
 			dev->CreateRenderTargetView(gfx_sc->get_backbuffer(i), nullptr, hdl);
+		}
+
+		// setup depth buffers
+		std::vector<cptr<ID3D12Resource>> depth_targets;
+		depth_targets.resize(max_FIF);
+		auto dsv_alloc = cpu_dsv_dheap.allocate(max_FIF);
+		{
+			// create textures
+			const auto format = DXGI_FORMAT_D32_FLOAT;
+
+			D3D12_RESOURCE_DESC resd{};
+			resd.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+			resd.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+			resd.Width = CLIENT_WIDTH;
+			resd.Height = CLIENT_HEIGHT;
+			resd.DepthOrArraySize = 1;
+			resd.MipLevels = 1;
+			resd.Format = format;
+			resd.SampleDesc.Count = 1;
+			resd.SampleDesc.Quality = 0;
+
+			// Driver chooses most efficient layout
+			// https://docs.microsoft.com/en-us/windows/win32/api/d3d12/ne-d3d12-d3d12_texture_layout
+			resd.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+			resd.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL | D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
+
+
+			D3D12_HEAP_PROPERTIES heap_prop{};
+			heap_prop.Type = D3D12_HEAP_TYPE_DEFAULT;
+
+			D3D12_CLEAR_VALUE clear{};
+			clear.Format = format;
+			clear.DepthStencil.Depth = 1.0f;
+
+			for (auto i = 0; i < max_FIF; ++i)
+			{
+				dev->CreateCommittedResource(
+					&heap_prop,
+					D3D12_HEAP_FLAG_NONE,
+					&resd,
+					D3D12_RESOURCE_STATE_DEPTH_WRITE,
+					&clear,
+					IID_PPV_ARGS(depth_targets[i].GetAddressOf()));
+
+				auto hdl = CD3DX12_CPU_DESCRIPTOR_HANDLE(dsv_alloc.cpu_handle())
+					.Offset(i, rtv_alloc.descriptor_size());
+				dev->CreateDepthStencilView(depth_targets[i].Get(), nullptr, hdl);
+			}
 		}
 
 		auto main_vp = CD3DX12_VIEWPORT(0.f, 0.f, CLIENT_WIDTH, CLIENT_HEIGHT, D3D12_MIN_DEPTH, D3D12_MAX_DEPTH);
@@ -266,22 +315,25 @@ int main()
 			rsig = RootSigBuilder()
 				//.push_table({ cbv_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
 				.push_constant(7, 0, 1, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_index"])
+				.push_constant(8, 0, 1, D3D12_SHADER_VISIBILITY_VERTEX, &params["vert_offset"])
 				.push_cbv(0, 0, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_cbv"])
 				.push_srv(0, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_pos"])
 				.push_srv(1, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_uv"])
+				.push_cbv(7, 7, D3D12_SHADER_VISIBILITY_VERTEX, &params["camera_data"])
 				.push_table({ samp_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_samp"])
 				.push_table({ view_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_views"])
 				.push_table({ access_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_access"])
 				.build(dev, D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED);						// use dynamic descriptor indexing
 
 			auto ds = DepthStencilDescBuilder()
-				.set_depth_enabled(false);
+				.set_depth_enabled(true);
 
 			pipe = PipelineBuilder()
 				.set_root_sig(rsig)
 				.set_shader_bytecode(*vs_blob, ShaderType::eVertex)
 				.set_shader_bytecode(*ps_blob, ShaderType::ePixel)
 				.append_rt_format(DXGI_FORMAT_R8G8B8A8_UNORM)
+				.set_depth_format(DepthFormat::eD32)
 				.set_depth_stencil(ds)
 				.build(dev);
 		}
@@ -421,7 +473,7 @@ int main()
 		// create index buffer for both quads (testing identical)
 		static const uint32_t indices[] =
 		{
-			0, 1, 2, 3, 4, 5
+			0, 1, 2, 0, 4, 1
 		};
 		DXBufferDesc ibd{};
 		ibd.data = (void*)indices;
@@ -435,6 +487,144 @@ int main()
 
 		// create index buffer view
 		auto ibv = buf_mgr.get_ibv(ibo);
+
+	
+		struct MeshPart
+		{
+			uint32_t index_start = 0;
+			uint32_t index_count = 0;
+			uint32_t vertex_start = 0;
+		};
+
+		struct Mesh
+		{
+			std::vector<BufferHandle> vbs;
+			BufferHandle ib;
+			std::vector<MeshPart> parts; 
+
+			uint64_t handle = 0;
+			void destroy() { };
+		};
+		
+		struct Material
+		{
+			cptr<ID3D12PipelineState> pso;
+			BindlessHandle resource;
+
+			uint64_t handle = 0;
+			void destroy() { };
+		};
+
+		struct MeshHandle
+		{
+		public:
+			MeshHandle() = default;
+		private:
+			MeshHandle(uint64_t handle_) : handle(handle_) {}
+			uint64_t handle = 0;
+		};
+
+		struct MaterialHandle
+		{
+		public:
+			MaterialHandle() = default;
+		private:
+			MaterialHandle(uint64_t handle_) : handle(handle_) {}
+			uint64_t handle = 0;
+		};
+
+		struct Model
+		{
+			MeshHandle mesh;
+			std::vector<MaterialHandle> materials;	// indirect dependency with mesh parts
+		};
+
+		
+		Mesh sponza_mesh;
+		D3D12_INDEX_BUFFER_VIEW sponza_ibv;
+		std::vector<BindlessHandle> mats;
+		{
+			AssimpLoader loader("models/sponza/sponza.obj");
+
+			DXBufferDesc bdesc{};
+			bdesc.data = (void*)loader.get_positions().data();
+			bdesc.data_size = loader.get_positions().size() * sizeof(loader.get_positions()[0]);
+			bdesc.element_count = loader.get_positions().size();
+			bdesc.element_size = sizeof(loader.get_positions()[0]);
+			bdesc.flag = BufferFlag::eNonConstant;
+			bdesc.usage_cpu = UsageIntentCPU::eUpdateNever;
+			bdesc.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+			auto pos_vbo = buf_mgr.create_buffer(bdesc);
+
+			bdesc.data = (void*)loader.get_uvs().data();
+			bdesc.data_size = loader.get_uvs().size() * sizeof(loader.get_uvs()[0]);
+			bdesc.element_count = loader.get_uvs().size();
+			bdesc.element_size = sizeof(loader.get_uvs()[0]);
+			auto uv_vbo = buf_mgr.create_buffer(bdesc);
+
+			bdesc.data = (void*)loader.get_indices().data();
+			bdesc.data_size = loader.get_indices().size() * sizeof(uint32_t);
+			bdesc.element_count = loader.get_indices().size();
+			bdesc.element_size = sizeof(uint32_t);
+			auto ib_vbo = buf_mgr.create_buffer(bdesc);
+
+			std::vector<MeshPart> parts;
+			for (int i = 0; i < loader.get_meshes().size(); ++i)
+			{
+				const auto& loaded_part = loader.get_meshes()[i];
+				MeshPart part{};
+				part.index_count = loaded_part.index_count;
+				part.index_start = loaded_part.index_start;
+				part.vertex_start = loaded_part.vertex_start;
+				parts.push_back(part);
+			}
+
+			sponza_mesh.ib = ib_vbo;
+			sponza_mesh.parts = parts;
+			sponza_mesh.vbs.push_back(pos_vbo);
+			sponza_mesh.vbs.push_back(uv_vbo);
+
+			sponza_ibv = buf_mgr.get_ibv(ib_vbo);
+
+			const auto& loaded_mats = loader.get_materials();
+			for (const auto& loaded_mat : loaded_mats)
+			{
+				const auto& paths = std::get<AssimpMaterialData::PhongPaths>(loaded_mat.file_paths);
+				DXTextureDesc td{};
+				td.filepath = paths.diffuse;
+				td.flag = TextureFlag::eSRGB;
+				td.usage_cpu = UsageIntentCPU::eUpdateNever;
+				td.usage_gpu = UsageIntentGPU::eReadMultipleTimesPerFrame;
+				auto tex = tex_mgr.create_texture(td);
+
+				// we want to remove duplicates on bindless elements
+				DXBindlessDesc bd{};
+				bd.diffuse_tex = tex;
+				mats.push_back(bindless_mgr.create_bindless(bd));
+			}
+		}
+
+		/*
+			Per frame camera things
+		*/
+		InterOp_CameraData cam_data{};
+		auto world = DirectX::XMMatrixScaling(3.f, 2.f, 2.f) * DirectX::XMMatrixTranslation(0.f, 0.f, 0.f);
+		auto view = DirectX::XMMatrixLookAtLH({ 0.f, 0.f, -2.f }, { 0.f, 0.f, 0.f }, { 0.f, 1.f, 0.f });
+		auto proj = DirectX::XMMatrixPerspectiveFovLH(DirectX::XMConvertToRadians(90.f), (float)CLIENT_WIDTH / CLIENT_HEIGHT, 0.1f, 3000.f);
+		cam_data.view_mat = DirectX::SimpleMath::Matrix(view);
+		cam_data.proj_mat = DirectX::SimpleMath::Matrix(proj);
+		
+		DXBufferDesc cdb{};
+		cdb.data = &cam_data;
+		cdb.data_size = sizeof(InterOp_CameraData);
+		cdb.element_count = 1;
+		cdb.element_size = cdb.data_size;
+		cdb.flag = BufferFlag::eConstant;
+		cdb.usage_cpu = UsageIntentCPU::eUpdateSometimes;
+		cdb.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+		auto cam_buf = buf_mgr.create_buffer(cdb);
+
+
 
 
 		/*
@@ -540,6 +730,8 @@ int main()
 			// wait for FIF
 			frame_res.sync.wait();
 
+
+
 			cpu_pf.frame_begin();
 			gpu_pf.frame_begin(surface_idx);
 			//gpu_pf_copy.frame_begin(surface_idx);
@@ -600,6 +792,10 @@ int main()
 			dq_ator->Reset();
 			dq_cmdl->Reset(dq_ator, nullptr);
 
+
+
+
+
 			up_ctx.frame_begin(surface_idx);
 			bindless_mgr.frame_begin(surface_idx);
 		
@@ -626,10 +822,15 @@ int main()
 				.Offset(surface_idx, rtv_alloc.descriptor_size());
 			FLOAT clear_color[4] = { 0.5f, 0.2f, 0.2f, 1.f };
 			dq_cmdl->ClearRenderTargetView(rtv_hdl, clear_color, 1, &main_scissor);
+
+			// clear depth
+			auto curr_dsv = dsv_alloc.cpu_handle(surface_idx);
+			dq_cmdl->ClearDepthStencilView(curr_dsv, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
+
 			gpu_pf.profile_end(dq_cmdl, "clear");
 
 			// set draw target
-			dq_cmdl->OMSetRenderTargets(1, &rtv_hdl, false, nullptr);
+			dq_cmdl->OMSetRenderTargets(1, &rtv_hdl, false, &curr_dsv);
 	
 			// set main desc heap
 
@@ -641,6 +842,7 @@ int main()
 			ID3D12DescriptorHeap* dheaps[] = { gpu_dheap.get_desc_heap(), gpu_dheap_sampler.get_desc_heap() };
 			dq_cmdl->SetDescriptorHeaps(_countof(dheaps), dheaps);
 
+
 			// main draw
 			gpu_pf.profile_begin(dq_cmdl, dq, "main draw setup");
 			dq_cmdl->RSSetViewports(1, &main_vp);
@@ -648,7 +850,11 @@ int main()
 			dq_cmdl->SetGraphicsRootSignature(rsig.Get());
 			dq_cmdl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		
+
+			buf_mgr.bind_as_direct_arg(dq_cmdl, cam_buf, params["camera_data"], RootArgDest::eGraphics);
 			buf_mgr.bind_as_direct_arg(dq_cmdl, buf_handle2, params["my_cbv"], RootArgDest::eGraphics);
+			
+			
 			dq_cmdl->SetGraphicsRootDescriptorTable(params["my_samp"], samp_desc.gpu_handle());
 			
 			// per frame
@@ -666,7 +872,7 @@ int main()
 			dq_cmdl->IASetIndexBuffer(&ibv);
 
 			// bind mat 1
-			dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.index_in_descs(bindless_hdl), 0);
+			dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.access_index(bindless_hdl), 0);
 			dq_cmdl->DrawIndexedInstanced(buf_mgr.get_element_count(vbo1_pos), 1, 0, 0, 0);
 
 			// bind geom 2
@@ -675,8 +881,28 @@ int main()
 			dq_cmdl->IASetIndexBuffer(&ibv);
 
 			// bind mat 2
-			dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.index_in_descs(bindless_hdl2), 0);
+			dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.access_index(bindless_hdl2), 0);
 			dq_cmdl->DrawIndexedInstanced(buf_mgr.get_element_count(vbo2_pos), 1, 0, 0, 0);
+
+
+			buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh.vbs[0], params["my_pos"], RootArgDest::eGraphics);
+			buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh.vbs[1], params["my_uv"], RootArgDest::eGraphics);
+			dq_cmdl->IASetIndexBuffer(&sponza_ibv);
+			// bind some mat
+			assert(sponza_mesh.parts.size() == mats.size());
+			for (int i = 0; i < sponza_mesh.parts.size(); ++i)
+			{
+				const auto& part = sponza_mesh.parts[i];
+
+				dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.access_index(mats[i]), 0);
+				dq_cmdl->SetGraphicsRoot32BitConstant(params["vert_offset"], part.vertex_start, 0);
+				dq_cmdl->DrawIndexedInstanced(part.index_count, 1, part.index_start, 0, 0);
+			}
+			
+
+
+
+
 
 
 			gpu_pf.profile_end(dq_cmdl, "main draw");

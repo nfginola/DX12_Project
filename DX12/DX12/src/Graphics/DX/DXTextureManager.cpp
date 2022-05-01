@@ -12,6 +12,15 @@ DXTextureManager::DXTextureManager(cptr<ID3D12Device> dev, cptr<ID3D12CommandQue
 
 TextureHandle DXTextureManager::create_texture(const DXTextureDesc& desc)
 {
+	if (!desc.filepath.has_filename())
+		return TextureHandle(1);			// default texture
+
+	auto it = m_loaded_path_to_handle.find(desc.filepath.string());
+	if (it != m_loaded_path_to_handle.cend())
+	{
+		return TextureHandle(it->second);
+	}
+
 	m_up_batch->Begin();
 
 	// Dynamic textures not supported for now (but we will soon)
@@ -39,12 +48,19 @@ TextureHandle DXTextureManager::create_texture(const DXTextureDesc& desc)
 	// Wait for the upload thread to terminate
 	finish.wait();
 
+	m_loaded_path_to_handle.insert({ desc.filepath.string(), handle});
+
 	return TextureHandle(handle);
 }
 
 void DXTextureManager::destroy_texture(TextureHandle handle)
 {
 	m_handles.free_handle(handle.handle);
+
+	auto it = std::find_if(m_loaded_path_to_handle.begin(), m_loaded_path_to_handle.end(), [handle](auto it) { return it.second == handle.handle;  });
+
+	if (it != m_loaded_path_to_handle.cend())
+		m_loaded_path_to_handle.erase(it);
 }
 
 ID3D12Resource* DXTextureManager::get_resource(TextureHandle tex)
