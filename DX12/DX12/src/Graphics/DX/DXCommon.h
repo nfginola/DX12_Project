@@ -52,7 +52,8 @@ enum class TextureFlag
 
 enum class ShaderModel
 {
-	e6_0
+	e6_0,
+	e6_6
 };
 
 enum class ShaderType

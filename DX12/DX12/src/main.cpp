@@ -1,5 +1,10 @@
 #include "pch.h"
 
+// https://devblogs.microsoft.com/directx/directx12agility/
+extern "C" { __declspec(dllexport) extern const UINT D3D12SDKVersion = 602; }
+extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = u8"..\\..\\DX12\\vendor\\AgilitySDK\\build\\native\\bin\\x64\\"; }
+
+
 // Check for memory leaks
 #define _CRTDBG_MAP_ALLOC
 #include <crtdbg.h>
@@ -38,6 +43,8 @@
 #include "Graphics/DX/DXBindlessManager.h"
 
 
+
+
 static bool g_app_running = false;
 Input* g_input = nullptr;
 GUIContext* g_gui_ctx = nullptr;
@@ -48,7 +55,7 @@ int main()
 {
 	g_app_running = true;
 #if defined(_DEBUG)
-	constexpr auto debug_on = true;
+	constexpr auto debug_on = false;
 #else
 	constexpr auto debug_on = false;
 #endif
@@ -80,7 +87,7 @@ int main()
 		auto gfx_sc = gfx_ctx->get_sc();
 		
 		// initialize DX shader compiler
-		auto shader_compiler = std::make_unique<DXCompiler>();
+		auto shader_compiler = std::make_unique<DXCompiler>(ShaderModel::e6_6);
 
 		// grab LL modules for creating DX12 primitives
 		auto dev = gfx_ctx->get_dev();
@@ -336,54 +343,6 @@ int main()
 		bind_d.diffuse_tex = tex_hdl2;
 		auto bindless_hdl2 = bindless_mgr.create_bindless(bind_d);
 
-		//// make vbuffer
-		////static const VertexPullElement verts[] =
-		////{
-		////	{ { -0.5f, 0.5f, 0.f }, { 0.f, 0.f } },
-		////	{ { 0.5f, -0.5f, 0.f }, { 1.0f, 1.f } },
-		////	{ { -0.5f, -0.5f, 0.f }, { 0.f, 1.f } },
-		////	{ { -0.5f, 0.5f, 0.f }, { 0.f, 0.f } },
-		////	{ { 0.5f, 0.5f, 0.f }, { 1.f, 0.f } },
-		////	{ { 0.5f, -0.5f, 0.f }, { 1.0f, 1.f } }
-		////};
-		//static const VertexPullElement verts[] =
-		//{
-		//	{ { -0.75f, 0.25f, 0.f }, { 0.f, 0.f } },
-		//	{ { 0.25f, -0.75f, 0.f }, { 1.0f, 1.f } },
-		//	{ { -0.75f, -0.75f, 0.f }, { 0.f, 1.f } },
-		//	{ { -0.75f, 0.25f, 0.f }, { 0.f, 0.f } },
-		//	{ { 0.25f, 0.25f, 0.f }, { 1.f, 0.f } },
-		//	{ { 0.25f, -0.75f, 0.f }, { 1.0f, 1.f } }
-		//};
-		//DXBufferDesc vbd{};
-		//vbd.data = (void*)verts;
-		//vbd.data_size = sizeof(verts);
-		//vbd.element_count = _countof(verts);
-		//vbd.element_size = sizeof(VertexPullElement);
-		//vbd.usage_cpu = UsageIntentCPU::eUpdateNever;
-		//vbd.usage_gpu = UsageIntentGPU::eReadOncePerFrame;	
-		//vbd.flag = BufferFlag::eNonConstant;
-		//auto vbo = buf_mgr.create_buffer(vbd);
-
-		//static const VertexPullElement verts2[] =
-		//{
-		//	{ { -0.25f, 0.75f, 0.f }, { 0.f, 0.f } },
-		//	{ { 0.75f, -0.25f, 0.f }, { 1.0f, 1.f } },
-		//	{ { -0.25f, -0.25f, 0.f }, { 0.f, 1.f } },
-		//	{ { -0.25f, 0.75f, 0.f }, { 0.f, 0.f } },
-		//	{ { 0.75f, 0.75f, 0.f }, { 1.f, 0.f } },
-		//	{ { 0.75f, -0.25f, 0.f }, { 1.0f, 1.f } }
-		//};
-		//DXBufferDesc vbd2{};
-		//vbd2.data = (void*)verts2;
-		//vbd2.data_size = sizeof(verts2);
-		//vbd2.element_count = _countof(verts2);
-		//vbd2.element_size = sizeof(VertexPullElement);
-		//vbd2.usage_cpu = UsageIntentCPU::eUpdateNever;
-		//vbd2.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
-		//vbd2.flag = BufferFlag::eNonConstant;
-		//auto vbo2 = buf_mgr.create_buffer(vbd2);
-
 		static const VertexPullPosition positions1[] =
 		{
 			{ { -0.75f, 0.25f, 0.f } },
@@ -459,7 +418,7 @@ int main()
 		// notice how our geometry changes depending on the indices!
 		// we are applying an index buffer on vertex pulling!
 		
-		// create index buffer
+		// create index buffer for both quads (testing identical)
 		static const uint32_t indices[] =
 		{
 			0, 1, 2, 3, 4, 5
@@ -476,6 +435,89 @@ int main()
 
 		// create index buffer view
 		auto ibv = buf_mgr.get_ibv(ibo);
+
+
+		/*
+		
+			Try another architecture for Repostories!:
+				Keep repositories OUTSIDE and inject them!
+
+			MeshRepository:
+				ResourceHandle<Mesh> resources;
+
+			MaterialRepostory
+				ResourceHandle<Material> resources;
+
+			In Renderer or somwhere low level..:
+				ResourceHandleRepo<Mesh> mesh_repo;
+				ResourceHandleRepo<Material> mat_repo;
+				--> Re-expose the underlying ResourceHandle interface
+				--> This is a good place to implement multithreading safety (e.g multiple reader, multiple writer locks)
+
+				mesh_mgr = make_unique<...>(&mesh_repo);
+				mat_mgr = make_unique<...>(&mat_repo);
+				
+
+				Render(...):
+					
+					// do impl stuff
+					mesh_repo.get_mesh(...)	
+					mat_repo.get_mat(...)
+
+
+			MeshPart
+			{
+				index_start = 0;
+				index_count = 0;
+				vertex_start = 0;
+			}
+
+			// Uses non-interleaved format by default
+			Mesh
+			{
+				vector<BufferHandles> vbs		-->		N buffer handles (Vertex, UV, Normal, etc.) 
+				BufferHandle ib
+				std::vector<MeshPart> parts		-->		Assumes that Mesh has at least one submesh
+			}
+
+			Material
+			{
+				PipelineHandle		--> 
+				BindlessHandle		--> Resources (primarily textures but also cbuffers which contain extra material data)
+			}
+		
+			// User constructs this manually
+			Model
+			{
+				std::vector<std::pair<MeshHandle, MaterialHandle>> mesh_material_pairs;
+			}
+
+			// Or we can have a helper ModelLoader:
+			model = ModelLoader.load_model(filepath);
+
+			--> Ready to be submitted!
+
+
+			MeshManager.create_mesh(MeshDesc)				--> Passes array of data+size pair + Index Data
+
+			MaterialManager.create_mat(MaterialDesc)
+
+			friends with Renderer
+			in Renderer:
+				mesh_mgr->get_relevant_res(..)
+
+
+
+
+
+			submit(model, transform)
+				
+				for each mesh part in models
+					front_renderer->submit(model, transform, render_flags);
+
+		*/
+
+
 
 
 		uint64_t frame_count = 0;

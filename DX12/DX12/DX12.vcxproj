@@ -119,7 +119,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)src\;$(ProjectDir)vendor\PIXRuntime\inc\;$(ProjectDir)vendor\imgui-docking\backends\;$(ProjectDir)vendor\imgui-docking\;$(ProjectDir)vendor\dxshadercompiler\inc\;$(ProjectDir)vendor\dxheaders\dxguids\;$(ProjectDir)vendor\dxheaders\directx\;$(ProjectDir)vendor\DirectXTK\inc\;$(ProjectDir)vendor\assimp-5.2.3\inc\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)vendor\AgilitySDK\build\native\include\;$(ProjectDir);$(ProjectDir)src\;$(ProjectDir)vendor\PIXRuntime\inc\;$(ProjectDir)vendor\imgui-docking\backends\;$(ProjectDir)vendor\imgui-docking\;$(ProjectDir)vendor\dxshadercompiler\inc\;$(ProjectDir)vendor\dxheaders\dxguids\;$(ProjectDir)vendor\dxheaders\directx\;$(ProjectDir)vendor\DirectXTK\inc\;$(ProjectDir)vendor\assimp-5.2.3\inc\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -144,7 +144,7 @@ copy "$(ProjectDir)vendor\PIXRuntime\bin\$(Platform)\WinPixEventRuntime.dll" "$(
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)src\;$(ProjectDir)vendor\PIXRuntime\inc\;$(ProjectDir)vendor\imgui-docking\backends\;$(ProjectDir)vendor\imgui-docking\;$(ProjectDir)vendor\dxshadercompiler\inc\;$(ProjectDir)vendor\dxheaders\dxguids\;$(ProjectDir)vendor\dxheaders\directx\;$(ProjectDir)vendor\DirectXTK\inc\;$(ProjectDir)vendor\assimp-5.2.3\inc\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)vendor\AgilitySDK\build\native\include\;$(ProjectDir);$(ProjectDir)src\;$(ProjectDir)vendor\PIXRuntime\inc\;$(ProjectDir)vendor\imgui-docking\backends\;$(ProjectDir)vendor\imgui-docking\;$(ProjectDir)vendor\dxshadercompiler\inc\;$(ProjectDir)vendor\dxheaders\dxguids\;$(ProjectDir)vendor\dxheaders\directx\;$(ProjectDir)vendor\DirectXTK\inc\;$(ProjectDir)vendor\assimp-5.2.3\inc\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

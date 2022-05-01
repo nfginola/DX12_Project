@@ -30,9 +30,10 @@ struct TestCB
 
 ConstantBuffer<TestCB> cb : register(b0, space0);
 
-//StructuredBuffer<VertexPullElement> vertices : register(t0, space5);
 StructuredBuffer<VertexPullPosition> vertices : register(t0, space5);
 StructuredBuffer<VertexPullUV> uvs : register(t1, space5);
+
+
 
 
 VSOut main( uint vertID : SV_VertexID )

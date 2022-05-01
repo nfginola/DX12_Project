@@ -115,6 +115,9 @@ std::wstring DXCompiler::grab_profile(ShaderType type)
 	case ShaderModel::e6_0:
 		profile += L"6_0";
 		break;
+	case ShaderModel::e6_6:
+		profile += L"6_6";
+		break;
 	default:
 		assert(false);
 	}
