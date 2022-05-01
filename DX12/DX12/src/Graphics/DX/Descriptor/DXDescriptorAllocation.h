@@ -14,16 +14,19 @@ public:
 		D3D12_CPU_DESCRIPTOR_HANDLE cpu_handle,
 		D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle,
 		uint32_t descriptor_size,
-		uint32_t descriptor_count)  :
+		uint32_t descriptor_count,
+		uint32_t offset_from_base)  :
 		m_cpu_handle(cpu_handle),
 		m_gpu_handle(gpu_handle),
 		m_descriptor_size(descriptor_size),
-		m_descriptor_count(descriptor_count)
+		m_descriptor_count(descriptor_count),
+		m_offset_from_base(offset_from_base)
 	{
 	}
 
 	uint32_t num_descriptors() const { return m_descriptor_count; }
 	uint32_t descriptor_size() const { return m_descriptor_size; }
+	uint32_t offset_from_base() const { return m_offset_from_base; }
 
 	bool gpu_visible() const { return m_gpu_handle.ptr != 0; }
 
@@ -49,6 +52,9 @@ private:
 
 	uint32_t m_descriptor_size = 0;		// 4 types available
 	uint32_t m_descriptor_count = 0;	// allocation can represent a group of descriptors (e.g use for table)
+
+	// Offset from the beginning of the heap this is allocated on
+	uint32_t m_offset_from_base = 0;
 };
 
 /*

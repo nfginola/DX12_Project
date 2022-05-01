@@ -19,11 +19,12 @@ ConstantBuffer<BindlessIndex> bindless_index : register(b7, space0);        // R
 ConstantBuffer<BindlessElement> access_bufs[] : register(b0, space3);       // Bindless Element holds indices to various Texture2D arrs (e.g diff/spec, etc.)
 Texture2D bindless_texs[] : register(t0, space3);
 
-
 float4 main(VSOut input) : SV_TARGET0
 {    
-    BindlessElement bindless_el = access_bufs[bindless_index.index];
-    float3 col = bindless_texs[bindless_el.diffuse_idx].Sample(samp, input.uv).rgb;
+    ConstantBuffer<BindlessElement> access_el = ResourceDescriptorHeap[bindless_index.index];
+    //BindlessElement bindless_el = access_bufs[bindless_index.index];
+    
+    float3 col = bindless_texs[access_el.diffuse_idx].Sample(samp, input.uv).rgb;
       
     col = pow(col, (1.0 / 2.2).xxx); // Gamma correct
     

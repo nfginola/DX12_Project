@@ -25,6 +25,7 @@ DXBindlessManager::DXBindlessManager(
 
 		m_views_start = views.gpu_handle();
 		m_access_start = access_cbvs.gpu_handle();
+		m_access_offset_from_base = access_cbvs.offset_from_base();
 		
 		// for this implementation, we will be placing the access part right after the views
 		m_offset_to_access_part = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;	
@@ -82,10 +83,6 @@ BindlessHandle DXBindlessManager::create_bindless(const DXBindlessDesc& desc)
 	// Grab handle
 	auto [handle, res] = m_handles.get_next_free_handle();
 
-	// Fill bindless metadata
-	res->diffuse_index = idx_to_use;
-	res->frame_idx_allocation = m_curr_frame_idx; 
-
 	// Fill buffer init data
 	BindlessElement bel{};
 	bel.diffuse_idx = idx_to_use;
@@ -112,6 +109,11 @@ BindlessHandle DXBindlessManager::create_bindless(const DXBindlessDesc& desc)
 	res->access_alloc = std::move(access_desc);
 	res->view_alloc = std::move(view_desc);
 
+	// Fill bindless metadata
+	//res->access_index = idx_to_use;						// Use for bindless style (base is bound)
+	res->access_index = access_desc.offset_from_base();		// Use for dynamic descriptor access (no base is bound, need offset from Descriptor Heap base!)
+	res->frame_idx_allocation = m_curr_frame_idx;
+
 	return BindlessHandle(handle);
 }
 
@@ -132,7 +134,7 @@ void DXBindlessManager::destroy_bindless(BindlessHandle handle)
 		// free bindless group to allow re-use
 		m_handles.free_handle(res->handle);
 		// re-use indices
-		m_used_indices.push(res->diffuse_index);
+		m_used_indices.push(res->access_index);
 
 	};
 	m_deletion_queue.push({ m_curr_frame_idx, del_func });
@@ -156,5 +158,5 @@ uint64_t DXBindlessManager::offset_to_access_part() const
 
 uint64_t DXBindlessManager::index_in_descs(BindlessHandle handle)
 {
-	return m_handles.get_resource(handle.handle)->diffuse_index;
+	return m_handles.get_resource(handle.handle)->access_index;
 }

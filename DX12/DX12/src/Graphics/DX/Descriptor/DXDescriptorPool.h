@@ -45,6 +45,8 @@ private:
 	uint32_t m_max_descriptors = 0;
 	uint32_t m_handle_size = 0;
 
+	D3D12_GPU_DESCRIPTOR_HANDLE m_base_gpu_start{};
+
 	//D3D12_CPU_DESCRIPTOR_HANDLE m_curr_cpu_unallocated_start;
 	//D3D12_GPU_DESCRIPTOR_HANDLE m_curr_gpu_unallocated_start;
 

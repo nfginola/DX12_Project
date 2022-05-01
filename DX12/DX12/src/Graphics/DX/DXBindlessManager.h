@@ -52,7 +52,7 @@ public:
 private:
 	struct InternalBindlessResource
 	{
-		uint64_t diffuse_index = 0;
+		uint64_t access_index = 0;
 		BufferHandle access_buf;
 
 		DXDescriptorAllocation view_alloc, access_alloc;
@@ -83,6 +83,8 @@ private:
 
 	D3D12_GPU_DESCRIPTOR_HANDLE m_views_start;
 	D3D12_GPU_DESCRIPTOR_HANDLE m_access_start;
+
+	uint32_t m_access_offset_from_base = 0;
 
 };
 

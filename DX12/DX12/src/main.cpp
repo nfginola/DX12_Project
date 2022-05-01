@@ -55,7 +55,7 @@ int main()
 {
 	g_app_running = true;
 #if defined(_DEBUG)
-	constexpr auto debug_on = false;
+	constexpr auto debug_on = true;
 #else
 	constexpr auto debug_on = false;
 #endif
@@ -272,7 +272,7 @@ int main()
 				.push_table({ samp_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_samp"])
 				.push_table({ view_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_views"])
 				.push_table({ access_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_access"])
-				.build(dev);
+				.build(dev, D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED);						// use dynamic descriptor indexing
 
 			auto ds = DepthStencilDescBuilder()
 				.set_depth_enabled(false);
@@ -632,6 +632,12 @@ int main()
 			dq_cmdl->OMSetRenderTargets(1, &rtv_hdl, false, nullptr);
 	
 			// set main desc heap
+
+			// https://microsoft.github.io/DirectX-Specs/d3d/HLSL_SM_6_6_DynamicResources.html
+			/*
+				SetDescriptorHeaps must be called, passing the corresponding heaps, before a call to SetGraphicsRootSignature or 
+				SetComputeRootSignature that uses either CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED or SAMPLER_HEAP_DIRECTLY_INDEXED flags
+			*/
 			ID3D12DescriptorHeap* dheaps[] = { gpu_dheap.get_desc_heap(), gpu_dheap_sampler.get_desc_heap() };
 			dq_cmdl->SetDescriptorHeaps(_countof(dheaps), dheaps);
 
