@@ -43,6 +43,7 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = u8"..\\..\\
 #include "Graphics/DX/DXBindlessManager.h"
 
 #include "Graphics/MeshManager.h"
+#include "Graphics/ModelManager.h"
 
 
 
@@ -95,6 +96,40 @@ int main()
 		auto dev = gfx_ctx->get_dev();
 		auto dq = gfx_ctx->get_direct_queue();
 
+		const auto& max_FIF = gfx_sc->get_settings().max_FIF;
+
+		DXDescriptorHeapCPU cpu_rtv_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+		DXDescriptorHeapCPU cpu_dsv_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+		DXDescriptorHeapGPU gpu_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 50000);
+		DXDescriptorHeapGPU gpu_dheap_sampler(dev, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 2040);
+
+		// setup profiler
+		dev->SetStablePowerState(false);
+		uint8_t pf_latency = max_FIF;
+		GPUProfiler gpu_pf(dev, GPUProfiler::QueueType::eDirectOrCompute, pf_latency);
+		CPUProfiler cpu_pf(pf_latency);
+
+		// setup imgui
+		auto imgui_alloc = gpu_dheap.allocate_static(1);
+		g_gui_ctx = new GUIContext(win->get_hwnd(), dev, max_FIF,
+			gpu_dheap.get_desc_heap(),
+			imgui_alloc.cpu_handle(),		// slot 0 reserved for ImGUI
+			imgui_alloc.gpu_handle());
+
+		// allocate gpu visible desc heaps for bindless + dynamic descriptor access managemenet
+		auto bindless_part = gpu_dheap.allocate_static(5000);
+
+		// setup various managers
+		DXBufferManager buf_mgr(dev, max_FIF);
+		DXUploadContext up_ctx(dev, &buf_mgr, max_FIF);
+		DXTextureManager tex_mgr(dev, dq);
+		DXBindlessManager bindless_mgr(dev, std::move(bindless_part), &buf_mgr, &tex_mgr);
+		MeshManager mesh_mgr(&buf_mgr);
+		ModelManager model_mgr(&mesh_mgr, &tex_mgr, &bindless_mgr);
+
+
+
+
 
 		struct PerFrameResource
 		{
@@ -105,7 +140,6 @@ int main()
 		};
 
 		// create sync primitives
-		const auto& max_FIF = gfx_sc->get_settings().max_FIF;
 		std::vector<PerFrameResource> per_frame_res;
 		per_frame_res.resize(max_FIF);
 		for (auto& res : per_frame_res)
@@ -120,18 +154,11 @@ int main()
 			res.dq_cmdl->Close();
 		}
 
-		DXDescriptorHeapCPU cpu_rtv_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-		DXDescriptorHeapCPU cpu_dsv_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-		DXDescriptorHeapGPU gpu_dheap(dev, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, 6000);
-		DXDescriptorHeapGPU gpu_dheap_sampler(dev, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 2000);
-
-
-		// Allocate and use descriptor for RTVs
+		// setup backbuffer render targets
 		auto rtv_alloc = cpu_rtv_dheap.allocate(max_FIF);
 		for (auto i = 0; i < max_FIF; ++i)
 		{
-			auto hdl = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtv_alloc.cpu_handle())
-				.Offset(i, rtv_alloc.descriptor_size());
+			auto hdl = rtv_alloc.cpu_handle(i);
 			dev->CreateRenderTargetView(gfx_sc->get_backbuffer(i), nullptr, hdl);
 		}
 
@@ -159,7 +186,6 @@ int main()
 			resd.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 			resd.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL | D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE;
 
-
 			D3D12_HEAP_PROPERTIES heap_prop{};
 			heap_prop.Type = D3D12_HEAP_TYPE_DEFAULT;
 
@@ -177,8 +203,7 @@ int main()
 					&clear,
 					IID_PPV_ARGS(depth_targets[i].GetAddressOf()));
 
-				auto hdl = CD3DX12_CPU_DESCRIPTOR_HANDLE(dsv_alloc.cpu_handle())
-					.Offset(i, rtv_alloc.descriptor_size());
+				auto hdl = dsv_alloc.cpu_handle(i);
 				dev->CreateDepthStencilView(depth_targets[i].Get(), nullptr, hdl);
 			}
 		}
@@ -187,94 +212,39 @@ int main()
 		auto main_scissor = CD3DX12_RECT(0, 0, CLIENT_WIDTH, CLIENT_HEIGHT);
 
 
-		// Setup profiler
-		dev->SetStablePowerState(false);
-		uint8_t pf_latency = max_FIF;
-		GPUProfiler gpu_pf(dev, GPUProfiler::QueueType::eDirectOrCompute, pf_latency);
-		//GPUProfiler gpu_pf_copy(dev, GPUProfiler::QueueType::eCopy, pf_latency);
-		CPUProfiler cpu_pf(pf_latency);
 
-		// Allocate from main gpu dheap for ImGUI
-		auto imgui_alloc = gpu_dheap.allocate_static(1);
-		g_gui_ctx = new GUIContext(win->get_hwnd(), dev, max_FIF,
-			gpu_dheap.get_desc_heap(),
-			imgui_alloc.cpu_handle(),		// slot 0 reserved for ImGUI
-			imgui_alloc.gpu_handle());
-
-		// Setup test UI
+		// setup test UI
 		bool show_pf = true;
-		auto ui_cb = [&]()
-		{
-			ImGui::Begin("HelloBox");
-			ImGui::Checkbox("Show Profiler Data", &show_pf);
-			ImGui::End();
-
-			bool show_demo_window = true;
-			if (show_demo_window)
-				ImGui::ShowDemoWindow(&show_demo_window);
-
-			// Main menu
-			if (ImGui::BeginMainMenuBar())
+		g_gui_ctx->add_persistent_ui("test", [&]()
 			{
-				if (ImGui::BeginMenu("File"))
+				ImGui::Begin("HelloBox");
+				ImGui::Checkbox("Show Profiler Data", &show_pf);
+				ImGui::End();
+
+				bool show_demo_window = true;
+				if (show_demo_window)
+					ImGui::ShowDemoWindow(&show_demo_window);
+
+				// Main menu
+				if (ImGui::BeginMainMenuBar())
 				{
-					ImGui::EndMenu();
+					if (ImGui::BeginMenu("File"))
+					{
+						ImGui::EndMenu();
+					}
+					if (ImGui::BeginMenu("Edit"))
+					{
+						if (ImGui::MenuItem("Undo", "CTRL+Z")) { std::cout << "haha!\n"; }
+						if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {}  // Disabled item
+						ImGui::Separator();
+						if (ImGui::MenuItem("Cut", "CTRL+X")) {}
+						if (ImGui::MenuItem("Copy", "CTRL+C")) {}
+						if (ImGui::MenuItem("Paste", "CTRL+V")) {}
+						ImGui::EndMenu();
+					}
+					ImGui::EndMainMenuBar();
 				}
-				if (ImGui::BeginMenu("Edit"))
-				{
-					if (ImGui::MenuItem("Undo", "CTRL+Z")) { std::cout << "haha!\n"; }
-					if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {}  // Disabled item
-					ImGui::Separator();
-					if (ImGui::MenuItem("Cut", "CTRL+X")) {}
-					if (ImGui::MenuItem("Copy", "CTRL+C")) {}
-					if (ImGui::MenuItem("Paste", "CTRL+V")) {}
-					ImGui::EndMenu();
-				}
-				ImGui::EndMainMenuBar();
-			}
-		};
-
-		g_gui_ctx->add_persistent_ui("test", ui_cb);
-
-
-
-		DXBufferManager buf_mgr(dev, max_FIF);
-		
-		struct CBData
-		{
-			DirectX::XMFLOAT3 offset;
-		};
-
-		CBData init{};
-		init.offset = { 0.f, 0.f, 0.f };
-
-		DXBufferDesc bd{};
-		bd.data = &init;
-		bd.data_size = sizeof(CBData);
-		bd.element_count = 1;
-		bd.element_size = sizeof(CBData);
-		bd.usage_cpu = UsageIntentCPU::eUpdateOnce;			// transient
-		bd.usage_gpu = UsageIntentGPU::eReadOncePerFrame; 
-		bd.flag = BufferFlag::eConstant;
-		auto buf_handle = buf_mgr.create_buffer(bd);
-
-		DXBufferDesc bd2{};
-		init.offset = { 0.f, 0.f, 0.f };
-		bd2.data = &init;
-		bd2.data_size = sizeof(CBData);
-		bd2.element_count = 1;
-		bd2.element_size = sizeof(CBData);
-		bd2.usage_cpu = UsageIntentCPU::eUpdateSometimes;	// persistent
-		bd2.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
-		bd2.flag = BufferFlag::eConstant;
-		auto buf_handle2 = buf_mgr.create_buffer(bd2);
-
-		// setup texture manager
-		DXTextureManager tex_mgr(dev, dq);
-
-		// allocate space for bindless views
-		auto bindless_part = gpu_dheap.allocate_static(2000);
-		DXBindlessManager bindless_mgr(dev, std::move(bindless_part), &buf_mgr, &tex_mgr);
+			});
 
 
 		cptr<ID3D12RootSignature> rsig;
@@ -298,7 +268,7 @@ int main()
 			samp_range.RegisterSpace = 0;
 			samp_range.OffsetInDescriptorsFromTableStart = 0;
 
-			// testing bindless
+			// bindless diffuse
 			D3D12_DESCRIPTOR_RANGE view_range{};
 			view_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
 			view_range.NumDescriptors = -1;
@@ -306,25 +276,15 @@ int main()
 			view_range.RegisterSpace = 3;
 			view_range.OffsetInDescriptorsFromTableStart = 0;
 
-			D3D12_DESCRIPTOR_RANGE access_range{};
-			access_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_CBV;
-			access_range.NumDescriptors = -1;
-			access_range.BaseShaderRegister = 0;
-			access_range.RegisterSpace = 3;
-			access_range.OffsetInDescriptorsFromTableStart = 0;
-
 			// setup rootsig
 			rsig = RootSigBuilder()
-				//.push_table({ cbv_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_cbv"])
 				.push_constant(7, 0, 1, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_index"])
 				.push_constant(8, 0, 1, D3D12_SHADER_VISIBILITY_VERTEX, &params["vert_offset"])
-				.push_cbv(0, 0, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_cbv"])
 				.push_srv(0, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_pos"])
 				.push_srv(1, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_uv"])
 				.push_cbv(7, 7, D3D12_SHADER_VISIBILITY_VERTEX, &params["camera_data"])
 				.push_table({ samp_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_samp"])
 				.push_table({ view_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_views"])
-				.push_table({ access_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_access"])
 				.build(dev, D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED);						// use dynamic descriptor indexing
 
 			auto ds = DepthStencilDescBuilder()
@@ -340,7 +300,6 @@ int main()
 				.build(dev);
 		}
 
-		DXUploadContext up_ctx(dev, &buf_mgr, max_FIF);
 
 		// create dynamic sampler
 		auto samp_desc = gpu_dheap_sampler.allocate_static(1);
@@ -354,318 +313,12 @@ int main()
 		sdesc.MinLOD = 0.f;
 		sdesc.MaxLOD = D3D12_FLOAT32_MAX;
 		dev->CreateSampler(&sdesc, samp_desc.cpu_handle());
-
-
-
-		// load texture
-		TextureHandle tex_hdl;
-		{
-			DXTextureDesc tdesc{};
-			tdesc.filepath = "textures/hootle.png";
-			tdesc.usage_cpu = UsageIntentCPU::eUpdateNever;
-			tdesc.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
-			tex_hdl = tex_mgr.create_texture(tdesc);
-		}
-		TextureHandle tex_hdl2;
-		{
-			DXTextureDesc tdesc{};
-			tdesc.filepath = "textures/scenery.jpg";
-			tdesc.usage_cpu = UsageIntentCPU::eUpdateNever;
-			tdesc.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
-			tex_hdl2 = tex_mgr.create_texture(tdesc);
-		}
-
-		/*			
-			Material
-			{
-				std::unordered_map<TextureType, TextureHandle> textures;	// holds the resources
-				BindlessHandle bindless;									// holds the views to the resources
-
-				// Optionally, a Pipeline
-			}
-		
-		*/
-
-
-		// allocate bindless primitive
-		// mat1
-		DXBindlessDesc bind_d{};
-		bind_d.diffuse_tex = tex_hdl;
-		auto bindless_hdl = bindless_mgr.create_bindless(bind_d);
-
-		// mat2
-		bind_d.diffuse_tex = tex_hdl2;
-		auto bindless_hdl2 = bindless_mgr.create_bindless(bind_d);
-
-		static const VertexPullPosition positions1[] =
-		{
-			{ { -0.75f, 0.25f, 0.f } },
-			{ { 0.25f, -0.75f, 0.f } },
-			{ { -0.75f, -0.75f, 0.f } },
-			{ { -0.75f, 0.25f, 0.f } },
-			{ { 0.25f, 0.25f, 0.f } },
-			{ { 0.25f, -0.75f, 0.f } }
-		};
-
-		DXBufferDesc vbd{};
-		vbd.data = (void*)positions1;
-		vbd.data_size = sizeof(positions1);
-		vbd.element_count = _countof(positions1);
-		vbd.element_size = sizeof(VertexPullPosition);
-		vbd.usage_cpu = UsageIntentCPU::eUpdateNever;
-		vbd.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
-		vbd.flag = BufferFlag::eNonConstant;
-		auto vbo1_pos = buf_mgr.create_buffer(vbd);
-
-		static const VertexPullUV uvs1[] =
-		{
-			{ { 0.f, 0.f } },
-			{ { 1.0f, 1.f } },
-			{ { 0.f, 1.f } },
-			{ { 0.f, 0.f } },
-			{ { 1.f, 0.f } },
-			{ { 1.0f, 1.f } }
-		};
-		vbd.data = (void*)uvs1;
-		vbd.data_size = sizeof(uvs1);
-		vbd.element_count = _countof(uvs1);
-		vbd.element_size = sizeof(VertexPullUV);
-		auto vbo1_uv = buf_mgr.create_buffer(vbd);
-
-
-
-
-		static const VertexPullPosition positions2[] =
-		{
-			{ { -0.25f, 0.75f, 0.f } },
-			{ { 0.75f, -0.25f, 0.f } },
-			{ { -0.25f, -0.25f, 0.f } },
-			{ { -0.25f, 0.75f, 0.f } },
-			{ { 0.75f, 0.75f, 0.f } },
-			{ { 0.75f, -0.25f, 0.f } }
-		};
-		DXBufferDesc vbd2{};
-		vbd2.data = (void*)positions2;
-		vbd2.data_size = sizeof(positions2);
-		vbd2.element_count = _countof(positions2);
-		vbd2.element_size = sizeof(VertexPullPosition);
-		vbd2.usage_cpu = UsageIntentCPU::eUpdateNever;
-		vbd2.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
-		vbd2.flag = BufferFlag::eNonConstant;
-		auto vbo2_pos = buf_mgr.create_buffer(vbd2);
-
-		static const VertexPullUV uvs2[] =
-		{
-			{ { 0.f, 0.f } },
-			{ { 1.0f, 1.f } },
-			{ { 0.f, 1.f } },
-			{ { 0.f, 0.f } },
-			{ { 1.f, 0.f } },
-			{ { 1.0f, 1.f } }
-		};
-		vbd2.data = (void*)uvs2;
-		vbd2.data_size = sizeof(uvs2);
-		vbd2.element_count = _countof(uvs2);
-		vbd2.element_size = sizeof(VertexPullUV);
-		auto vbo2_uv = buf_mgr.create_buffer(vbd2);
-
-		// notice how our geometry changes depending on the indices!
-		// we are applying an index buffer on vertex pulling!
-		
-		// create index buffer for both quads (testing identical)
-		static const uint32_t indices[] =
-		{
-			0, 1, 2, 0, 4, 1
-		};
-		DXBufferDesc ibd{};
-		ibd.data = (void*)indices;
-		ibd.data_size = sizeof(indices);
-		ibd.element_count = _countof(indices);
-		ibd.element_size = sizeof(uint32_t);
-		ibd.usage_cpu = UsageIntentCPU::eUpdateNever;
-		ibd.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
-		ibd.flag = BufferFlag::eNonConstant;
-		auto ibo = buf_mgr.create_buffer(ibd);
-
-		// create index buffer view
-		auto ibv = buf_mgr.get_ibv(ibo);
-
-	
-		
-		struct Material
-		{
-			cptr<ID3D12PipelineState> pso;
-			BindlessHandle resource;
-		};
-
-
-
-		struct MaterialHandle
-		{
-		public:
-			MaterialHandle() = default;
-		private:
-			MaterialHandle(uint64_t handle_) : handle(handle_) {}
-			uint64_t handle = 0;
-		};
-
-		struct Model
-		{
-			MeshHandle mesh;
-			std::vector<MaterialHandle> materials;	// indirect dependency with mesh parts
-		};
 			
-		MeshManager mesh_mgr(&buf_mgr);
-		
-		MeshHandle sponza_hdl;
-		std::vector<Material> mats;
-		{
-			AssimpLoader loader("models/sponza/sponza.obj");
-
-			// Load mesh
-			{
-				MeshDesc md{};
-				md.pos = utils::MemBlob(
-					(void*)loader.get_positions().data(),
-					loader.get_positions().size(),
-					sizeof(loader.get_positions()[0]));
-
-				md.uv = utils::MemBlob(
-					(void*)loader.get_uvs().data(),
-					loader.get_uvs().size(),
-					sizeof(loader.get_uvs()[0]));
-
-				md.indices = utils::MemBlob(
-					(void*)loader.get_indices().data(),
-					loader.get_indices().size(),
-					sizeof(loader.get_indices()[0]));
-
-				for (const auto& loaded_part : loader.get_meshes())
-				{
-					MeshPart part{};
-					part.index_count = loaded_part.index_count;
-					part.index_start = loaded_part.index_start;
-					part.vertex_start = loaded_part.vertex_start;
-					md.subsets.push_back(part);
-				}
-				sponza_hdl = mesh_mgr.create_mesh(md);
-			}
-
-			// Load Bindless Element
-			{
-				const auto& loaded_mats = loader.get_materials();
-				for (const auto& loaded_mat : loaded_mats)
-				{
-					// load textures
-					const auto& paths = std::get<AssimpMaterialData::PhongPaths>(loaded_mat.file_paths);
-					DXTextureDesc td{};
-					td.filepath = paths.diffuse;
-					td.flag = TextureFlag::eSRGB;
-					td.usage_cpu = UsageIntentCPU::eUpdateNever;
-					td.usage_gpu = UsageIntentGPU::eReadMultipleTimesPerFrame;
-					auto tex = tex_mgr.create_texture(td);
-
-					// assemble bindless element
-					// we want to remove duplicates on bindless elements
-					DXBindlessDesc bd{};
-					bd.diffuse_tex = tex;
-
-					Material mat{};
-					mat.resource = bindless_mgr.create_bindless(bd);
-					mat.pso = pipe;
-					mats.push_back(mat);
-				}
-			}
-
-			// Assemble material (Pipeline + Bindless Element)
- 
-			
-		}
-
-		
-
-
-		/*
-		
-			Try another architecture for Repostories!:
-				Keep repositories OUTSIDE and inject them!
-
-			MeshRepository:
-				ResourceHandle<Mesh> resources;
-
-			MaterialRepostory
-				ResourceHandle<Material> resources;
-
-			In Renderer or somwhere low level..:
-				ResourceHandleRepo<Mesh> mesh_repo;
-				ResourceHandleRepo<Material> mat_repo;
-				--> Re-expose the underlying ResourceHandle interface
-				--> This is a good place to implement multithreading safety (e.g multiple reader, multiple writer locks)
-
-				mesh_mgr = make_unique<...>(&mesh_repo);
-				mat_mgr = make_unique<...>(&mat_repo);
-				
-
-				Render(...):
-					
-					// do impl stuff
-					mesh_repo.get_mesh(...)	
-					mat_repo.get_mat(...)
-
-
-			MeshPart
-			{
-				index_start = 0;
-				index_count = 0;
-				vertex_start = 0;
-			}
-
-			// Uses non-interleaved format by default
-			Mesh
-			{
-				vector<BufferHandles> vbs		-->		N buffer handles (Vertex, UV, Normal, etc.) 
-				BufferHandle ib
-				std::vector<MeshPart> parts		-->		Assumes that Mesh has at least one submesh
-			}
-
-			Material
-			{
-				PipelineHandle		--> 
-				BindlessHandle		--> Resources (primarily textures but also cbuffers which contain extra material data)
-			}
-		
-			// User constructs this manually
-			Model
-			{
-				std::vector<std::pair<MeshHandle, MaterialHandle>> mesh_material_pairs;
-			}
-
-			// Or we can have a helper ModelLoader:
-			model = ModelLoader.load_model(filepath);
-
-			--> Ready to be submitted!
-
-
-			MeshManager.create_mesh(MeshDesc)				--> Passes array of data+size pair + Index Data
-
-			MaterialManager.create_mat(MaterialDesc)
-
-			friends with Renderer
-			in Renderer:
-				mesh_mgr->get_relevant_res(..)
-
-
-
-
-
-			submit(model, transform)
-				
-				for each mesh part in models
-					front_renderer->submit(model, transform, render_flags);
-
-		*/
-
-
+		// load sponza
+		ModelDesc modeld{};
+		modeld.rel_path = "models/sponza/sponza.obj";
+		modeld.pso = pipe;
+		auto sponza_model = model_mgr.load_model(modeld);
 
 
 		/*
@@ -707,15 +360,9 @@ int main()
 			auto dq_ator = frame_res.dq_ator.Get();
 			auto dq_cmdl = frame_res.dq_cmdl.Get();
 
-			// CPU side updates
-			DirectX::SimpleMath::Vector3 offset = { sinf(frame_count / 35.f) * 0.10f, 0.f, 0.f };
-			CBData this_data{};
-			this_data.offset = offset;
 
 			cpu_pf.frame_begin();
-
-
-
+			// CPU side updataes
 
 
 
@@ -771,9 +418,7 @@ int main()
 
 			
 
-			// upload data
-			// force direct queue to wait on the GPU for async copy to be done before submitting this frame
-			up_ctx.upload_data(&this_data, sizeof(CBData), buf_handle2);
+			// submit buffered work
 			up_ctx.submit_work(gfx_ctx->get_next_fence_value());
 
 			// GPU-GPU sync: blocks this frames submission until this frames copies are done
@@ -824,68 +469,47 @@ int main()
 			dq_cmdl->SetGraphicsRootSignature(rsig.Get());
 			dq_cmdl->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		
-
-			buf_mgr.bind_as_direct_arg(dq_cmdl, cam_buf, params["camera_data"], RootArgDest::eGraphics);
-			buf_mgr.bind_as_direct_arg(dq_cmdl, buf_handle2, params["my_cbv"], RootArgDest::eGraphics);
-			
-			
-			dq_cmdl->SetGraphicsRootDescriptorTable(params["my_samp"], samp_desc.gpu_handle());
-			
 			// per frame
+			dq_cmdl->SetGraphicsRootDescriptorTable(params["my_samp"], samp_desc.gpu_handle());
 			dq_cmdl->SetGraphicsRootDescriptorTable(params["bindless_views"], bindless_mgr.get_views_start());
-			dq_cmdl->SetGraphicsRootDescriptorTable(params["bindless_access"], bindless_mgr.get_access_start());
+			buf_mgr.bind_as_direct_arg(dq_cmdl, cam_buf, params["camera_data"], RootArgDest::eGraphics);
+
 
 			dq_cmdl->SetPipelineState(pipe.Get());
 			gpu_pf.profile_end(dq_cmdl, "main draw setup");
 
 			gpu_pf.profile_begin(dq_cmdl, dq, "main draw");
 
-			// bind geom 1
-			buf_mgr.bind_as_direct_arg(dq_cmdl, vbo1_pos, params["my_pos"], RootArgDest::eGraphics);
-			buf_mgr.bind_as_direct_arg(dq_cmdl, vbo1_uv, params["my_uv"], RootArgDest::eGraphics);
-			dq_cmdl->IASetIndexBuffer(&ibv);
-
-			// bind mat 1
-			dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.access_index(bindless_hdl), 0);
-			dq_cmdl->DrawIndexedInstanced(buf_mgr.get_element_count(vbo1_pos), 1, 0, 0, 0);
-
-			// bind geom 2
-			buf_mgr.bind_as_direct_arg(dq_cmdl, vbo2_pos, params["my_pos"], RootArgDest::eGraphics);
-			buf_mgr.bind_as_direct_arg(dq_cmdl, vbo2_uv, params["my_uv"], RootArgDest::eGraphics);
-			dq_cmdl->IASetIndexBuffer(&ibv);
-
-			// bind mat 2
-			dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.access_index(bindless_hdl2), 0);
-			dq_cmdl->DrawIndexedInstanced(buf_mgr.get_element_count(vbo2_pos), 1, 0, 0, 0);
-
-
-			auto sponza_mesh = mesh_mgr.get_mesh(sponza_hdl);
-			auto sponza_ibv = buf_mgr.get_ibv(sponza_mesh->ib);
-
-			buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh->vbs[0], params["my_pos"], RootArgDest::eGraphics);
-			buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh->vbs[1], params["my_uv"], RootArgDest::eGraphics);
-			dq_cmdl->IASetIndexBuffer(&sponza_ibv);
-			// bind and draw
-			assert(sponza_mesh->parts.size() == mats.size());
-			ID3D12PipelineState* prev_pipe = nullptr;
-			for (int i = 0; i < sponza_mesh->parts.size(); ++i)
+			// draw geometry
 			{
-				const auto& part = sponza_mesh->parts[i];
+				const auto& model = model_mgr.get_model(sponza_model);
+				const auto& mats = model->mats;
 
-				if (mats[i].pso.Get() != prev_pipe)
-					dq_cmdl->SetPipelineState(mats[i].pso.Get());
-				dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.access_index(mats[i].resource), 0);
-				dq_cmdl->SetGraphicsRoot32BitConstant(params["vert_offset"], part.vertex_start, 0);
-				dq_cmdl->DrawIndexedInstanced(part.index_count, 1, part.index_start, 0, 0);
+				auto sponza_mesh = mesh_mgr.get_mesh(model->mesh);
+				auto sponza_ibv = buf_mgr.get_ibv(sponza_mesh->ib);
 
-				prev_pipe = mats[i].pso.Get();
+				buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh->vbs[0], params["my_pos"], RootArgDest::eGraphics);
+				buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh->vbs[1], params["my_uv"], RootArgDest::eGraphics);
+				dq_cmdl->IASetIndexBuffer(&sponza_ibv);
+				assert(sponza_mesh->parts.size() == mats.size());
+				ID3D12PipelineState* prev_pipe = nullptr;
+				for (int i = 0; i < sponza_mesh->parts.size(); ++i)
+				{
+					const auto& part = sponza_mesh->parts[i];
+					const auto& mat = mats[i];	
+
+					if (mat.pso.Get() != prev_pipe)
+						dq_cmdl->SetPipelineState(mat.pso.Get());
+
+					// set material arg
+					dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.access_index(mat.resource), 0);
+					// declare geometry part and draw
+					dq_cmdl->SetGraphicsRoot32BitConstant(params["vert_offset"], part.vertex_start, 0);
+					dq_cmdl->DrawIndexedInstanced(part.index_count, 1, part.index_start, 0, 0);
+
+					prev_pipe = mat.pso.Get();
+				}
 			}
-			
-
-
-
-
-
 
 			gpu_pf.profile_end(dq_cmdl, "main draw");
 

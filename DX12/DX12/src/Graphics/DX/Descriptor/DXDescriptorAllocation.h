@@ -35,7 +35,7 @@ public:
 		assert(index < m_descriptor_count);
 		D3D12_CPU_DESCRIPTOR_HANDLE hdl = m_cpu_handle;
 		hdl.ptr += m_descriptor_size * index;
-		return m_cpu_handle; 
+		return hdl; 
 	}
 	D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle(uint32_t index = 0) const 
 	{ 

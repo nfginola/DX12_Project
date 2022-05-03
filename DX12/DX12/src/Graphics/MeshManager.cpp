@@ -46,7 +46,8 @@ MeshHandle MeshManager::create_mesh(const MeshDesc& desc)
 
 void MeshManager::destroy_mesh(MeshHandle handle)
 {
-
+	// we are not destroying anything during the frame, we'll just rely on destructor cleanup
+	assert(false);
 }
 
 const Mesh* MeshManager::get_mesh(MeshHandle handle)
