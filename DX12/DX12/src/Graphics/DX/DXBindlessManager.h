@@ -7,6 +7,7 @@
 #include "Utilities/HandlePool.h"
 #include "shaders/ShaderInterop_Renderer.h"
 
+#include <unordered_map>
 
 struct BindlessHandle
 {
@@ -20,7 +21,6 @@ private:
 
 struct DXBindlessDesc
 {
-
 	TextureHandle diffuse_tex;
 };
 
@@ -59,6 +59,8 @@ private:
 
 		uint32_t frame_idx_allocation = 0;
 
+		DXBindlessDesc desc;
+
 		uint64_t handle = 0;
 		void destroy() { }
 	};
@@ -86,6 +88,6 @@ private:
 
 	uint32_t m_access_offset_from_base = 0;
 
+	std::unordered_map<uint64_t, BindlessHandle> m_loaded_bindless;
 };
-
 

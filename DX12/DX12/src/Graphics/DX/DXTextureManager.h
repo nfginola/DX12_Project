@@ -18,6 +18,16 @@ struct TextureHandle
 {
 	TextureHandle() = default;
 
+	bool operator==(const TextureHandle& other) const
+	{
+		return handle == handle;
+	}
+
+	operator uint64_t() const
+	{
+		return handle;
+	}
+
 private:
 	TextureHandle(uint64_t handle_) : handle(handle_) {}
 	friend class DXTextureManager;

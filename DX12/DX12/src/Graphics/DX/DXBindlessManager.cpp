@@ -56,15 +56,14 @@ void DXBindlessManager::frame_begin(uint32_t frame_idx)
 BindlessHandle DXBindlessManager::create_bindless(const DXBindlessDesc& desc)
 {
 	/*
-	 
-		1. Allocate from view heap
-		2. Allocate from buf heap (to store mat data)
-		3. Create shader view on the allocated view heap
-		4. Create constant view on the allocatoed buf heap
-
-		5. Grab handle and fill the internal resource
-		6. Return the handle
+		Checks duplicates based on Diffuse only! (limitation for now to keep it simple)
+		We can make custom hash for unordered map to capture groups of resources to existing Bindless elements
 	*/
+	auto it = m_loaded_bindless.find(desc.diffuse_tex);
+	if (it != m_loaded_bindless.cend())
+	{
+		return BindlessHandle(it->second);
+	}
 
 	assert(m_curr_max_indices < m_max_elements);
 
@@ -114,6 +113,10 @@ BindlessHandle DXBindlessManager::create_bindless(const DXBindlessDesc& desc)
 	res->access_index = access_desc.offset_from_base();		// Use for dynamic descriptor access (no base is bound, need offset from Descriptor Heap base!)
 	res->frame_idx_allocation = m_curr_frame_idx;
 
+	res->desc = desc;
+
+	m_loaded_bindless.insert({ desc.diffuse_tex, handle });
+
 	return BindlessHandle(handle);
 }
 
@@ -138,6 +141,7 @@ void DXBindlessManager::destroy_bindless(BindlessHandle handle)
 
 	};
 	m_deletion_queue.push({ m_curr_frame_idx, del_func });
+	m_loaded_bindless.erase(res->desc.diffuse_tex);
 }
 
 D3D12_GPU_DESCRIPTOR_HANDLE DXBindlessManager::get_views_start() const

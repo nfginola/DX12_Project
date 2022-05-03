@@ -520,8 +520,7 @@ int main()
 			
 		MeshManager mesh_mgr(&buf_mgr);
 		
-		Mesh sponza_mesh;
-		D3D12_INDEX_BUFFER_VIEW sponza_ibv;
+		MeshHandle sponza_hdl;
 		std::vector<BindlessHandle> mats;
 		{
 			AssimpLoader loader("models/sponza/sponza.obj");
@@ -552,58 +551,13 @@ int main()
 				md.subsets.push_back(part);
 			}			
 
-			auto mesh_handle = mesh_mgr.create_mesh(md);
-			sponza_mesh = *mesh_mgr.get_mesh(mesh_handle);
-			sponza_ibv = buf_mgr.get_ibv(sponza_mesh.ib);
-
-		
-			//DXBufferDesc bdesc{};
-			//bdesc.data = (void*)loader.get_positions().data();
-			//bdesc.data_size = loader.get_positions().size() * sizeof(loader.get_positions()[0]);
-			//bdesc.element_count = loader.get_positions().size();
-			//bdesc.element_size = sizeof(loader.get_positions()[0]);
-			//bdesc.flag = BufferFlag::eNonConstant;
-			//bdesc.usage_cpu = UsageIntentCPU::eUpdateNever;
-			//bdesc.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
-			//auto pos_vbo = buf_mgr.create_buffer(bdesc);
-
-			//bdesc.data = (void*)loader.get_uvs().data();
-			//bdesc.data_size = loader.get_uvs().size() * sizeof(loader.get_uvs()[0]);
-			//bdesc.element_count = loader.get_uvs().size();
-			//bdesc.element_size = sizeof(loader.get_uvs()[0]);
-			//auto uv_vbo = buf_mgr.create_buffer(bdesc);
-
-			//bdesc.data = (void*)loader.get_indices().data();
-			//bdesc.data_size = loader.get_indices().size() * sizeof(uint32_t);
-			//bdesc.element_count = loader.get_indices().size();
-			//bdesc.element_size = sizeof(uint32_t);
-			//auto ib_vbo = buf_mgr.create_buffer(bdesc);
-
-			//std::vector<MeshPart> parts;
-			//for (int i = 0; i < loader.get_meshes().size(); ++i)
-			//{
-			//	const auto& loaded_part = loader.get_meshes()[i];
-			//	MeshPart part{};
-			//	part.index_count = loaded_part.index_count;
-			//	part.index_start = loaded_part.index_start;
-			//	part.vertex_start = loaded_part.vertex_start;
-			//	parts.push_back(part);
-			//}
-
-			//sponza_mesh.ib = ib_vbo;
-			//sponza_mesh.parts = parts;
-			//sponza_mesh.vbs.push_back(pos_vbo);
-			//sponza_mesh.vbs.push_back(uv_vbo);
-
-			//sponza_ibv = buf_mgr.get_ibv(ib_vbo);
-
-
-
+			sponza_hdl = mesh_mgr.create_mesh(md);
 
 
 			const auto& loaded_mats = loader.get_materials();
 			for (const auto& loaded_mat : loaded_mats)
 			{
+				// load textures
 				const auto& paths = std::get<AssimpMaterialData::PhongPaths>(loaded_mat.file_paths);
 				DXTextureDesc td{};
 				td.filepath = paths.diffuse;
@@ -612,6 +566,7 @@ int main()
 				td.usage_gpu = UsageIntentGPU::eReadMultipleTimesPerFrame;
 				auto tex = tex_mgr.create_texture(td);
 
+				// assemble bindless element
 				// we want to remove duplicates on bindless elements
 				DXBindlessDesc bd{};
 				bd.diffuse_tex = tex;
@@ -894,14 +849,17 @@ int main()
 			dq_cmdl->DrawIndexedInstanced(buf_mgr.get_element_count(vbo2_pos), 1, 0, 0, 0);
 
 
-			buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh.vbs[0], params["my_pos"], RootArgDest::eGraphics);
-			buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh.vbs[1], params["my_uv"], RootArgDest::eGraphics);
+			auto sponza_mesh = mesh_mgr.get_mesh(sponza_hdl);
+			auto sponza_ibv = buf_mgr.get_ibv(sponza_mesh->ib);
+
+			buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh->vbs[0], params["my_pos"], RootArgDest::eGraphics);
+			buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh->vbs[1], params["my_uv"], RootArgDest::eGraphics);
 			dq_cmdl->IASetIndexBuffer(&sponza_ibv);
 			// bind and draw
-			assert(sponza_mesh.parts.size() == mats.size());
-			for (int i = 0; i < sponza_mesh.parts.size(); ++i)
+			assert(sponza_mesh->parts.size() == mats.size());
+			for (int i = 0; i < sponza_mesh->parts.size(); ++i)
 			{
-				const auto& part = sponza_mesh.parts[i];
+				const auto& part = sponza_mesh->parts[i];
 
 				dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.access_index(mats[i]), 0);
 				dq_cmdl->SetGraphicsRoot32BitConstant(params["vert_offset"], part.vertex_start, 0);
