@@ -496,9 +496,6 @@ int main()
 		{
 			cptr<ID3D12PipelineState> pso;
 			BindlessHandle resource;
-
-			uint64_t handle = 0;
-			void destroy() { };
 		};
 
 
@@ -521,78 +518,69 @@ int main()
 		MeshManager mesh_mgr(&buf_mgr);
 		
 		MeshHandle sponza_hdl;
-		std::vector<BindlessHandle> mats;
+		std::vector<Material> mats;
 		{
 			AssimpLoader loader("models/sponza/sponza.obj");
 
-			MeshDesc md{};
-			md.pos = utils::MemBlob((void*)
-				loader.get_positions().data(),
-				loader.get_positions().size(),
-				sizeof(loader.get_positions()[0]));
-
-			md.uv = utils::MemBlob((void*)
-				loader.get_uvs().data(),
-				loader.get_uvs().size(),
-				sizeof(loader.get_uvs()[0]));
-
-			md.indices = utils::MemBlob((void*)
-				loader.get_indices().data(),
-				loader.get_indices().size(),
-				sizeof(loader.get_indices()[0]));
-
-			for (int i = 0; i < loader.get_meshes().size(); ++i)
+			// Load mesh
 			{
-				const auto& loaded_part = loader.get_meshes()[i];
-				MeshPart part{};
-				part.index_count = loaded_part.index_count;
-				part.index_start = loaded_part.index_start;
-				part.vertex_start = loaded_part.vertex_start;
-				md.subsets.push_back(part);
-			}			
+				MeshDesc md{};
+				md.pos = utils::MemBlob(
+					(void*)loader.get_positions().data(),
+					loader.get_positions().size(),
+					sizeof(loader.get_positions()[0]));
 
-			sponza_hdl = mesh_mgr.create_mesh(md);
+				md.uv = utils::MemBlob(
+					(void*)loader.get_uvs().data(),
+					loader.get_uvs().size(),
+					sizeof(loader.get_uvs()[0]));
 
+				md.indices = utils::MemBlob(
+					(void*)loader.get_indices().data(),
+					loader.get_indices().size(),
+					sizeof(loader.get_indices()[0]));
 
-			const auto& loaded_mats = loader.get_materials();
-			for (const auto& loaded_mat : loaded_mats)
-			{
-				// load textures
-				const auto& paths = std::get<AssimpMaterialData::PhongPaths>(loaded_mat.file_paths);
-				DXTextureDesc td{};
-				td.filepath = paths.diffuse;
-				td.flag = TextureFlag::eSRGB;
-				td.usage_cpu = UsageIntentCPU::eUpdateNever;
-				td.usage_gpu = UsageIntentGPU::eReadMultipleTimesPerFrame;
-				auto tex = tex_mgr.create_texture(td);
-
-				// assemble bindless element
-				// we want to remove duplicates on bindless elements
-				DXBindlessDesc bd{};
-				bd.diffuse_tex = tex;
-				mats.push_back(bindless_mgr.create_bindless(bd));
+				for (const auto& loaded_part : loader.get_meshes())
+				{
+					MeshPart part{};
+					part.index_count = loaded_part.index_count;
+					part.index_start = loaded_part.index_start;
+					part.vertex_start = loaded_part.vertex_start;
+					md.subsets.push_back(part);
+				}
+				sponza_hdl = mesh_mgr.create_mesh(md);
 			}
-		}
 
-		/*
-			Per frame camera things
-		*/
-		InterOp_CameraData cam_data{};
-		auto world = DirectX::XMMatrixScaling(3.f, 2.f, 2.f) * DirectX::XMMatrixTranslation(0.f, 0.f, 0.f);
-		auto view = DirectX::XMMatrixLookAtLH({ 0.f, 0.f, -2.f }, { 0.f, 0.f, 0.f }, { 0.f, 1.f, 0.f });
-		auto proj = DirectX::XMMatrixPerspectiveFovLH(DirectX::XMConvertToRadians(90.f), (float)CLIENT_WIDTH / CLIENT_HEIGHT, 0.1f, 3000.f);
-		cam_data.view_mat = DirectX::SimpleMath::Matrix(view);
-		cam_data.proj_mat = DirectX::SimpleMath::Matrix(proj);
-		
-		DXBufferDesc cdb{};
-		cdb.data = &cam_data;
-		cdb.data_size = sizeof(InterOp_CameraData);
-		cdb.element_count = 1;
-		cdb.element_size = cdb.data_size;
-		cdb.flag = BufferFlag::eConstant;
-		cdb.usage_cpu = UsageIntentCPU::eUpdateSometimes;
-		cdb.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
-		auto cam_buf = buf_mgr.create_buffer(cdb);
+			// Load Bindless Element
+			{
+				const auto& loaded_mats = loader.get_materials();
+				for (const auto& loaded_mat : loaded_mats)
+				{
+					// load textures
+					const auto& paths = std::get<AssimpMaterialData::PhongPaths>(loaded_mat.file_paths);
+					DXTextureDesc td{};
+					td.filepath = paths.diffuse;
+					td.flag = TextureFlag::eSRGB;
+					td.usage_cpu = UsageIntentCPU::eUpdateNever;
+					td.usage_gpu = UsageIntentGPU::eReadMultipleTimesPerFrame;
+					auto tex = tex_mgr.create_texture(td);
+
+					// assemble bindless element
+					// we want to remove duplicates on bindless elements
+					DXBindlessDesc bd{};
+					bd.diffuse_tex = tex;
+
+					Material mat{};
+					mat.resource = bindless_mgr.create_bindless(bd);
+					mat.pso = pipe;
+					mats.push_back(mat);
+				}
+			}
+
+			// Assemble material (Pipeline + Bindless Element)
+ 
+			
+		}
 
 		
 
@@ -677,6 +665,28 @@ int main()
 
 		*/
 
+
+
+
+		/*
+			Per frame camera things
+		*/
+		InterOp_CameraData cam_data{};
+		auto world = DirectX::XMMatrixScaling(3.f, 2.f, 2.f) * DirectX::XMMatrixTranslation(0.f, 0.f, 0.f);
+		auto view = DirectX::XMMatrixLookAtLH({ 0.f, 0.f, -2.f }, { 0.f, 0.f, 0.f }, { 0.f, 1.f, 0.f });
+		auto proj = DirectX::XMMatrixPerspectiveFovLH(DirectX::XMConvertToRadians(90.f), (float)CLIENT_WIDTH / CLIENT_HEIGHT, 0.1f, 3000.f);
+		cam_data.view_mat = DirectX::SimpleMath::Matrix(view);
+		cam_data.proj_mat = DirectX::SimpleMath::Matrix(proj);
+
+		DXBufferDesc cdb{};
+		cdb.data = &cam_data;
+		cdb.data_size = sizeof(InterOp_CameraData);
+		cdb.element_count = 1;
+		cdb.element_size = cdb.data_size;
+		cdb.flag = BufferFlag::eConstant;
+		cdb.usage_cpu = UsageIntentCPU::eUpdateSometimes;
+		cdb.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+		auto cam_buf = buf_mgr.create_buffer(cdb);
 
 
 
@@ -857,13 +867,18 @@ int main()
 			dq_cmdl->IASetIndexBuffer(&sponza_ibv);
 			// bind and draw
 			assert(sponza_mesh->parts.size() == mats.size());
+			ID3D12PipelineState* prev_pipe = nullptr;
 			for (int i = 0; i < sponza_mesh->parts.size(); ++i)
 			{
 				const auto& part = sponza_mesh->parts[i];
 
-				dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.access_index(mats[i]), 0);
+				if (mats[i].pso.Get() != prev_pipe)
+					dq_cmdl->SetPipelineState(mats[i].pso.Get());
+				dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.access_index(mats[i].resource), 0);
 				dq_cmdl->SetGraphicsRoot32BitConstant(params["vert_offset"], part.vertex_start, 0);
 				dq_cmdl->DrawIndexedInstanced(part.index_count, 1, part.index_start, 0, 0);
+
+				prev_pipe = mats[i].pso.Get();
 			}
 			
 
