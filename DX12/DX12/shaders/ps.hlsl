@@ -19,7 +19,6 @@ ConstantBuffer<BindlessIndex> bindless_index : register(b7, space0);        // R
 // We dont need this if we use dynamic descriptor access
 ConstantBuffer<BindlessElement> access_bufs[] : register(b0, space3);       // Bindless Element holds metadata or bindless resources
 
-
 Texture2D bindless_texs[] : register(t0, space3);
 
 float4 main(VSOut input) : SV_TARGET0
@@ -31,5 +30,5 @@ float4 main(VSOut input) : SV_TARGET0
       
     col = pow(col, (1.0 / 2.2).xxx); // Gamma correct
     
-    return float4(col, 1.f);
+    return float4(col, 1.f);    
 }

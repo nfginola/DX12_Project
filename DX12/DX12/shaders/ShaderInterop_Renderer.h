@@ -28,6 +28,8 @@ struct BindlessElement
 		amb idx
 
 		tint color, etc..
+
+		float3 color
 	
 	*/
 };

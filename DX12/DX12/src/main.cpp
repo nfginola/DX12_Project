@@ -42,6 +42,8 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = u8"..\\..\\
 
 #include "Graphics/DX/DXBindlessManager.h"
 
+#include "Graphics/MeshManager.h"
+
 
 
 
@@ -489,22 +491,6 @@ int main()
 		auto ibv = buf_mgr.get_ibv(ibo);
 
 	
-		struct MeshPart
-		{
-			uint32_t index_start = 0;
-			uint32_t index_count = 0;
-			uint32_t vertex_start = 0;
-		};
-
-		struct Mesh
-		{
-			std::vector<BufferHandle> vbs;
-			BufferHandle ib;
-			std::vector<MeshPart> parts; 
-
-			uint64_t handle = 0;
-			void destroy() { };
-		};
 		
 		struct Material
 		{
@@ -515,14 +501,7 @@ int main()
 			void destroy() { };
 		};
 
-		struct MeshHandle
-		{
-		public:
-			MeshHandle() = default;
-		private:
-			MeshHandle(uint64_t handle_) : handle(handle_) {}
-			uint64_t handle = 0;
-		};
+
 
 		struct MaterialHandle
 		{
@@ -538,7 +517,8 @@ int main()
 			MeshHandle mesh;
 			std::vector<MaterialHandle> materials;	// indirect dependency with mesh parts
 		};
-
+			
+		MeshManager mesh_mgr(&buf_mgr);
 		
 		Mesh sponza_mesh;
 		D3D12_INDEX_BUFFER_VIEW sponza_ibv;
@@ -546,29 +526,22 @@ int main()
 		{
 			AssimpLoader loader("models/sponza/sponza.obj");
 
-			DXBufferDesc bdesc{};
-			bdesc.data = (void*)loader.get_positions().data();
-			bdesc.data_size = loader.get_positions().size() * sizeof(loader.get_positions()[0]);
-			bdesc.element_count = loader.get_positions().size();
-			bdesc.element_size = sizeof(loader.get_positions()[0]);
-			bdesc.flag = BufferFlag::eNonConstant;
-			bdesc.usage_cpu = UsageIntentCPU::eUpdateNever;
-			bdesc.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
-			auto pos_vbo = buf_mgr.create_buffer(bdesc);
+			MeshDesc md{};
+			md.pos = utils::MemBlob((void*)
+				loader.get_positions().data(),
+				loader.get_positions().size(),
+				sizeof(loader.get_positions()[0]));
 
-			bdesc.data = (void*)loader.get_uvs().data();
-			bdesc.data_size = loader.get_uvs().size() * sizeof(loader.get_uvs()[0]);
-			bdesc.element_count = loader.get_uvs().size();
-			bdesc.element_size = sizeof(loader.get_uvs()[0]);
-			auto uv_vbo = buf_mgr.create_buffer(bdesc);
+			md.uv = utils::MemBlob((void*)
+				loader.get_uvs().data(),
+				loader.get_uvs().size(),
+				sizeof(loader.get_uvs()[0]));
 
-			bdesc.data = (void*)loader.get_indices().data();
-			bdesc.data_size = loader.get_indices().size() * sizeof(uint32_t);
-			bdesc.element_count = loader.get_indices().size();
-			bdesc.element_size = sizeof(uint32_t);
-			auto ib_vbo = buf_mgr.create_buffer(bdesc);
+			md.indices = utils::MemBlob((void*)
+				loader.get_indices().data(),
+				loader.get_indices().size(),
+				sizeof(loader.get_indices()[0]));
 
-			std::vector<MeshPart> parts;
 			for (int i = 0; i < loader.get_meshes().size(); ++i)
 			{
 				const auto& loaded_part = loader.get_meshes()[i];
@@ -576,15 +549,57 @@ int main()
 				part.index_count = loaded_part.index_count;
 				part.index_start = loaded_part.index_start;
 				part.vertex_start = loaded_part.vertex_start;
-				parts.push_back(part);
-			}
+				md.subsets.push_back(part);
+			}			
 
-			sponza_mesh.ib = ib_vbo;
-			sponza_mesh.parts = parts;
-			sponza_mesh.vbs.push_back(pos_vbo);
-			sponza_mesh.vbs.push_back(uv_vbo);
+			auto mesh_handle = mesh_mgr.create_mesh(md);
+			sponza_mesh = *mesh_mgr.get_mesh(mesh_handle);
+			sponza_ibv = buf_mgr.get_ibv(sponza_mesh.ib);
 
-			sponza_ibv = buf_mgr.get_ibv(ib_vbo);
+		
+			//DXBufferDesc bdesc{};
+			//bdesc.data = (void*)loader.get_positions().data();
+			//bdesc.data_size = loader.get_positions().size() * sizeof(loader.get_positions()[0]);
+			//bdesc.element_count = loader.get_positions().size();
+			//bdesc.element_size = sizeof(loader.get_positions()[0]);
+			//bdesc.flag = BufferFlag::eNonConstant;
+			//bdesc.usage_cpu = UsageIntentCPU::eUpdateNever;
+			//bdesc.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+			//auto pos_vbo = buf_mgr.create_buffer(bdesc);
+
+			//bdesc.data = (void*)loader.get_uvs().data();
+			//bdesc.data_size = loader.get_uvs().size() * sizeof(loader.get_uvs()[0]);
+			//bdesc.element_count = loader.get_uvs().size();
+			//bdesc.element_size = sizeof(loader.get_uvs()[0]);
+			//auto uv_vbo = buf_mgr.create_buffer(bdesc);
+
+			//bdesc.data = (void*)loader.get_indices().data();
+			//bdesc.data_size = loader.get_indices().size() * sizeof(uint32_t);
+			//bdesc.element_count = loader.get_indices().size();
+			//bdesc.element_size = sizeof(uint32_t);
+			//auto ib_vbo = buf_mgr.create_buffer(bdesc);
+
+			//std::vector<MeshPart> parts;
+			//for (int i = 0; i < loader.get_meshes().size(); ++i)
+			//{
+			//	const auto& loaded_part = loader.get_meshes()[i];
+			//	MeshPart part{};
+			//	part.index_count = loaded_part.index_count;
+			//	part.index_start = loaded_part.index_start;
+			//	part.vertex_start = loaded_part.vertex_start;
+			//	parts.push_back(part);
+			//}
+
+			//sponza_mesh.ib = ib_vbo;
+			//sponza_mesh.parts = parts;
+			//sponza_mesh.vbs.push_back(pos_vbo);
+			//sponza_mesh.vbs.push_back(uv_vbo);
+
+			//sponza_ibv = buf_mgr.get_ibv(ib_vbo);
+
+
+
+
 
 			const auto& loaded_mats = loader.get_materials();
 			for (const auto& loaded_mat : loaded_mats)
@@ -624,7 +639,7 @@ int main()
 		cdb.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
 		auto cam_buf = buf_mgr.create_buffer(cdb);
 
-
+		
 
 
 		/*
@@ -727,31 +742,32 @@ int main()
 			auto dq_ator = frame_res.dq_ator.Get();
 			auto dq_cmdl = frame_res.dq_cmdl.Get();
 
-			// wait for FIF
-			frame_res.sync.wait();
-
-
-
-			cpu_pf.frame_begin();
-			gpu_pf.frame_begin(surface_idx);
-			//gpu_pf_copy.frame_begin(surface_idx);
-			g_gui_ctx->frame_begin();
-
-			gpu_dheap.frame_begin(surface_idx);
-
-
-			cpu_pf.profile_begin("buf mgr frame begin");
-			buf_mgr.frame_begin(surface_idx);
-
-
+			// CPU side updates
 			DirectX::SimpleMath::Vector3 offset = { sinf(frame_count / 35.f) * 0.10f, 0.f, 0.f };
 			CBData this_data{};
 			this_data.offset = offset;
 
+			cpu_pf.frame_begin();
 
-			cpu_pf.profile_end("buf mgr frame begin");
 
 
+
+
+
+			// GPU side updates
+			frame_res.sync.wait();
+
+			// Reset
+			dq_ator->Reset();
+			dq_cmdl->Reset(dq_ator, nullptr);
+
+			gpu_pf.frame_begin(surface_idx);
+			g_gui_ctx->frame_begin();
+			gpu_dheap.frame_begin(surface_idx);
+			buf_mgr.frame_begin(surface_idx);
+
+			up_ctx.frame_begin(surface_idx);
+			bindless_mgr.frame_begin(surface_idx);
 
 			if (show_pf)
 			{
@@ -788,21 +804,14 @@ int main()
 				std::cout << "========================================\n";
 			}
 
-			// reset
-			dq_ator->Reset();
-			dq_cmdl->Reset(dq_ator, nullptr);
+			
 
-
-
-
-
-			up_ctx.frame_begin(surface_idx);
-			bindless_mgr.frame_begin(surface_idx);
-		
 			// upload data
 			// force direct queue to wait on the GPU for async copy to be done before submitting this frame
 			up_ctx.upload_data(&this_data, sizeof(CBData), buf_handle2);
 			up_ctx.submit_work(gfx_ctx->get_next_fence_value());
+
+			// GPU-GPU sync: blocks this frames submission until this frames copies are done
 			up_ctx.wait_for_async_copy(dq);
 
 			PIXBeginEvent(dq_cmdl, PIX_COLOR(0, 200, 200), "Direct Queue Main");
@@ -888,7 +897,7 @@ int main()
 			buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh.vbs[0], params["my_pos"], RootArgDest::eGraphics);
 			buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh.vbs[1], params["my_uv"], RootArgDest::eGraphics);
 			dq_cmdl->IASetIndexBuffer(&sponza_ibv);
-			// bind some mat
+			// bind and draw
 			assert(sponza_mesh.parts.size() == mats.size());
 			for (int i = 0; i < sponza_mesh.parts.size(); ++i)
 			{
