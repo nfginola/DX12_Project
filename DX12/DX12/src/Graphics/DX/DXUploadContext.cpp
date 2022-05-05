@@ -64,7 +64,9 @@ void DXUploadContext::frame_begin(uint32_t frame_idx)
 		m_profiler->profile_begin(m_cmdls[frame_idx].Get(), m_copy_queue.Get(), "async copy");
 
 	std::string event_name = "copy thing #" + std::to_string(thing++);
-	//PIXBeginEvent(m_cmdls[frame_idx].Get(), PIX_COLOR(200, 0, 200), event_name.c_str());
+#ifdef defined(_DEBUG)
+	PIXBeginEvent(m_cmdls[frame_idx].Get(), PIX_COLOR(200, 0, 200), event_name.c_str());
+#endif
 }
 
 void DXUploadContext::upload_data(void* data, size_t size, BufferHandle hdl)
@@ -92,7 +94,9 @@ void DXUploadContext::submit_work(uint32_t sig_val)
 	m_copy_queue->ExecuteCommandLists(1, cmdls);
 	// Resources decays to common state
 
-	//PIXEndEvent(m_copy_queue.Get());
+#ifdef defined(_DEBUG)
+	PIXEndEvent(m_copy_queue.Get());
+#endif
 
 	auto& sync = m_sync_prims[m_curr_frame_idx];
 	sync.signal(m_copy_queue.Get(), sig_val);

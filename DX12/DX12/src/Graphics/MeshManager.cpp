@@ -39,6 +39,27 @@ MeshHandle MeshManager::create_mesh(const MeshDesc& desc)
 	bdesc.element_size = desc.indices.stride;
 	res->ib = m_buf_mgr->create_buffer(bdesc);
 
+	// normals
+	bdesc.data = desc.normals.data;
+	bdesc.data_size = desc.normals.total_size;
+	bdesc.element_count = desc.normals.count;
+	bdesc.element_size = desc.tangents.stride;
+	res->vbs.push_back(m_buf_mgr->create_buffer(bdesc));
+
+	// tangent
+	bdesc.data = desc.tangents.data;
+	bdesc.data_size = desc.tangents.total_size;
+	bdesc.element_count = desc.tangents.count;
+	bdesc.element_size = desc.tangents.stride;
+	res->vbs.push_back(m_buf_mgr->create_buffer(bdesc));
+
+	// bitangent
+	bdesc.data = desc.bitangents.data;
+	bdesc.data_size = desc.bitangents.total_size;
+	bdesc.element_count = desc.bitangents.count;
+	bdesc.element_size = desc.bitangents.stride;
+	res->vbs.push_back(m_buf_mgr->create_buffer(bdesc));
+
 	res->parts = desc.subsets;
 
 	return MeshHandle(handle);

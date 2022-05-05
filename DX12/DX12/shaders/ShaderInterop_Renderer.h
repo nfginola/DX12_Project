@@ -52,5 +52,21 @@ struct VertexPullUV
 	float2 uv;
 };
 
+struct VertexPullNormal
+{
+	float3 normal;
+};
+
+struct VertexPullTangent
+{
+	float3 tangent;
+};
+
+struct VertexPullBitangent
+{
+	float3 bitangent;
+};
+
+
 
 #endif

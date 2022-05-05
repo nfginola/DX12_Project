@@ -1,29 +1,20 @@
 #include "ShaderInterop_Renderer.h"
 
-struct Vertex
-{
-    float4 pos : POSITION;
-    float2 uv : UV;
-};
-
 struct VSOut
 {
     float4 pos : SV_POSITION;
     float2 uv : UV;
-};
-
-static const Vertex verts[] =
-{
-    { { -0.5f, 0.5f, 0.f, 1.f }, { 0.f, 0.f } },
-    { { 0.5f, -0.5f, 0.f, 1.f }, { 1.0f, 1.f } },
-    { { -0.5f, -0.5f, 0.f, 1.f }, { 0.f, 1.f } },
-    { { -0.5f, 0.5f, 0.f, 1.f }, { 0.f, 0.f } },
-    { { 0.5f, 0.5f, 0.f, 1.f }, { 1.f, 0.f } },
-    { { 0.5f, -0.5f, 0.f, 1.f }, { 1.0f, 1.f } }
+    float3 normal : NORMAL;
+    float3 tangent : TANGENT;
+    float3 bitangent : BITANGENT;
 };
 
 StructuredBuffer<VertexPullPosition> vertices : register(t0, space5);
 StructuredBuffer<VertexPullUV> uvs : register(t1, space5);
+StructuredBuffer<VertexPullNormal> normals : register(t2, space5);
+StructuredBuffer<VertexPullTangent> tangents : register(t3, space5);
+StructuredBuffer<VertexPullBitangent> bitangents : register(t4, space5);
+
 ConstantBuffer<InterOp_CameraData> cam_data : register(b7, space7);
 
 struct PerDrawData
@@ -47,8 +38,17 @@ VSOut main( uint vertID : SV_VertexID )
     // manually pass in vb offset
     vertID += vert_offset.offset;
 
-    output.pos = mul(cam_data.proj_mat, mul(cam_data.view_mat, mul(per_draw_data.world_mat, float4(vertices[vertID].position, 1.f))));
-    output.uv = uvs[vertID].uv;
+    float3 loc_pos = vertices[vertID].position;
+    float3 tangent = tangents[vertID].tangent;
+    float3 bitangent = bitangents[vertID].bitangent;
+    float3 normal = normals[vertID].normal;
+    float2 uv = uvs[vertID].uv;
+    
+    output.pos = mul(cam_data.proj_mat, mul(cam_data.view_mat, mul(per_draw_data.world_mat, float4(loc_pos, 1.f))));
+    output.normal = normalize(mul(per_draw_data.world_mat, float4(normal, 0.f)).xyz);
+    output.tangent = normalize(mul(per_draw_data.world_mat, float4(tangent, 0.f)).xyz);
+    output.bitangent = normalize(mul(per_draw_data.world_mat, float4(bitangent, 0.f)).xyz);
+    output.uv = uv;
     
 	return output;
 }

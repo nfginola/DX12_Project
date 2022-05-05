@@ -59,7 +59,9 @@ LRESULT window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 int main()
 {
 	g_app_running = true;
-#if defined(_DEBUG)
+#if defined(_DEBUGWITHOUTVALIDATIONLAYER)
+	constexpr auto debug_on = false;
+#elif defined(_DEBUG)
 	constexpr auto debug_on = true;
 #else
 	constexpr auto debug_on = false;
@@ -71,8 +73,6 @@ int main()
 	HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 	if (FAILED(hr))
 		assert(false);
-
-
 
 	// https://docs.microsoft.com/en-us/visualstudio/debugger/finding-memory-leaks-using-the-crt-library?view=vs-2022
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -121,8 +121,8 @@ int main()
 			imgui_alloc.gpu_handle());
 
 		// Create camera
-		auto cam = std::make_unique<FPPCamera>(90.f, (float)CLIENT_WIDTH / CLIENT_HEIGHT, 0.1f, 600.f);
-		auto cam_zoom = std::make_unique<FPPCamera>(28.f, (float)CLIENT_WIDTH / CLIENT_HEIGHT, 0.1f, 600.f);		// Zoomed in secondary camera
+		auto cam = std::make_unique<FPPCamera>(90.f, (float)CLIENT_WIDTH / CLIENT_HEIGHT, 0.1f, 2000.f);
+		auto cam_zoom = std::make_unique<FPPCamera>(28.f, (float)CLIENT_WIDTH / CLIENT_HEIGHT, 0.1f, 2000.f);		// Zoomed in secondary camera
 
 		// Create a First-Person Camera Controller and attach a First-Person Perspective camera
 		auto cam_ctrl = std::make_unique<FPCController>(g_input, g_gui_ctx);
@@ -139,10 +139,6 @@ int main()
 		DXBindlessManager bindless_mgr(dev, std::move(bindless_part), &buf_mgr, &tex_mgr);
 		MeshManager mesh_mgr(&buf_mgr);
 		ModelManager model_mgr(&mesh_mgr, &tex_mgr, &bindless_mgr);
-
-
-
-
 
 		struct PerFrameResource
 		{
@@ -224,14 +220,18 @@ int main()
 		auto main_vp = CD3DX12_VIEWPORT(0.f, 0.f, CLIENT_WIDTH, CLIENT_HEIGHT, D3D12_MIN_DEPTH, D3D12_MAX_DEPTH);
 		auto main_scissor = CD3DX12_RECT(0, 0, CLIENT_WIDTH, CLIENT_HEIGHT);
 
-
-
 		// setup test UI
 		bool show_pf = true;
+		bool copy_bogus_data = false;
+		bool instanced = false;
+		bool instanced_grid = false;
 		g_gui_ctx->add_persistent_ui("test", [&]()
 			{
 				ImGui::Begin("HelloBox");
 				ImGui::Checkbox("Show Profiler Data", &show_pf);
+				ImGui::Checkbox("Copy Bogus Data", &copy_bogus_data);
+				ImGui::Checkbox("Instanced", &instanced);
+				ImGui::Checkbox("Instanced Grid", &instanced_grid);
 				ImGui::End();
 
 				bool show_demo_window = true;
@@ -260,6 +260,7 @@ int main()
 			});
 
 
+		// setup pipeline
 		cptr<ID3D12RootSignature> rsig;
 		cptr<ID3D12PipelineState> pipe;
 		std::map<std::string, UINT> params;
@@ -293,9 +294,15 @@ int main()
 			rsig = RootSigBuilder()
 				.push_constant(7, 0, 1, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_index"])
 				.push_constant(8, 0, 1, D3D12_SHADER_VISIBILITY_VERTEX, &params["vert_offset"])
+
 				.push_cbv(0, 0, D3D12_SHADER_VISIBILITY_VERTEX, &params["per_object"])
+
 				.push_srv(0, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_pos"])
 				.push_srv(1, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_uv"])
+				.push_srv(2, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_normal"])
+				.push_srv(3, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_tangent"])
+				.push_srv(4, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_bitangent"])
+
 				.push_cbv(7, 7, D3D12_SHADER_VISIBILITY_VERTEX, &params["camera_data"])
 				.push_table({ samp_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_samp"])
 				.push_table({ view_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_views"])
@@ -334,16 +341,15 @@ int main()
 			
 		// load sponza
 		ModelDesc modeld{};
-		modeld.rel_path = "models/sponza/sponza.obj";
-		modeld.pso = pipe;
+		//modeld.rel_path = "models/sponza/sponza.obj";
+		modeld.rel_path = "models/Sponza_gltf/glTF/Sponza.gltf";
+
+		modeld.pso = pipe;		// 'material'
 		auto sponza_model = model_mgr.load_model(modeld);
 
 
-		/*
-			Per frame camera things
-		*/
+		// camera (persistent, on default heap)
 		InterOp_CameraData cam_data{};
-		auto world = DirectX::XMMatrixScaling(3.f, 2.f, 2.f) * DirectX::XMMatrixTranslation(0.f, 0.f, 0.f);
 		auto view = DirectX::XMMatrixLookAtLH({ 0.f, 0.f, -2.f }, { 0.f, 0.f, 0.f }, { 0.f, 1.f, 0.f });
 		auto proj = DirectX::XMMatrixPerspectiveFovLH(DirectX::XMConvertToRadians(90.f), (float)CLIENT_WIDTH / CLIENT_HEIGHT, 0.1f, 3000.f);
 		cam_data.view_mat = DirectX::SimpleMath::Matrix(view);
@@ -359,6 +365,7 @@ int main()
 		cdb.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
 		auto cam_buf = buf_mgr.create_buffer(cdb);
 
+		// object cbuf (ring buffered dynamic)
 		DXBufferDesc dyn_cbd{};
 		dyn_cbd.element_count = 1;
 		dyn_cbd.element_size = sizeof(DirectX::XMFLOAT4X4);
@@ -366,6 +373,26 @@ int main()
 		dyn_cbd.usage_cpu = UsageIntentCPU::eUpdateOnce;
 		dyn_cbd.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
 		auto dyn_cb = buf_mgr.create_buffer(dyn_cbd);
+
+		/*
+			do bogus copies to give work to async copy
+		*/
+		static constexpr uint32_t num_pbufs = 3000;
+		static constexpr uint32_t payload_size = 1024;
+		std::vector<BufferHandle> persistent_bufs;
+		persistent_bufs.reserve(num_pbufs);
+		for (uint32_t i = 0; i < num_pbufs; ++i)
+		{
+			DXBufferDesc pbdesc{};
+			pbdesc.element_count = 1;
+			pbdesc.element_size = payload_size;
+			pbdesc.flag = BufferFlag::eConstant;
+			pbdesc.usage_cpu = UsageIntentCPU::eUpdateSometimes;
+			pbdesc.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+			persistent_bufs.push_back(buf_mgr.create_buffer(pbdesc));
+		}
+
+		void* some_data = std::calloc(payload_size, 1);
 
 
 		double prev_dt = 0.0;
@@ -378,7 +405,7 @@ int main()
 
 			++frame_count;
 			win->pump_messages();
-			if (!g_app_running)		// Early exit if WMs see exit request
+			if (!g_app_running)		// Early exit if WMs picked up by this frames pump messages
 				break;
 
 			g_input->frame_begin();
@@ -396,8 +423,33 @@ int main()
 			cam_ctrl->update(prev_dt);
 
 
-			// GPU side updates
+
+			// Waiting for main Graphics frame in flight
 			frame_res.sync.wait();
+
+			// use copy queue
+			up_ctx.frame_begin(surface_idx);
+
+			// buffer copy work on async copy
+			InterOp_CameraData cam_dat{};
+			cam_dat.view_mat = cam_ctrl->get_active_camera()->get_view_mat();
+			cam_dat.proj_mat = cam_ctrl->get_active_camera()->get_proj_mat();
+			up_ctx.upload_data(&cam_dat, sizeof(InterOp_CameraData), cam_buf);
+
+			// buffer extra bogus data for copy async
+			if (copy_bogus_data)
+			{
+				for (const auto& buf : persistent_bufs)
+				{
+					up_ctx.upload_data(some_data, payload_size, buf);
+				}
+			}
+
+			// submit buffered work
+			up_ctx.submit_work(gfx_ctx->get_next_fence_value());
+
+
+
 
 			// Reset
 			dq_ator->Reset();
@@ -408,7 +460,6 @@ int main()
 			gpu_dheap.frame_begin(surface_idx);
 			buf_mgr.frame_begin(surface_idx);
 
-			up_ctx.frame_begin(surface_idx);
 			bindless_mgr.frame_begin(surface_idx);
 
 			if (show_pf)
@@ -446,18 +497,6 @@ int main()
 				std::cout << "========================================\n";
 			}
 
-			
-			// buffer copy work on async copy
-			InterOp_CameraData cam_dat{};
-			cam_dat.view_mat = cam_ctrl->get_active_camera()->get_view_mat();
-			cam_dat.proj_mat = cam_ctrl->get_active_camera()->get_proj_mat();
-			up_ctx.upload_data(&cam_dat, sizeof(InterOp_CameraData), cam_buf);
-
-			// submit buffered work
-			up_ctx.submit_work(gfx_ctx->get_next_fence_value());
-
-			// GPU-GPU sync: blocks this frames submission until this frames copies are done
-			up_ctx.wait_for_async_copy(dq);
 
 			PIXBeginEvent(dq_cmdl, PIX_COLOR(0, 200, 200), "Direct Queue Main");
 
@@ -497,6 +536,12 @@ int main()
 			dq_cmdl->SetDescriptorHeaps(_countof(dheaps), dheaps);
 
 
+			// GPU-GPU sync: blocks this frames submission until this frames copies are done
+			cpu_pf.profile_begin("waiting for async copy");
+			up_ctx.wait_for_async_copy(dq);
+			cpu_pf.profile_end("waiting for async copy");
+
+
 			// main draw
 			gpu_pf.profile_begin(dq_cmdl, dq, "main draw setup");
 			dq_cmdl->RSSetViewports(1, &main_vp);
@@ -515,14 +560,9 @@ int main()
 
 			gpu_pf.profile_begin(dq_cmdl, dq, "main draw");
 
-			auto wm = DirectX::SimpleMath::Matrix::CreateScale(0.07);
 
 			// draw geometry
 			{
-				// per draw
-				up_ctx.upload_data(&wm, sizeof(wm), dyn_cb);
-				buf_mgr.bind_as_direct_arg(dq_cmdl, dyn_cb, params["per_object"], RootArgDest::eGraphics);
-
 				const auto& model = model_mgr.get_model(sponza_model);
 				const auto& mats = model->mats;
 
@@ -531,25 +571,41 @@ int main()
 
 				buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh->vbs[0], params["my_pos"], RootArgDest::eGraphics);
 				buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh->vbs[1], params["my_uv"], RootArgDest::eGraphics);
+				buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh->vbs[2], params["my_normal"], RootArgDest::eGraphics);
+				buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh->vbs[3], params["my_tangent"], RootArgDest::eGraphics);
+				buf_mgr.bind_as_direct_arg(dq_cmdl, sponza_mesh->vbs[4], params["my_bitangent"], RootArgDest::eGraphics);
 				dq_cmdl->IASetIndexBuffer(&sponza_ibv);
 				assert(sponza_mesh->parts.size() == mats.size());
 				ID3D12PipelineState* prev_pipe = nullptr;
-				for (int i = 0; i < sponza_mesh->parts.size(); ++i)
+
+				int dim = instanced_grid ? 5 : 1;
+				for (int i = -dim; i < dim; ++i)
 				{
-					const auto& part = sponza_mesh->parts[i];
-					const auto& mat = mats[i];	
+					for (int x = -dim; x < dim; ++x)
+					{
+						// per object
+						auto wm = DirectX::SimpleMath::Matrix::CreateScale(0.07) * DirectX::SimpleMath::Matrix::CreateTranslation(x * 350.f, 0.f, i * 200.f);
+						up_ctx.upload_data(&wm, sizeof(wm), dyn_cb);
+						buf_mgr.bind_as_direct_arg(dq_cmdl, dyn_cb, params["per_object"], RootArgDest::eGraphics);
+						for (int i = 0; i < sponza_mesh->parts.size(); ++i)
+						{
+							const auto& part = sponza_mesh->parts[i];
+							const auto& mat = mats[i];
 
-					if (mat.pso.Get() != prev_pipe)
-						dq_cmdl->SetPipelineState(mat.pso.Get());
+							if (mat.pso.Get() != prev_pipe)
+								dq_cmdl->SetPipelineState(mat.pso.Get());
 
-					// set material arg
-					dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.access_index(mat.resource), 0);
-					// declare geometry part and draw
-					dq_cmdl->SetGraphicsRoot32BitConstant(params["vert_offset"], part.vertex_start, 0);
-					dq_cmdl->DrawIndexedInstanced(part.index_count, 1, part.index_start, 0, 0);
+							// set material arg
+							dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.access_index(mat.resource), 0);
+							// declare geometry part and draw
+							dq_cmdl->SetGraphicsRoot32BitConstant(params["vert_offset"], part.vertex_start, 0);
+							dq_cmdl->DrawIndexedInstanced(part.index_count, instanced ? 10 : 1, part.index_start, 0, 0);
 
-					prev_pipe = mat.pso.Get();
+							prev_pipe = mat.pso.Get();
+						}
+					}
 				}
+
 			}
 
 			gpu_pf.profile_end(dq_cmdl, "main draw");
@@ -602,6 +658,8 @@ int main()
 
 		delete g_input;
 		delete g_gui_ctx;
+
+		std::free(some_data);
 
 
 		g_input = nullptr;

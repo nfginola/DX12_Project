@@ -34,6 +34,21 @@ ModelHandle ModelManager::load_model(const ModelDesc& desc)
 			loader.get_indices().size(),
 			sizeof(loader.get_indices()[0]));
 
+		md.normals = utils::MemBlob(
+			(void*)loader.get_normals().data(),
+			loader.get_normals().size(),
+			sizeof(loader.get_normals()[0]));
+
+		md.tangents = utils::MemBlob(
+			(void*)loader.get_tangents().data(),
+			loader.get_tangents().size(),
+			sizeof(loader.get_tangents()[0]));
+
+		md.bitangents = utils::MemBlob(
+			(void*)loader.get_bitangents().data(),
+			loader.get_bitangents().size(),
+			sizeof(loader.get_bitangents()[0]));
+
 		for (const auto& loaded_part : loader.get_meshes())
 		{
 			MeshPart part{};

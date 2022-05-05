@@ -21,7 +21,7 @@ struct Mesh
 
 struct MeshDesc
 {
-	utils::MemBlob pos, indices, uv;
+	utils::MemBlob pos, indices, uv, normals, tangents, bitangents;
 	std::vector<MeshPart> subsets;
 
 	bool valid() const

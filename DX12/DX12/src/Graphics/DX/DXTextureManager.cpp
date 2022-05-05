@@ -36,14 +36,17 @@ TextureHandle DXTextureManager::create_texture(const DXTextureDesc& desc)
 	if (desc.usage_cpu != UsageIntentCPU::eUpdateNever)
 		assert(false);
 
+	DirectX::WIC_LOADER_FLAGS flags =
+		DirectX::WIC_LOADER_FLAGS::WIC_LOADER_MIP_AUTOGEN |
+		DirectX::WIC_LOADER_FLAGS::WIC_LOADER_FORCE_RGBA32;
+		//DirectX::WIC_LOADER_FLAGS::WIC_LOADER_FIT_POW2;		// It seems like it sometimes uses BGRA instead..
+
+	if (desc.flag == TextureFlag::eSRGB)
+		flags |= DirectX::WIC_LOADER_FLAGS::WIC_LOADER_FORCE_SRGB;
+
 	cptr<ID3D12Resource> res;
 	// force SRGB (we do gamma correct rendering)
-	auto hr = DirectX::CreateWICTextureFromFileEx(m_dev.Get(), *m_up_batch.get(), desc.filepath.c_str(), 0, D3D12_RESOURCE_FLAG_NONE,
-		DirectX::WIC_LOADER_FLAGS::WIC_LOADER_FORCE_SRGB | 
-		DirectX::WIC_LOADER_FLAGS::WIC_LOADER_MIP_AUTOGEN |
-		DirectX::WIC_LOADER_FLAGS::WIC_LOADER_FORCE_RGBA32 |
-		DirectX::WIC_LOADER_FLAGS::WIC_LOADER_FIT_POW2,		// It seems like it sometimes uses BGRA instead..
-		res.GetAddressOf());
+	auto hr = DirectX::CreateWICTextureFromFileEx(m_dev.Get(), *m_up_batch.get(), desc.filepath.c_str(), 0, D3D12_RESOURCE_FLAG_NONE, flags, res.GetAddressOf());
 
 	if (FAILED(hr))
 		assert(false);

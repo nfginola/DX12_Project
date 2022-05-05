@@ -17,7 +17,7 @@ DXBufferManager::DXBufferManager(Microsoft::WRL::ComPtr<ID3D12Device> dev, uint3
 		{
 			DXBufferPoolAllocator::PoolInfo(1, 256, 100),
 			DXBufferPoolAllocator::PoolInfo(1, 512, 100),
-			DXBufferPoolAllocator::PoolInfo(1, 1024, 4000),
+			DXBufferPoolAllocator::PoolInfo(1, 1024, 10000),
 		};
 		//m_constant_persistent_buf = std::make_unique<DXBufferPoolAllocator>(dev, pool_infos, D3D12_HEAP_TYPE_DEFAULT);
 		for (uint32_t i = 0; i < max_fif; ++i)
@@ -30,7 +30,7 @@ DXBufferManager::DXBufferManager(Microsoft::WRL::ComPtr<ID3D12Device> dev, uint3
 		{
 			DXBufferPoolAllocator::PoolInfo(1, 256, 100),
 			DXBufferPoolAllocator::PoolInfo(1, 512, 50),
-			DXBufferPoolAllocator::PoolInfo(1, 1024, 6000),
+			DXBufferPoolAllocator::PoolInfo(1, 1024, 10000),
 		};
 		auto pool_for_ring = std::make_unique<DXBufferPoolAllocator>(dev, pool_infos, D3D12_HEAP_TYPE_UPLOAD);
 		m_constant_ring_buf = std::make_unique<DXBufferRingPoolAllocator>(std::move(pool_for_ring));
