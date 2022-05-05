@@ -98,12 +98,17 @@ BindlessHandle DXBindlessManager::create_bindless(const DXBindlessDesc& desc)
 	auto access_hdl = m_buf_mgr->create_buffer(bdesc);
 
 	// Allocate descriptors for the view group (bindless element) and texture
-	auto view_desc = m_view_desc_ator->allocate(1);		// just diffuse
+	auto view_desc = m_view_desc_ator->allocate(4);		// depends on texture count
 	auto access_desc = m_access_desc_ator->allocate(1);	// one persistent per tex group
 
 	// Create views for the resources
 	m_buf_mgr->create_cbv(access_hdl, access_desc.cpu_handle());
-	m_tex_mgr->create_srv(desc.diffuse_tex, view_desc.cpu_handle());
+
+	// ordering matters!
+	m_tex_mgr->create_srv(desc.diffuse_tex, view_desc.cpu_handle(0));
+	m_tex_mgr->create_srv(desc.normal_tex, view_desc.cpu_handle(1));
+	m_tex_mgr->create_srv(desc.specular_tex, view_desc.cpu_handle(2));
+	m_tex_mgr->create_srv(desc.opacity_tex, view_desc.cpu_handle(3));
 
 	res->access_alloc = std::move(access_desc);
 	res->view_alloc = std::move(view_desc);

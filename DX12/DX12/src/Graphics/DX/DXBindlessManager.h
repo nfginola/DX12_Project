@@ -21,7 +21,7 @@ private:
 
 struct DXBindlessDesc
 {
-	TextureHandle diffuse_tex;
+	TextureHandle diffuse_tex, normal_tex, specular_tex, opacity_tex;
 };
 
 class DXBindlessManager

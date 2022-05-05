@@ -304,6 +304,9 @@ int main()
 			auto ds = DepthStencilDescBuilder()
 				.set_depth_enabled(true);
 
+			auto bd = BlendDescBuilder()
+				.SetAlphaToCoverage(true);
+
 			pipe = PipelineBuilder()
 				.set_root_sig(rsig)
 				.set_shader_bytecode(*vs_blob, ShaderType::eVertex)
@@ -311,6 +314,7 @@ int main()
 				.append_rt_format(DXGI_FORMAT_R8G8B8A8_UNORM)
 				.set_depth_format(DepthFormat::eD32)
 				.set_depth_stencil(ds)
+				.set_blend(bd)
 				.build(dev);
 		}
 

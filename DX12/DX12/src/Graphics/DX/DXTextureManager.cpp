@@ -8,17 +8,26 @@ DXTextureManager::DXTextureManager(cptr<ID3D12Device> dev, cptr<ID3D12CommandQue
 {
 	m_up_batch = std::make_unique<DirectX::ResourceUploadBatch>(dev.Get());
 
+	/*
+		Load default texture
+	*/
+	DXTextureDesc def{};
+	def.filepath = "textures/default_invalid.png";
+	def.flag = TextureFlag::eSRGB;
+	def.usage_cpu = UsageIntentCPU::eUpdateNever;
+	def.usage_gpu = UsageIntentGPU::eReadMultipleTimesPerFrame;
+	m_def_tex = create_texture(def);
 }
 
 TextureHandle DXTextureManager::create_texture(const DXTextureDesc& desc)
 {
 	if (!desc.filepath.has_filename())
-		return TextureHandle(1);			// default texture
+		return m_def_tex;			// default texture
 
 	auto it = m_loaded_path_to_handle.find(desc.filepath.string());
 	if (it != m_loaded_path_to_handle.cend())
 	{
-		return TextureHandle(it->second);
+		return TextureHandle(it->second);;
 	}
 
 	m_up_batch->Begin();

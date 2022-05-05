@@ -51,22 +51,42 @@ ModelHandle ModelManager::load_model(const ModelDesc& desc)
 		for (const auto& loaded_mat : loaded_mats)
 		{
 			// load textures
-			const auto& paths = std::get<AssimpMaterialData::PhongPaths>(loaded_mat.file_paths);
+			auto paths = std::get<AssimpMaterialData::PhongPaths>(loaded_mat.file_paths);
+			if (!paths.normal.has_filename())
+				paths.normal = "textures/default_normal.png";
+			if (!paths.opacity.has_filename())
+				paths.opacity = "textures/default_opacity.png";
+			if (!paths.specular.has_filename())
+				paths.specular = "textures/default_specular.png";
+
 			DXTextureDesc td{};
 			td.filepath = paths.diffuse;
 			td.flag = TextureFlag::eSRGB;
 			td.usage_cpu = UsageIntentCPU::eUpdateNever;
 			td.usage_gpu = UsageIntentGPU::eReadMultipleTimesPerFrame;
-			auto tex = m_tex_mgr->create_texture(td);
+			auto diffuse = m_tex_mgr->create_texture(td);
 
+			td.flag = TextureFlag::eNonSRGB;
+			td.filepath = paths.normal;
+			auto normal = m_tex_mgr->create_texture(td);
+
+			td.flag = TextureFlag::eNonSRGB;
+			td.filepath = paths.specular;
+			auto specular = m_tex_mgr->create_texture(td);
+
+			td.flag = TextureFlag::eNonSRGB;
+			td.filepath = paths.opacity;
+			auto opacity = m_tex_mgr->create_texture(td);
+
+			// tex handles lost after this, we simply dont handle it since we are not handling dynamic removal
+			// internal textures are cleaned up upon destruction
+			
 			// assemble bindless element
-			// we want to remove duplicates on bindless elements
 			DXBindlessDesc bd{};
-			bd.diffuse_tex = tex;
-
-			// Assemble material
-			// BindlessHandle ==> Represents the arguments to the material (e.g varying textures, etc.)
-			// Pipeline is naturally the parameters
+			bd.diffuse_tex = diffuse;
+			bd.normal_tex = normal;
+			bd.opacity_tex = opacity;
+			bd.specular_tex = specular;
 
 			Material mat{};
 			mat.resource = m_bindless_mgr->create_bindless(bd);

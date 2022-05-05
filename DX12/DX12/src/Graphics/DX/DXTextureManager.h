@@ -84,6 +84,7 @@ private:
 	HandlePool<InternalTextureResource> m_handles;
 	
 	uptr<DirectX::ResourceUploadBatch> m_up_batch;
+	TextureHandle m_def_tex;
 
 };
 
