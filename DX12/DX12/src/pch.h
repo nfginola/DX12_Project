@@ -22,6 +22,15 @@ using uptr = std::unique_ptr<T>;
 #include <functional>
 #include <filesystem>
 #include <array>
+#include <fstream>
+
+#include "DXTK/SimpleMath.h"
+
+// FMT
+#include "fmt/core.h"
+#include "fmt/color.h"
+#include <fmt/os.h>
+
 
 #define DET_ERR(msg) std::string("Error at line: (" + std::to_string(__LINE__) + ") in file: (" + __FILE__ + ")\n") + std::string(msg)
 
@@ -47,5 +56,12 @@ namespace utils
 		size_t stride = 0;
 		size_t total_size = 0;
 	};
+
+
+	std::vector<uint8_t> read_file(const std::filesystem::path& filePath);
+	void constrained_incr(float& num, float min, float max);
+	void constrained_decr(float& num, float min, float max);
+	float constrained_add(float lh, float rh, float min, float max);
+
 }
 

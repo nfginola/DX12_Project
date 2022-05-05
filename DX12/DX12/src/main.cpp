@@ -45,6 +45,8 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = u8"..\\..\\
 #include "Graphics/MeshManager.h"
 #include "Graphics/ModelManager.h"
 
+#include "Camera/FPCController.h"
+#include "Camera/FPPCamera.h"
 
 
 
@@ -69,6 +71,8 @@ int main()
 	HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 	if (FAILED(hr))
 		assert(false);
+
+
 
 	// https://docs.microsoft.com/en-us/visualstudio/debugger/finding-memory-leaks-using-the-crt-library?view=vs-2022
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -115,6 +119,15 @@ int main()
 			gpu_dheap.get_desc_heap(),
 			imgui_alloc.cpu_handle(),		// slot 0 reserved for ImGUI
 			imgui_alloc.gpu_handle());
+
+		// Create camera
+		auto cam = std::make_unique<FPPCamera>(90.f, (float)CLIENT_WIDTH / CLIENT_HEIGHT, 0.1f, 600.f);
+		auto cam_zoom = std::make_unique<FPPCamera>(28.f, (float)CLIENT_WIDTH / CLIENT_HEIGHT, 0.1f, 600.f);		// Zoomed in secondary camera
+
+		// Create a First-Person Camera Controller and attach a First-Person Perspective camera
+		auto cam_ctrl = std::make_unique<FPCController>(g_input, g_gui_ctx);
+		cam_ctrl->set_camera(cam.get());
+		cam_ctrl->set_secondary_camera(cam_zoom.get());
 
 		// allocate gpu visible desc heaps for bindless + dynamic descriptor access managemenet
 		auto bindless_part = gpu_dheap.allocate_static(5000);
@@ -280,6 +293,7 @@ int main()
 			rsig = RootSigBuilder()
 				.push_constant(7, 0, 1, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_index"])
 				.push_constant(8, 0, 1, D3D12_SHADER_VISIBILITY_VERTEX, &params["vert_offset"])
+				.push_cbv(0, 0, D3D12_SHADER_VISIBILITY_VERTEX, &params["per_object"])
 				.push_srv(0, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_pos"])
 				.push_srv(1, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_uv"])
 				.push_cbv(7, 7, D3D12_SHADER_VISIBILITY_VERTEX, &params["camera_data"])
@@ -341,12 +355,23 @@ int main()
 		cdb.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
 		auto cam_buf = buf_mgr.create_buffer(cdb);
 
+		DXBufferDesc dyn_cbd{};
+		dyn_cbd.element_count = 1;
+		dyn_cbd.element_size = sizeof(DirectX::XMFLOAT4X4);
+		dyn_cbd.flag = BufferFlag::eConstant;
+		dyn_cbd.usage_cpu = UsageIntentCPU::eUpdateOnce;
+		dyn_cbd.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+		auto dyn_cb = buf_mgr.create_buffer(dyn_cbd);
 
 
+		double prev_dt = 0.0;
+		Stopwatch frame_stopwatch;
 		uint64_t frame_count = 0;
 		MSG msg{};
 		while (g_app_running)
 		{
+			frame_stopwatch.start();
+
 			++frame_count;
 			win->pump_messages();
 			if (!g_app_running)		// Early exit if WMs see exit request
@@ -364,6 +389,7 @@ int main()
 			cpu_pf.frame_begin();
 			// CPU side updataes
 
+			cam_ctrl->update(prev_dt);
 
 
 			// GPU side updates
@@ -417,6 +443,11 @@ int main()
 			}
 
 			
+			// buffer copy work on async copy
+			InterOp_CameraData cam_dat{};
+			cam_dat.view_mat = cam_ctrl->get_active_camera()->get_view_mat();
+			cam_dat.proj_mat = cam_ctrl->get_active_camera()->get_proj_mat();
+			up_ctx.upload_data(&cam_dat, sizeof(InterOp_CameraData), cam_buf);
 
 			// submit buffered work
 			up_ctx.submit_work(gfx_ctx->get_next_fence_value());
@@ -480,8 +511,14 @@ int main()
 
 			gpu_pf.profile_begin(dq_cmdl, dq, "main draw");
 
+			auto wm = DirectX::SimpleMath::Matrix::CreateScale(0.07);
+
 			// draw geometry
 			{
+				// per draw
+				up_ctx.upload_data(&wm, sizeof(wm), dyn_cb);
+				buf_mgr.bind_as_direct_arg(dq_cmdl, dyn_cb, params["per_object"], RootArgDest::eGraphics);
+
 				const auto& model = model_mgr.get_model(sponza_model);
 				const auto& mats = model->mats;
 
@@ -550,6 +587,9 @@ int main()
 
 			g_input->frame_end();
 			g_gui_ctx->frame_end();
+
+			frame_stopwatch.stop();
+			prev_dt = frame_stopwatch.elapsed();
 		}
 
 		// wait for all FIFs before exiting
