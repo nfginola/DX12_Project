@@ -108,7 +108,7 @@ int main()
 		DXDescriptorHeapGPU gpu_dheap_sampler(dev, D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER, 2040);
 
 		// setup profiler
-		dev->SetStablePowerState(false);
+		dev->SetStablePowerState(true);
 		uint8_t pf_latency = max_FIF;
 		GPUProfiler gpu_pf(dev, GPUProfiler::QueueType::eDirectOrCompute, pf_latency);
 		CPUProfiler cpu_pf(pf_latency);
@@ -117,7 +117,7 @@ int main()
 		auto imgui_alloc = gpu_dheap.allocate_static(1);
 		g_gui_ctx = new GUIContext(win->get_hwnd(), dev, max_FIF,
 			gpu_dheap.get_desc_heap(),
-			imgui_alloc.cpu_handle(),		// slot 0 reserved for ImGUI
+			imgui_alloc.cpu_handle(),		
 			imgui_alloc.gpu_handle());
 
 		// Create camera
@@ -137,7 +137,7 @@ int main()
 		DXUploadContext up_ctx(dev, &buf_mgr, max_FIF);
 		DXTextureManager tex_mgr(dev, dq);
 		DXBindlessManager bindless_mgr(dev, std::move(bindless_part), &buf_mgr, &tex_mgr);
-		MeshManager mesh_mgr(&buf_mgr);
+		MeshManager mesh_mgr(dev, &buf_mgr);
 		ModelManager model_mgr(&mesh_mgr, &tex_mgr, &bindless_mgr);
 
 		struct PerFrameResource
@@ -234,29 +234,29 @@ int main()
 				ImGui::Checkbox("Instanced Grid", &instanced_grid);
 				ImGui::End();
 
-				bool show_demo_window = true;
-				if (show_demo_window)
-					ImGui::ShowDemoWindow(&show_demo_window);
+				//bool show_demo_window = true;
+				//if (show_demo_window)
+				//	ImGui::ShowDemoWindow(&show_demo_window);
 
-				// Main menu
-				if (ImGui::BeginMainMenuBar())
-				{
-					if (ImGui::BeginMenu("File"))
-					{
-						ImGui::EndMenu();
-					}
-					if (ImGui::BeginMenu("Edit"))
-					{
-						if (ImGui::MenuItem("Undo", "CTRL+Z")) { std::cout << "haha!\n"; }
-						if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {}  // Disabled item
-						ImGui::Separator();
-						if (ImGui::MenuItem("Cut", "CTRL+X")) {}
-						if (ImGui::MenuItem("Copy", "CTRL+C")) {}
-						if (ImGui::MenuItem("Paste", "CTRL+V")) {}
-						ImGui::EndMenu();
-					}
-					ImGui::EndMainMenuBar();
-				}
+				//// Main menu
+				//if (ImGui::BeginMainMenuBar())
+				//{
+				//	if (ImGui::BeginMenu("File"))
+				//	{
+				//		ImGui::EndMenu();
+				//	}
+				//	if (ImGui::BeginMenu("Edit"))
+				//	{
+				//		if (ImGui::MenuItem("Undo", "CTRL+Z")) { std::cout << "haha!\n"; }
+				//		if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {}  // Disabled item
+				//		ImGui::Separator();
+				//		if (ImGui::MenuItem("Cut", "CTRL+X")) {}
+				//		if (ImGui::MenuItem("Copy", "CTRL+C")) {}
+				//		if (ImGui::MenuItem("Paste", "CTRL+V")) {}
+				//		ImGui::EndMenu();
+				//	}
+				//	ImGui::EndMainMenuBar();
+				//}
 			});
 
 
@@ -290,6 +290,13 @@ int main()
 			view_range.RegisterSpace = 3;
 			view_range.OffsetInDescriptorsFromTableStart = 0;
 
+			D3D12_DESCRIPTOR_RANGE rt_range{};
+			rt_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+			rt_range.NumDescriptors = -1;
+			rt_range.BaseShaderRegister = 13;
+			rt_range.RegisterSpace = 13;
+			rt_range.OffsetInDescriptorsFromTableStart = 0;
+
 			// setup rootsig
 			rsig = RootSigBuilder()
 				.push_constant(7, 0, 1, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_index"])
@@ -297,13 +304,19 @@ int main()
 
 				.push_cbv(0, 0, D3D12_SHADER_VISIBILITY_VERTEX, &params["per_object"])
 
+				.push_cbv(0, 21, D3D12_SHADER_VISIBILITY_ALL, &params["settings"])
+
 				.push_srv(0, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_pos"])
 				.push_srv(1, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_uv"])
 				.push_srv(2, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_normal"])
 				.push_srv(3, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_tangent"])
 				.push_srv(4, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_bitangent"])
 
-				.push_cbv(7, 7, D3D12_SHADER_VISIBILITY_VERTEX, &params["camera_data"])
+				.push_srv(3, 0, D3D12_SHADER_VISIBILITY_PIXEL, &params["rt_structure"])
+				//.push_table({ rt_range }, D3D12_SHADER_VISIBILITY_PIXEL, & params["rt_structure"])
+
+				.push_cbv(7, 7, D3D12_SHADER_VISIBILITY_ALL, &params["camera_data"])		// we want access in VS and PS
+
 				.push_table({ samp_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["my_samp"])
 				.push_table({ view_range }, D3D12_SHADER_VISIBILITY_PIXEL, &params["bindless_views"])
 				.build(dev, D3D12_ROOT_SIGNATURE_FLAG_CBV_SRV_UAV_HEAP_DIRECTLY_INDEXED);						// use dynamic descriptor indexing
@@ -341,7 +354,6 @@ int main()
 			
 		// load sponza
 		ModelDesc modeld{};
-		//modeld.rel_path = "models/sponza/sponza.obj";
 		modeld.rel_path = "models/Sponza_gltf/glTF/Sponza.gltf";
 
 		modeld.pso = pipe;		// 'material'
@@ -395,6 +407,34 @@ int main()
 		void* some_data = std::calloc(payload_size, 1);
 
 
+		// Make cbuffer for shader settings
+		DXBufferDesc settings_cbd{};
+		settings_cbd.element_count = 1;
+		settings_cbd.element_size = sizeof(InterOp_Settings);
+		settings_cbd.flag = BufferFlag::eConstant;
+		settings_cbd.usage_cpu = UsageIntentCPU::eUpdateSometimes;
+		settings_cbd.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+		auto settings_cb = buf_mgr.create_buffer(settings_cbd);
+
+
+		InterOp_Settings settings;
+		settings.normal_map_on = 1.f;
+		settings.raytrace_on = 1.f;
+		settings.dir_light = { 0.529, -1.f, 0.167f };
+		settings.shadow_bias = 0.001;
+
+		g_gui_ctx->add_persistent_ui("shader settings", [&]()
+			{
+				ImGui::Begin("HelloBox");
+				ImGui::SliderInt("Nor Map", &settings.normal_map_on, 0, 1);
+				ImGui::SliderInt("RT On", &settings.raytrace_on, 0, 1);
+				ImGui::SliderFloat3("Dir Light", (float*)&settings.dir_light, -1.f, 1.f);
+				ImGui::SliderFloat("Shadow Bias", &settings.shadow_bias, 0.0001f, 0.3f);
+				ImGui::End();
+			});
+
+		mesh_mgr.create_RT_accel_structure({ { model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(0.07) } });
+
 		double prev_dt = 0.0;
 		Stopwatch frame_stopwatch;
 		uint64_t frame_count = 0;
@@ -418,7 +458,7 @@ int main()
 
 
 			cpu_pf.frame_begin();
-			// CPU side updataes
+			// CPU side updates
 
 			cam_ctrl->update(prev_dt);
 
@@ -435,6 +475,9 @@ int main()
 			cam_dat.view_mat = cam_ctrl->get_active_camera()->get_view_mat();
 			cam_dat.proj_mat = cam_ctrl->get_active_camera()->get_proj_mat();
 			up_ctx.upload_data(&cam_dat, sizeof(InterOp_CameraData), cam_buf);
+
+			// upload settings data
+			up_ctx.upload_data(&settings, sizeof(InterOp_Settings), settings_cb);
 
 			// buffer extra bogus data for copy async
 			if (copy_bogus_data)
@@ -461,6 +504,15 @@ int main()
 			buf_mgr.frame_begin(surface_idx);
 
 			bindless_mgr.frame_begin(surface_idx);
+
+
+			ID3D12GraphicsCommandList5* dxr_cmdl;
+			auto hr = dq_cmdl->QueryInterface(IID_PPV_ARGS(&dxr_cmdl));
+			assert(SUCCEEDED(hr));
+			if (frame_count == 1)
+			{
+				mesh_mgr.build_RT_accel_structure(dxr_cmdl);
+			}
 
 			if (show_pf)
 			{
@@ -553,6 +605,10 @@ int main()
 			dq_cmdl->SetGraphicsRootDescriptorTable(params["my_samp"], samp_desc.gpu_handle());
 			dq_cmdl->SetGraphicsRootDescriptorTable(params["bindless_views"], bindless_mgr.get_views_start());
 			buf_mgr.bind_as_direct_arg(dq_cmdl, cam_buf, params["camera_data"], RootArgDest::eGraphics);
+			buf_mgr.bind_as_direct_arg(dq_cmdl, settings_cb, params["settings"], RootArgDest::eGraphics);
+
+			// bind TLAS
+			buf_mgr.bind_as_direct_arg(dq_cmdl, mesh_mgr.get_RT_accel_structure()->tlas, params["rt_structure"], RootArgDest::eGraphics);
 
 
 			dq_cmdl->SetPipelineState(pipe.Get());
@@ -578,33 +634,60 @@ int main()
 				assert(sponza_mesh->parts.size() == mats.size());
 				ID3D12PipelineState* prev_pipe = nullptr;
 
-				int dim = instanced_grid ? 5 : 1;
-				for (int i = -dim; i < dim; ++i)
+				if (instanced_grid)
 				{
-					for (int x = -dim; x < dim; ++x)
+					int dim = 5;
+					for (int i = -dim; i < dim; ++i)
 					{
-						// per object
-						auto wm = DirectX::SimpleMath::Matrix::CreateScale(0.07) * DirectX::SimpleMath::Matrix::CreateTranslation(x * 350.f, 0.f, i * 200.f);
-						up_ctx.upload_data(&wm, sizeof(wm), dyn_cb);
-						buf_mgr.bind_as_direct_arg(dq_cmdl, dyn_cb, params["per_object"], RootArgDest::eGraphics);
-						for (int i = 0; i < sponza_mesh->parts.size(); ++i)
+						for (int x = -dim; x < dim; ++x)
 						{
-							const auto& part = sponza_mesh->parts[i];
-							const auto& mat = mats[i];
+							// per object
+							auto wm = DirectX::SimpleMath::Matrix::CreateScale(0.07) * DirectX::SimpleMath::Matrix::CreateTranslation(x * 350.f, 0.f, i * 200.f);
+							up_ctx.upload_data(&wm, sizeof(wm), dyn_cb);
+							buf_mgr.bind_as_direct_arg(dq_cmdl, dyn_cb, params["per_object"], RootArgDest::eGraphics);
+							for (int i = 0; i < sponza_mesh->parts.size(); ++i)
+							{
+								const auto& part = sponza_mesh->parts[i];
+								const auto& mat = mats[i];
 
-							if (mat.pso.Get() != prev_pipe)
-								dq_cmdl->SetPipelineState(mat.pso.Get());
+								if (mat.pso.Get() != prev_pipe)
+									dq_cmdl->SetPipelineState(mat.pso.Get());
 
-							// set material arg
-							dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.access_index(mat.resource), 0);
-							// declare geometry part and draw
-							dq_cmdl->SetGraphicsRoot32BitConstant(params["vert_offset"], part.vertex_start, 0);
-							dq_cmdl->DrawIndexedInstanced(part.index_count, instanced ? 10 : 1, part.index_start, 0, 0);
+								// set material arg
+								dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.access_index(mat.resource), 0);
+								// declare geometry part and draw
+								dq_cmdl->SetGraphicsRoot32BitConstant(params["vert_offset"], part.vertex_start, 0);
+								dq_cmdl->DrawIndexedInstanced(part.index_count, instanced ? 10 : 1, part.index_start, 0, 0);
 
-							prev_pipe = mat.pso.Get();
+								prev_pipe = mat.pso.Get();
+							}
 						}
 					}
 				}
+				else
+				{
+					// per object
+					auto wm = DirectX::SimpleMath::Matrix::CreateScale(0.07);
+					up_ctx.upload_data(&wm, sizeof(wm), dyn_cb);
+					buf_mgr.bind_as_direct_arg(dq_cmdl, dyn_cb, params["per_object"], RootArgDest::eGraphics);
+					for (int i = 0; i < sponza_mesh->parts.size(); ++i)
+					{
+						const auto& part = sponza_mesh->parts[i];
+						const auto& mat = mats[i];
+
+						if (mat.pso.Get() != prev_pipe)
+							dq_cmdl->SetPipelineState(mat.pso.Get());
+
+						// set material arg
+						dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.access_index(mat.resource), 0);
+						// declare geometry part and draw
+						dq_cmdl->SetGraphicsRoot32BitConstant(params["vert_offset"], part.vertex_start, 0);
+						dq_cmdl->DrawIndexedInstanced(part.index_count, instanced ? 10 : 1, part.index_start, 0, 0);
+
+						prev_pipe = mat.pso.Get();
+					}
+				}
+
 
 			}
 

@@ -7,6 +7,7 @@ struct VSOut
     float3 normal : NORMAL;
     float3 tangent : TANGENT;
     float3 bitangent : BITANGENT;
+    float3 world_pos : WORLDPOS;
 };
 
 StructuredBuffer<VertexPullPosition> vertices : register(t0, space5);
@@ -23,12 +24,13 @@ struct PerDrawData
 };
 ConstantBuffer<PerDrawData> per_draw_data : register(b0, space0);
 
+
+// Constant
 struct VertOffset
 {
     uint offset;
 };
 ConstantBuffer<VertOffset> vert_offset : register(b8, space0);
-
 
 
 VSOut main( uint vertID : SV_VertexID )
@@ -44,7 +46,8 @@ VSOut main( uint vertID : SV_VertexID )
     float3 normal = normals[vertID].normal;
     float2 uv = uvs[vertID].uv;
     
-    output.pos = mul(cam_data.proj_mat, mul(cam_data.view_mat, mul(per_draw_data.world_mat, float4(loc_pos, 1.f))));
+    output.world_pos = mul(per_draw_data.world_mat, float4(loc_pos, 1.f)).xyz;
+    output.pos = mul(cam_data.proj_mat, mul(cam_data.view_mat, float4(output.world_pos, 1.f)));
     output.normal = normalize(mul(per_draw_data.world_mat, float4(normal, 0.f)).xyz);
     output.tangent = normalize(mul(per_draw_data.world_mat, float4(tangent, 0.f)).xyz);
     output.bitangent = normalize(mul(per_draw_data.world_mat, float4(bitangent, 0.f)).xyz);

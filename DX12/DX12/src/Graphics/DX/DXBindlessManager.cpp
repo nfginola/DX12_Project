@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "DXBindlessManager.h"
+#include "GUI/GUIContext.h"
 
 DXBindlessManager::DXBindlessManager(
 	Microsoft::WRL::ComPtr<ID3D12Device> dev, 
@@ -76,22 +77,28 @@ BindlessHandle DXBindlessManager::create_bindless(const DXBindlessDesc& desc)
 	}
 	else
 	{
-		idx_to_use = m_curr_max_indices++;
+		idx_to_use = m_curr_max_indices;
+		m_curr_max_indices += 4;
 	}
 	
 	// Grab handle
 	auto [handle, res] = m_handles.get_next_free_handle();
 
 	// Fill buffer init data
-	BindlessElement bel{};
-	bel.diffuse_idx = idx_to_use;
+	res->element_data.diffuse_idx = idx_to_use;
+	res->element_data.normal_idx = idx_to_use + 1;
+	res->element_data.specular_idx = idx_to_use + 2;
+	res->element_data.opacity_idx = idx_to_use + 3;
+
+	// mat constants
+	res->element_data.specular = -1;				// no specular
 
 	// Create buffer
 	DXBufferDesc bdesc{};
-	bdesc.data = &bel;
-	bdesc.data_size = sizeof(bel);
+	bdesc.data = &res->element_data;
+	bdesc.data_size = sizeof(res->element_data);
 	bdesc.element_count = 1;
-	bdesc.element_size = sizeof(bel);
+	bdesc.element_size = sizeof(res->element_data);
 	bdesc.flag = BufferFlag::eConstant;
 	bdesc.usage_cpu = UsageIntentCPU::eUpdateSometimes;
 	bdesc.usage_gpu = UsageIntentGPU::eReadOncePerFrame;

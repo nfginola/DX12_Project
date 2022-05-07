@@ -90,9 +90,10 @@ void DXBufferManager::destroy_buffer(BufferHandle hdl)
 	}
 }
 
-void DXBufferManager::bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, BufferHandle buf, UINT param_idx, RootArgDest dest)
+void DXBufferManager::bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, BufferHandle buf, UINT param_idx, RootArgDest dest, bool write)
 {
 	const auto& res = m_handles.get_resource(buf.handle);
+
 
 	if (res->is_constant)
 	{
@@ -102,7 +103,12 @@ void DXBufferManager::bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, Buffer
 	else
 	{
 		if (dest == RootArgDest::eGraphics)
-			cmdl->SetGraphicsRootShaderResourceView(param_idx, res->alloc.gpu_adr());
+		{
+			if (write)
+				cmdl->SetGraphicsRootUnorderedAccessView(param_idx, res->alloc.gpu_adr());
+			else
+				cmdl->SetGraphicsRootShaderResourceView(param_idx, res->alloc.gpu_adr());
+		}
 	}
 
 	//switch (res->usage_gpu)
@@ -157,6 +163,18 @@ void DXBufferManager::create_srv(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDL
 	m_dev->CreateShaderResourceView(alloc.base_buffer(), &d, descriptor);
 }
 
+void DXBufferManager::create_rt_accel_view(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor)
+{
+	D3D12_SHADER_RESOURCE_VIEW_DESC d{};
+	const auto& alloc = m_handles.get_resource(handle.handle)->alloc;
+	auto res_d = alloc.base_buffer()->GetDesc();
+
+	d.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	d.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+	d.RaytracingAccelerationStructure.Location = alloc.gpu_adr();
+	m_dev->CreateShaderResourceView(alloc.base_buffer(), &d, descriptor);
+}
+
 D3D12_INDEX_BUFFER_VIEW DXBufferManager::get_ibv(BufferHandle handle, DXGI_FORMAT format)
 {
 	const auto& alloc = m_handles.get_resource(handle.handle)->alloc;
@@ -172,6 +190,11 @@ D3D12_INDEX_BUFFER_VIEW DXBufferManager::get_ibv(BufferHandle handle, DXGI_FORMA
 uint32_t DXBufferManager::get_element_count(BufferHandle handle)
 {
 	return m_handles.get_resource(handle.handle)->alloc.element_count();
+}
+
+const DXBufferAllocation* DXBufferManager::get_buffer_alloc(BufferHandle handle)
+{
+	return &m_handles.get_resource(handle.handle)->alloc;
 }
 
 void DXBufferManager::frame_begin(uint32_t frame_idx)
@@ -331,35 +354,77 @@ DXBufferManager::InternalBufferResource* DXBufferManager::create_non_constant(co
 	const auto& usage_gpu = desc.usage_gpu;
 	uint32_t requested_size = desc.element_count * desc.element_size;
 
+	// GPU write (UAV)
+	if (desc.usage_gpu == UsageIntentGPU::eWrite)
+	{
+		if (desc.is_rt_structure)
+			resource->alloc = std::move(m_committed_def_ator->allocate(desc.element_count, desc.element_size, D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS));
+		else
+			resource->alloc = std::move(m_committed_def_ator->allocate(desc.element_count, desc.element_size, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS));
+
+		resource->is_transient = false;
+
+		if (desc.data && desc.data_size > 0)
+		{
+			// grab temp staging memory
+			auto staging = m_committed_upload_ator->allocate(desc.element_count, desc.element_size);
+
+			// copy data to staging
+			auto dst = staging.mapped_memory();
+			auto src = desc.data;
+			std::memcpy(dst, src, desc.data_size);
+
+			// schedule GPU-GPU copy to new version
+			auto upload_func = [staging, alloc = resource->alloc, requested_size](ID3D12GraphicsCommandList* cmdl)
+			{
+				cmdl->CopyBufferRegion(
+					alloc.base_buffer(), alloc.offset_from_base(),
+					staging.base_buffer(), staging.offset_from_base(), requested_size);
+			};
+			m_deferred_init_copies.push(upload_func);
+
+			// remove staging later (we need to guarantee GPU-GPU copy)
+			auto del_func = [this, staging]() mutable
+			{
+				m_committed_upload_ator->deallocate(std::move(staging));
+			};
+			m_deletion_queue.push({ m_curr_frame_idx, del_func });		// defer destruction of staging until next frame
+		}
+	}
 	// Immutable
-	if (desc.usage_cpu == UsageIntentCPU::eUpdateNever && desc.usage_gpu != UsageIntentGPU::eInvalid)
+	else if (desc.usage_cpu == UsageIntentCPU::eUpdateNever && desc.usage_gpu != UsageIntentGPU::eInvalid)
 	{
 		resource->alloc = std::move(m_committed_def_ator->allocate(desc.element_count, desc.element_size));
 		resource->is_transient = false;
-		// grab temp staging memory
-		auto staging = m_committed_upload_ator->allocate(desc.element_count, desc.element_size);
 
-		// copy data to staging
-		auto dst = staging.mapped_memory();
-		auto src = desc.data;
-		std::memcpy(dst, src, desc.data_size);
-
-		// schedule GPU-GPU copy to new version
-		auto upload_func = [staging, alloc = resource->alloc, requested_size](ID3D12GraphicsCommandList* cmdl)
+		if (desc.data && desc.data_size > 0)
 		{
-			cmdl->CopyBufferRegion(
-				alloc.base_buffer(), alloc.offset_from_base(),
-				staging.base_buffer(), staging.offset_from_base(), requested_size);
-		};
-		m_deferred_init_copies.push(upload_func);
+			// grab temp staging memory
+			auto staging = m_committed_upload_ator->allocate(desc.element_count, desc.element_size);
 
-		// remove staging later (we need to guarantee GPU-GPU copy)
-		auto del_func = [this, staging]() mutable
-		{
-			m_committed_upload_ator->deallocate(std::move(staging));
-		};
-		m_deletion_queue.push({ m_curr_frame_idx, del_func });		// defer destruction of staging until next frame
+			// copy data to staging
+			auto dst = staging.mapped_memory();
+			auto src = desc.data;
+			std::memcpy(dst, src, desc.data_size);
+
+			// schedule GPU-GPU copy to new version
+			auto upload_func = [staging, alloc = resource->alloc, requested_size](ID3D12GraphicsCommandList* cmdl)
+			{
+				cmdl->CopyBufferRegion(
+					alloc.base_buffer(), alloc.offset_from_base(),
+					staging.base_buffer(), staging.offset_from_base(), requested_size);
+			};
+			m_deferred_init_copies.push(upload_func);
+
+			// remove staging later (we need to guarantee GPU-GPU copy)
+			auto del_func = [this, staging]() mutable
+			{
+				m_committed_upload_ator->deallocate(std::move(staging));
+			};
+			m_deletion_queue.push({ m_curr_frame_idx, del_func });		// defer destruction of staging until next frame
+		}
 	}
+
 	else
 		assert(false);		// other types not supported for now
 

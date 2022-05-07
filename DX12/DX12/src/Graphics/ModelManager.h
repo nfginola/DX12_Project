@@ -41,10 +41,11 @@ public:
 	ModelManager(MeshManager* mesh_mgr, DXTextureManager* tex_mgr, DXBindlessManager* bindless_mgr);
 	~ModelManager() = default;
 
+	// Rasterized model
 	ModelHandle load_model(const ModelDesc& desc);
 	void destroy_model(ModelHandle handle);
-
 	const Model* get_model(ModelHandle handle);
+
 
 private:
 	HandlePool<Model> m_handles;

@@ -34,6 +34,7 @@ enum class UsageIntentGPU
 
 	eReadOncePerFrame,
 	eReadMultipleTimesPerFrame,
+	eWrite
 };
 
 enum class BufferFlag

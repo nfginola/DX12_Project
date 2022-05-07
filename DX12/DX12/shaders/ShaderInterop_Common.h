@@ -18,11 +18,5 @@ using uint = uint32_t;
 
 #endif
 
-// Leftover from DX11 (to remove)
-//#define CBUFFER(name, slot) cbuffer name : register(b##slot)						// Uses buffer slots
-//#define READ_RESOURCE(type, name, slot) type name : register(t##slot);				// Uses shader resource slots
-//#define READ_WRITE_RESOURCE(type, name, slot) type name : register(u##slot);		// Uses unordered access slots
-//#define SAMPLER(name, slot) SamplerState name : register(s##slot);					// Uses sampler slots
-
 
 #endif

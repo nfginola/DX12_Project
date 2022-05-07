@@ -15,14 +15,23 @@ struct InterOp_DirectionalLightData
 	float3 color;
 };
 
+struct InterOp_Settings
+{
+	float3 dir_light;
+	float shadow_bias;
+	int normal_map_on;
+	int raytrace_on;
+};
 
 
-/*
-	Could be called Material Element
-*/
 struct BindlessElement
 {
 	uint diffuse_idx;
+	uint normal_idx;
+	uint specular_idx;
+	uint opacity_idx;
+
+	float specular;
 	/*
 		spec idx
 		amb idx
@@ -32,13 +41,6 @@ struct BindlessElement
 		float3 color
 	
 	*/
-};
-
-// Interleaved buffer
-struct VertexPullElement
-{
-	float3 position;
-	float2 uv;
 };
 
 // Non-interleaved buffers

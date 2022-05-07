@@ -7,7 +7,7 @@ DXBufferGenericAllocator::DXBufferGenericAllocator(cptr<ID3D12Device> dev, D3D12
 {
 }
 
-DXBufferAllocation DXBufferGenericAllocator::allocate(uint32_t element_count, uint32_t element_size)
+DXBufferAllocation DXBufferGenericAllocator::allocate(uint32_t element_count, uint32_t element_size, D3D12_RESOURCE_STATES state, D3D12_RESOURCE_FLAGS flags)
 {
 	const auto total_size = element_count * element_size;
 
@@ -22,14 +22,14 @@ DXBufferAllocation DXBufferGenericAllocator::allocate(uint32_t element_count, ui
 	d.Format = DXGI_FORMAT_UNKNOWN;
 	d.SampleDesc = { 1, 0 };
 	d.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
-	d.Flags = D3D12_RESOURCE_FLAG_NONE;
+	d.Flags = flags;
 
 	cptr<ID3D12Resource> buf;
 	m_dev->CreateCommittedResource(
 		&hp,
 		D3D12_HEAP_FLAG_NONE,
 		&d,
-		D3D12_RESOURCE_STATE_COMMON,
+		state,
 		nullptr,
 		IID_PPV_ARGS(buf.GetAddressOf()));
 

@@ -30,6 +30,14 @@ struct MeshDesc
 	}
 };
 
+struct RTAccelStructure
+{
+	BufferHandle blas, tlas, scratch, instances;
+
+	uint64_t handle = 0;
+	void destroy() { };
+};
+
 struct MeshHandle
 {
 public:
@@ -40,21 +48,36 @@ private:
 	uint64_t handle = 0;
 };
 
+struct RTMeshDesc
+{
+	MeshHandle mesh;
+	DirectX::SimpleMath::Matrix world_mat;
+};
+
 class MeshManager
 {
 public:
-	MeshManager(DXBufferManager* buf_mgr);
+	MeshManager(cptr<ID3D12Device> dev, DXBufferManager* buf_mgr);
 	~MeshManager() = default;
 
 	MeshHandle create_mesh(const MeshDesc& desc);
 	void destroy_mesh(MeshHandle handle);
-
 	const Mesh* get_mesh(MeshHandle handle);
 
+	// Each mesh is mapped to one BLAS element
+	void create_RT_accel_structure(const std::vector<RTMeshDesc>& geometries);
+	void build_RT_accel_structure(ID3D12GraphicsCommandList5* cmdl);
+	const RTAccelStructure* get_RT_accel_structure();
+
 private:
+	cptr<ID3D12Device5> m_dxr_dev;
 	HandlePool<Mesh> m_handles;
 
 	DXBufferManager* m_buf_mgr = nullptr;
-	
+	RTAccelStructure m_rt_bufs{};
+
+	std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> geom_descs;
+	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC blas_d = {};
+	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC tlas_d = {};
 };
 

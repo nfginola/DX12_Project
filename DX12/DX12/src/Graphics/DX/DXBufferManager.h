@@ -29,6 +29,7 @@ struct DXBufferDesc
 	UsageIntentCPU usage_cpu = UsageIntentCPU::eInvalid;
 	UsageIntentGPU usage_gpu = UsageIntentGPU::eInvalid;
 	BufferFlag flag = BufferFlag::eInvalid;
+	bool is_rt_structure = false;
 
 	uint32_t element_size = 0;
 	uint32_t element_count = 0;
@@ -51,13 +52,16 @@ public:
 	void destroy_buffer(BufferHandle hdl);
 	 
 	// Maybe should be moved to a DXRootArgBinder which has a reference to a BufferManager and a TextureManager?
-	void bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, BufferHandle buf, UINT param_idx, RootArgDest dest);
+	void bind_as_direct_arg(ID3D12GraphicsCommandList* cmdl, BufferHandle buf, UINT param_idx, RootArgDest dest, bool write = false);
 
 	void create_cbv(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor);	// constant view
 	void create_srv(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor, uint32_t start_el, uint32_t num_el, bool raw = false);		// structured view
+	void create_rt_accel_view(BufferHandle handle, D3D12_CPU_DESCRIPTOR_HANDLE descriptor);
 	D3D12_INDEX_BUFFER_VIEW get_ibv(BufferHandle handle, DXGI_FORMAT format = DXGI_FORMAT_R32_UINT);
 
 	uint32_t get_element_count(BufferHandle handle);
+
+	const DXBufferAllocation* get_buffer_alloc(BufferHandle handle);
 
 private:
 	friend class DXUploadContext;

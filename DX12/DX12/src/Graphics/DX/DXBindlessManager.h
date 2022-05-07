@@ -53,6 +53,8 @@ private:
 	struct InternalBindlessResource
 	{
 		uint64_t access_index = 0;
+
+		BindlessElement element_data;
 		BufferHandle access_buf;
 
 		DXDescriptorAllocation view_alloc, access_alloc;

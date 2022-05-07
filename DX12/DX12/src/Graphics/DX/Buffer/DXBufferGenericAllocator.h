@@ -13,7 +13,7 @@ class DXBufferGenericAllocator
 public:
 	DXBufferGenericAllocator(cptr<ID3D12Device> dev, D3D12_HEAP_TYPE type);		// utilize committed
 
-	DXBufferAllocation allocate(uint32_t element_count, uint32_t element_size);
+	DXBufferAllocation allocate(uint32_t element_count, uint32_t element_size, D3D12_RESOURCE_STATES state = D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE);
 	void deallocate(DXBufferAllocation&& alloc);
 
 private:
