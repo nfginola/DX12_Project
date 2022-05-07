@@ -97,7 +97,7 @@ void MeshManager::create_RT_accel_structure(const std::vector<RTMeshDesc>& descs
 			geom_desc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
 			geom_desc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;						// assuming always opaque
 
-			geom_desc.Triangles.IndexBuffer = ib->gpu_adr() + part.index_start * ib->element_size();
+			geom_desc.Triangles.IndexBuffer = ib->gpu_adr() + part.index_start * ib->element_size();	// index offset
 			geom_desc.Triangles.IndexCount = part.index_count;
 			geom_desc.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;						// assuming R32
 
@@ -105,7 +105,7 @@ void MeshManager::create_RT_accel_structure(const std::vector<RTMeshDesc>& descs
 
 			geom_desc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;
 			geom_desc.Triangles.VertexCount = vb->element_count() - part.vertex_start;
-			geom_desc.Triangles.VertexBuffer.StartAddress = vb->gpu_adr() + part.vertex_start * vb->element_size();
+			geom_desc.Triangles.VertexBuffer.StartAddress = vb->gpu_adr() + part.vertex_start * vb->element_size();	// vertex offset
 			geom_desc.Triangles.VertexBuffer.StrideInBytes = vb->element_size();
 
 			geom_descs.push_back(geom_desc);
@@ -122,7 +122,7 @@ void MeshManager::create_RT_accel_structure(const std::vector<RTMeshDesc>& descs
 		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& bl_in = blas_d.Inputs;
 		bl_in.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
 		bl_in.Flags = flags;
-		bl_in.NumDescs = geom_descs.size();;
+		bl_in.NumDescs = (UINT)geom_descs.size();
 		bl_in.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
 		bl_in.pGeometryDescs = geom_descs.data();
 
@@ -145,7 +145,7 @@ void MeshManager::create_RT_accel_structure(const std::vector<RTMeshDesc>& descs
 		// grab a scratch buffer
 		DXBufferDesc scratch_d{};
 		scratch_d.element_count = 1;
-		scratch_d.element_size = (std::max)(tl_preb_info.ScratchDataSizeInBytes, bl_preb_info.ScratchDataSizeInBytes);		// assuming they arent both used concurrently?
+		scratch_d.element_size = (UINT)(std::max)(tl_preb_info.ScratchDataSizeInBytes, bl_preb_info.ScratchDataSizeInBytes);		// assuming they arent both used concurrently?
 		scratch_d.flag = BufferFlag::eNonConstant;
 		scratch_d.usage_cpu = UsageIntentCPU::eUpdateNever;
 		scratch_d.usage_gpu = UsageIntentGPU::eWrite;
@@ -154,7 +154,7 @@ void MeshManager::create_RT_accel_structure(const std::vector<RTMeshDesc>& descs
 		// grab blas buffer
 		DXBufferDesc blas_buf_d{};
 		blas_buf_d.element_count = 1;
-		blas_buf_d.element_size = bl_preb_info.ResultDataMaxSizeInBytes;
+		blas_buf_d.element_size = (UINT)bl_preb_info.ResultDataMaxSizeInBytes;
 		blas_buf_d.flag = BufferFlag::eNonConstant;
 		blas_buf_d.usage_cpu = UsageIntentCPU::eUpdateNever;
 		blas_buf_d.usage_gpu = UsageIntentGPU::eWrite;
@@ -164,7 +164,7 @@ void MeshManager::create_RT_accel_structure(const std::vector<RTMeshDesc>& descs
 		// grab tlas buffer
 		DXBufferDesc tlas_buf_d{};
 		tlas_buf_d.element_count = 1;
-		tlas_buf_d.element_size = tl_preb_info.ResultDataMaxSizeInBytes;
+		tlas_buf_d.element_size = (UINT)tl_preb_info.ResultDataMaxSizeInBytes;
 		tlas_buf_d.flag = BufferFlag::eNonConstant;
 		tlas_buf_d.usage_cpu = UsageIntentCPU::eUpdateNever;
 		tlas_buf_d.usage_gpu = UsageIntentGPU::eWrite;

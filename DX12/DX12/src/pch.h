@@ -44,17 +44,17 @@ namespace utils
 		MemBlob() = default;
 		MemBlob(void* data_, size_t count_, size_t stride_) :
 			data(data_),
-			count(count_),
-			stride(stride_) {
+			count((uint32_t)count_),
+			stride((uint32_t)stride_) {
 			total_size = count * stride;
 		}
 
 		bool empty() const { return data == nullptr || count == 0 || stride == 0; }
 
 		void* data = nullptr;
-		size_t count = 0;
-		size_t stride = 0;
-		size_t total_size = 0;
+		uint32_t count = 0;
+		uint32_t stride = 0;
+		uint32_t total_size = 0;
 	};
 
 

@@ -76,7 +76,7 @@ private:
 	HandlePool<InternalBindlessResource> m_handles;
 	uint64_t m_offset_to_access_part = 0;
 
-	uint64_t m_curr_max_indices = 0;
+	uint32_t m_curr_max_indices = 0;
 	std::queue<uint64_t> m_used_indices;
 
 	uint32_t m_curr_frame_idx = 0;

@@ -73,11 +73,9 @@ float4 main(VSOut input) : SV_TARGET0
     col = diffuse_col + specular;
     
     
- 
     if (settings.raytrace_on == 1)
     {
-        RayQuery < RAY_FLAG_CULL_NON_OPAQUE |
-                RAY_FLAG_SKIP_CLOSEST_HIT_SHADER |
+        RayQuery<RAY_FLAG_CULL_NON_OPAQUE |
                 RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH > ray_query;
     
         uint ray_flags = 0;
@@ -86,7 +84,7 @@ float4 main(VSOut input) : SV_TARGET0
     
         RayDesc ray = (RayDesc) 0;
         ray.TMin = 1e-5f;
-        ray.TMax = 500.f;
+        ray.TMax = 1500.f;
         ray.Direction = normalize(-light_dir);
         ray.Origin = input.world_pos + settings.shadow_bias * ray.Direction; // add bias towards light dir to minimize acne
     
@@ -95,7 +93,7 @@ float4 main(VSOut input) : SV_TARGET0
         ray_query.Proceed();
     
         if (ray_query.CommittedStatus() == COMMITTED_TRIANGLE_HIT)
-        {
+        {             
             shadow_fac = 0.04f;
         }
         

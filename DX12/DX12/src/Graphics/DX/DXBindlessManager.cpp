@@ -69,10 +69,10 @@ BindlessHandle DXBindlessManager::create_bindless(const DXBindlessDesc& desc)
 	assert(m_curr_max_indices < m_max_elements);
 
 	// Grab index to use in the descriptor heap in both parts respectively
-	uint64_t idx_to_use = 0;
+	uint32_t idx_to_use = 0;
 	if (!m_used_indices.empty())
 	{
-		idx_to_use = m_used_indices.front();
+		idx_to_use = (uint32_t)m_used_indices.front();
 		m_used_indices.pop();
 	}
 	else

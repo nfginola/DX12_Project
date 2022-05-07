@@ -67,7 +67,7 @@ DXDescriptorAllocation DXDescriptorPool::allocate(uint32_t num_requested_descrip
 		if (chunk.num_descriptors == num_requested_descriptors)
 		{
 			auto offset = (chunk.gpu_start.ptr - m_base_gpu_start.ptr) / m_handle_size;
-			auto to_ret = DXDescriptorAllocation(chunk.cpu_start, chunk.gpu_start, m_handle_size, num_requested_descriptors, offset);
+			auto to_ret = DXDescriptorAllocation(chunk.cpu_start, chunk.gpu_start, m_handle_size, num_requested_descriptors, (uint32_t)offset);
 			m_free_chunks2.erase(it);
 			return to_ret;
 		}
@@ -76,7 +76,7 @@ DXDescriptorAllocation DXDescriptorPool::allocate(uint32_t num_requested_descrip
 			auto offset = (chunk.gpu_start.ptr - m_base_gpu_start.ptr) / m_handle_size;
 
 			// grab memory
-			auto to_ret = DXDescriptorAllocation(chunk.cpu_start, chunk.gpu_start, m_handle_size, num_requested_descriptors, offset);
+			auto to_ret = DXDescriptorAllocation(chunk.cpu_start, chunk.gpu_start, m_handle_size, num_requested_descriptors, (uint32_t)offset);
 
 			// move the free chunk
 			chunk.cpu_start.ptr += num_requested_descriptors * m_handle_size;
