@@ -91,23 +91,6 @@ void MeshManager::create_RT_accel_structure(const std::vector<RTMeshDesc>& descs
 		const auto& vb = m_buf_mgr->get_buffer_alloc(mesh_data->vbs[0]);		// assuming pos is always 0:th
 		const auto& ib = m_buf_mgr->get_buffer_alloc(mesh_data->ib);
 
-		//D3D12_RAYTRACING_GEOMETRY_DESC desc{};
-		//desc.Type = D3D12_RAYTRACING_GEOMETRY_TYPE_TRIANGLES;
-		//desc.Triangles.IndexBuffer = ib->gpu_adr();
-		//desc.Triangles.IndexCount = ib->element_count();
-		//desc.Triangles.IndexFormat = DXGI_FORMAT_R32_UINT;						// assuming R32
-
-		//desc.Triangles.Transform3x4 = 0;
-
-		//desc.Triangles.VertexFormat = DXGI_FORMAT_R32G32B32_FLOAT;		
-		//desc.Triangles.VertexCount = vb->element_count();
-		//desc.Triangles.VertexBuffer.StartAddress = vb->gpu_adr();
-		//desc.Triangles.VertexBuffer.StrideInBytes = sizeof(float) * 3;
-
-		//desc.Flags = D3D12_RAYTRACING_GEOMETRY_FLAG_OPAQUE;						// assuming always opaque
-		//
-		//geom_descs.push_back(desc);
-
 		for (const auto& part : mesh_data->parts)
 		{
 			D3D12_RAYTRACING_GEOMETRY_DESC geom_desc{};
@@ -230,8 +213,6 @@ void MeshManager::create_RT_accel_structure(const std::vector<RTMeshDesc>& descs
 		tlas_d.DestAccelerationStructureData = tlas->gpu_adr();
 		tlas_d.ScratchAccelerationStructureData = scratch->gpu_adr();
 		tlas_d.Inputs.InstanceDescs = instances->gpu_adr();
-
-
 	}
 
 

@@ -313,7 +313,6 @@ int main()
 				.push_srv(4, 5, D3D12_SHADER_VISIBILITY_VERTEX, &params["my_bitangent"])
 
 				.push_srv(3, 0, D3D12_SHADER_VISIBILITY_PIXEL, &params["rt_structure"])
-				//.push_table({ rt_range }, D3D12_SHADER_VISIBILITY_PIXEL, & params["rt_structure"])
 
 				.push_cbv(7, 7, D3D12_SHADER_VISIBILITY_ALL, &params["camera_data"])		// we want access in VS and PS
 
