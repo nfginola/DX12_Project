@@ -22,10 +22,10 @@ DXSwapChain::DXSwapChain(DXSwapChain::Settings& settings, IDXGIFactory4* fac) :
 	scDesc.Flags = is_tearing_supported() ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
 	// https://docs.microsoft.com/en-us/windows/win32/api/dxgi1_2/nf-dxgi1_2-idxgifactory2-createswapchainforhwnd
-	// https://github.com/microsoft/DirectX-Graphics-Samples/blob/master/Samples/Desktop/D3D12HelloWorld/src/HelloTriangle/D3D12HelloTriangle.cpp (ref)
+	// https://github.com/microsoft/DirectX-Graphics-Samples/blob/master/Samples/Desktop/D3D12HelloWorld/src/HelloTriangle/D3D12HelloTriangle.cpp#L95 (ref)
 	cptr<IDXGISwapChain1> sc;
 	ThrowIfFailed(fac->CreateSwapChainForHwnd(
-		settings.associated_queue.Get(),					// swap chain needs the queue (specifically Direct) so it has the ability to "force a flush" on it.
+		settings.associated_queue.Get(),					// swap chain needs the queue (specifically Direct) so it has the ability to "force a flush" on it.		--> Presumably CPU waits on GPU here, for example in the case of vsync
 		settings.hwnd,
 		&scDesc,
 		nullptr,		// no fullscreen
@@ -80,15 +80,16 @@ const DXSwapChain::Settings& DXSwapChain::get_settings() const
 
 bool is_tearing_supported()
 {
-	bool allowed = FALSE;
+	BOOL allowed = FALSE;
 	cptr<IDXGIFactory4> fac4;
 	if (SUCCEEDED(CreateDXGIFactory1(IID_PPV_ARGS(&fac4))))
 	{
 		cptr<IDXGIFactory5> fac5;
 		if (SUCCEEDED(fac4.As(&fac5)))
 		{
-			if (FAILED(fac5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowed, sizeof(allowed))))
-				allowed = false;
+			auto hr = fac5->CheckFeatureSupport(DXGI_FEATURE_PRESENT_ALLOW_TEARING, &allowed, sizeof(allowed));
+
+			allowed = SUCCEEDED(hr) && allowed;
 		}
 	}
 	return allowed;

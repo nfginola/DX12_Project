@@ -48,6 +48,15 @@ void DXUploadContext::frame_begin(uint32_t frame_idx)
 	m_ators[frame_idx]->Reset();
 	m_cmdls[frame_idx]->Reset(m_ators[frame_idx].Get(), nullptr);
 
+
+#ifndef _DEBUG
+	if (m_profiler)
+	{
+		m_profiler->frame_begin(frame_idx);
+		m_profiler->profile_begin(m_cmdls[frame_idx].Get(), m_copy_queue.Get(), "async copy");
+	}
+#endif
+
 	// Upload initial data for device-local memory (if any) requested upon load on the Buffer Manager
 	while (!m_buf_mgr->m_deferred_init_copies.empty())
 	{
@@ -60,8 +69,6 @@ void DXUploadContext::frame_begin(uint32_t frame_idx)
 	}
 	
 
-	if (m_profiler)
-		m_profiler->profile_begin(m_cmdls[frame_idx].Get(), m_copy_queue.Get(), "async copy");
 
 	std::string event_name = "copy thing #" + std::to_string(thing++);
 #if defined(_DEBUGWITHOUTVALIDATIONLAYER)
@@ -82,12 +89,16 @@ void DXUploadContext::upload_data(void* data, size_t size, BufferHandle hdl)
 void DXUploadContext::submit_work(uint32_t sig_val)
 {
 	auto cmdl = m_cmdls[m_curr_frame_idx].Get();
-	if (m_profiler)
-		m_profiler->profile_end(m_cmdls[m_curr_frame_idx].Get(), "async copy");
 
-	// assuming that submit_work is called only once per frame, otherwise we have to make a separate function
+
+#ifndef _DEBUG
 	if (m_profiler)
+	{
+		// assuming that submit_work is called only once per frame, otherwise we have to make a separate function
+		m_profiler->profile_end(m_cmdls[m_curr_frame_idx].Get(), "async copy");
 		m_profiler->frame_end(m_cmdls[m_curr_frame_idx].Get());
+	}
+#endif
 
 	cmdl->Close();
 	ID3D12CommandList* cmdls[] = { cmdl };

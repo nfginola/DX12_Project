@@ -70,8 +70,8 @@ void GPUProfiler::profile_begin(ID3D12GraphicsCommandList* cmdl, ID3D12CommandQu
 		profile = &it->second;
 	}
 	
-	profile->start_tick = profile->end_tick = 0;
-	profile->sec_elapsed = 0.0;
+	//profile->start_tick = profile->end_tick = 0;
+	//profile->sec_elapsed = 0.0;
 
 	// query every time incase of changes (?)
 	auto hr = queue->GetTimestampFrequency(&profile->gpu_freq);
@@ -81,11 +81,6 @@ void GPUProfiler::profile_begin(ID3D12GraphicsCommandList* cmdl, ID3D12CommandQu
 
 	const auto start_idx = (m_curr_frame_idx * m_max_queries_per_frame) + profile->query_pair_idx * 2 + 0;		// 0 for start in (start, end) pair
 
-	/*
-	
-	WTF??? Why does this crash??? The command list is on a Copy queue!!!!
-	
-	*/
 	cmdl->EndQuery(m_qheap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, start_idx);
 
 	m_curr_scope_profile = profile;
@@ -103,6 +98,9 @@ void GPUProfiler::profile_end(ID3D12GraphicsCommandList* cmdl, const std::string
 	{
 		profile = &it->second;
 	}
+
+	profile->start_tick = profile->end_tick = 0;
+	profile->sec_elapsed = 0.0;
 
 	const auto end_idx = (m_curr_frame_idx * m_max_queries_per_frame) + profile->query_pair_idx * 2 + 1;		// 1 for end in (start, end) pair
 	cmdl->EndQuery(m_qheap.Get(), D3D12_QUERY_TYPE_TIMESTAMP, end_idx);

@@ -111,6 +111,7 @@ int main()
 		dev->SetStablePowerState(true);
 		uint8_t pf_latency = max_FIF;
 		GPUProfiler gpu_pf(dev, GPUProfiler::QueueType::eDirectOrCompute, pf_latency);
+		GPUProfiler gpu_pf_copy(dev, GPUProfiler::QueueType::eCopy, pf_latency);
 		CPUProfiler cpu_pf(pf_latency);
 
 		// setup imgui
@@ -134,7 +135,7 @@ int main()
 
 		// setup various managers
 		DXBufferManager buf_mgr(dev, max_FIF);
-		DXUploadContext up_ctx(dev, &buf_mgr, max_FIF);
+		DXUploadContext up_ctx(dev, &buf_mgr, max_FIF, &gpu_pf_copy);
 		DXTextureManager tex_mgr(dev, dq);
 		DXBindlessManager bindless_mgr(dev, std::move(bindless_part), &buf_mgr, &tex_mgr);
 		MeshManager mesh_mgr(dev, &buf_mgr);
@@ -225,6 +226,7 @@ int main()
 		bool copy_bogus_data = false;
 		bool instanced = false;
 		bool instanced_grid = false;
+		bool vsync = false;
 		g_gui_ctx->add_persistent_ui("test", [&]()
 			{
 				ImGui::Begin("HelloBox");
@@ -232,31 +234,8 @@ int main()
 				ImGui::Checkbox("Copy Bogus Data", &copy_bogus_data);
 				ImGui::Checkbox("Instanced", &instanced);
 				ImGui::Checkbox("Instanced Grid", &instanced_grid);
+				ImGui::Checkbox("Vsync", &vsync);
 				ImGui::End();
-
-				//bool show_demo_window = true;
-				//if (show_demo_window)
-				//	ImGui::ShowDemoWindow(&show_demo_window);
-
-				//// Main menu
-				//if (ImGui::BeginMainMenuBar())
-				//{
-				//	if (ImGui::BeginMenu("File"))
-				//	{
-				//		ImGui::EndMenu();
-				//	}
-				//	if (ImGui::BeginMenu("Edit"))
-				//	{
-				//		if (ImGui::MenuItem("Undo", "CTRL+Z")) { std::cout << "haha!\n"; }
-				//		if (ImGui::MenuItem("Redo", "CTRL+Y", false, false)) {}  // Disabled item
-				//		ImGui::Separator();
-				//		if (ImGui::MenuItem("Cut", "CTRL+X")) {}
-				//		if (ImGui::MenuItem("Copy", "CTRL+C")) {}
-				//		if (ImGui::MenuItem("Paste", "CTRL+V")) {}
-				//		ImGui::EndMenu();
-				//	}
-				//	ImGui::EndMainMenuBar();
-				//}
 			});
 
 
@@ -440,7 +419,10 @@ int main()
 		MSG msg{};
 		while (g_app_running)
 		{
+			cpu_pf.frame_begin();
 			frame_stopwatch.start();
+			cpu_pf.profile_begin("cpu frame");
+
 
 			++frame_count;
 			win->pump_messages();
@@ -456,7 +438,6 @@ int main()
 			auto dq_cmdl = frame_res.dq_cmdl.Get();
 
 
-			cpu_pf.frame_begin();
 			// CPU side updates
 
 			cam_ctrl->update(prev_dt);
@@ -464,9 +445,14 @@ int main()
 
 
 			// Waiting for main Graphics frame in flight
+			cpu_pf.profile_begin("waiting on prev frame in flight");
 			frame_res.sync.wait();
+			cpu_pf.profile_end("waiting on prev frame in flight");
 
 			// use copy queue
+#ifdef NDEBUG
+			gpu_pf_copy.frame_begin(surface_idx);
+#endif
 			up_ctx.frame_begin(surface_idx);
 
 			// buffer copy work on async copy
@@ -484,6 +470,16 @@ int main()
 				for (const auto& buf : persistent_bufs)
 				{
 					up_ctx.upload_data(some_data, payload_size, buf);
+				}
+			}
+
+			// print copy queue times
+			{
+				std::cout << "GPU Copy:\n";
+				const auto& profiles = gpu_pf_copy.get_profiles();
+				for (const auto& [_, profile] : profiles)
+				{
+					std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
 				}
 			}
 
@@ -524,14 +520,7 @@ int main()
 						std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
 					}
 				}
-				//{
-				//	std::cout << "GPU Copy:\n";
-				//	const auto& profiles = gpu_pf_copy.get_profiles();
-				//	for (const auto& [_, profile] : profiles)
-				//	{
-				//		std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
-				//	}
-				//}
+
 
 
 				std::cout << "\n";
@@ -552,7 +541,6 @@ int main()
 			PIXBeginEvent(dq_cmdl, PIX_COLOR(0, 200, 200), "Direct Queue Main");
 
 			gpu_pf.profile_begin(dq_cmdl, dq, "frame");
-			cpu_pf.profile_begin("cpu frame");
 
 			// transition
 			gpu_pf.profile_begin(dq_cmdl, dq, "transition #1");
@@ -585,7 +573,6 @@ int main()
 			*/
 			ID3D12DescriptorHeap* dheaps[] = { gpu_dheap.get_desc_heap(), gpu_dheap_sampler.get_desc_heap() };
 			dq_cmdl->SetDescriptorHeaps(_countof(dheaps), dheaps);
-
 
 			// GPU-GPU sync: blocks this frames submission until this frames copies are done
 			cpu_pf.profile_begin("waiting for async copy");
@@ -702,11 +689,9 @@ int main()
 			gpu_pf.profile_end(dq_cmdl, "transition #2");
 
 			gpu_pf.profile_end(dq_cmdl, "frame");
-			cpu_pf.profile_end("cpu frame");
 
 			// done with profiling
 			gpu_pf.frame_end(dq_cmdl);
-			cpu_pf.frame_end();
 
 
 			PIXEndEvent(dq_cmdl);
@@ -719,8 +704,9 @@ int main()
 			dq->ExecuteCommandLists(_countof(cmdls), cmdls);
 
 			// present
-			constexpr auto vsync = true;
+			cpu_pf.profile_begin("presentation");
 			gfx_sc->present(vsync);
+			cpu_pf.profile_end("presentation");
 
 			// signal when this frame is no longer in flight
 			frame_res.sync.signal(dq, gfx_ctx->get_next_fence_value());
@@ -732,6 +718,9 @@ int main()
 
 			frame_stopwatch.stop();
 			prev_dt = frame_stopwatch.elapsed();
+			cpu_pf.profile_end("cpu frame");
+			cpu_pf.frame_end();
+
 		}
 
 		// wait for all FIFs before exiting

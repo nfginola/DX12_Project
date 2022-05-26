@@ -31,15 +31,11 @@ struct BindlessElement
 	uint specular_idx;
 	uint opacity_idx;
 
-	float specular;
+	float specular;		// spec exp
 	/*
 		spec idx
 		amb idx
-
-		tint color, etc..
-
-		float3 color
-	
+		tint color, etc.	
 	*/
 };
 
