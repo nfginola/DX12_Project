@@ -43,7 +43,7 @@ DXBufferAllocation DXBufferGenericAllocator::allocate(uint32_t element_count, ui
 
 	auto alloc = DXBufferAllocation
 	(
-		buf.Get(),
+		buf,
 		0,
 		total_size,
 		element_size,
@@ -53,17 +53,26 @@ DXBufferAllocation DXBufferGenericAllocator::allocate(uint32_t element_count, ui
 	);
 
 	// track
-	m_allocs.insert({ alloc.gpu_adr(), alloc });
+	//m_allocs.insert({ alloc.gpu_adr(), alloc });
+	m_existing_allocs.insert(alloc.gpu_adr());
 
 	return alloc;
 }
 
 void DXBufferGenericAllocator::deallocate(DXBufferAllocation&& alloc)
 {
-	auto it = m_allocs.find(alloc.gpu_adr());
-	if (it == m_allocs.cend())
+//	auto it = m_allocs.find(alloc.gpu_adr());
+//	if (it == m_allocs.cend())
+//		assert(false);
+
+	auto it = m_existing_allocs.find(alloc.gpu_adr());
+	if (it == m_existing_allocs.cend())
 		assert(false);
 
+	auto refs_left = alloc.reset();
+	for (int i = 0; i < refs_left; ++i)
+		alloc.reset();
+
 	// erase from internal tracker
-	m_allocs.erase(it);
+	m_allocs.erase(alloc.gpu_adr());
 }

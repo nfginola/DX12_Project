@@ -88,11 +88,8 @@ void DXBufferManager::destroy_buffer(BufferHandle hdl)
 	{
 		if (res->usage_gpu == UsageIntentGPU::eWrite)
 		{
-			if (res->is_rt_structure)
-			{
-				m_committed_def_ator->deallocate(std::move(res->alloc));
-				m_handles.free_handle(res->handle);
-			}
+			m_committed_def_ator->deallocate(std::move(res->alloc));
+			m_handles.free_handle(res->handle);
 		}
 	}
 }

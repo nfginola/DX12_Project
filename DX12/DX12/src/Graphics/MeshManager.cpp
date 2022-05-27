@@ -86,6 +86,8 @@ void MeshManager::create_RT_accel_structure(const std::vector<RTMeshDesc>& descs
 	// we only support single model for now
 	assert(descs.size() == 1);
 
+	m_geom_descs.clear();
+
 	// Assemble Geometry descs for BLAS
 	for (auto& desc : descs)
 	{
@@ -112,13 +114,6 @@ void MeshManager::create_RT_accel_structure(const std::vector<RTMeshDesc>& descs
 
 			m_geom_descs.push_back(geom_desc);
 		}
-	}
-
-	// schedule for deletion
-	if (m_rt_bufs.tlas.valid())
-	{
-		m_old_rt_bufs = m_rt_bufs;
-		m_frames_until_del = m_max_FIF;
 	}
 
 	// Fill BLAS and TLAS input declarations
@@ -148,7 +143,14 @@ void MeshManager::create_RT_accel_structure(const std::vector<RTMeshDesc>& descs
 		assert(bl_preb_info.ResultDataMaxSizeInBytes > 0);
 		assert(tl_preb_info.ResultDataMaxSizeInBytes > 0);
 	}
-	
+
+	// schedule for deletion
+	if (m_rt_bufs.tlas.valid())
+	{
+		m_old_rt_bufs = m_rt_bufs;
+		m_frames_until_del = m_max_FIF;
+	}
+
 	// grab buffers
 	{
 		// grab a scratch buffer

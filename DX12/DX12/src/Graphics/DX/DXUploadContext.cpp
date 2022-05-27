@@ -86,7 +86,7 @@ void DXUploadContext::upload_data(void* data, size_t size, BufferHandle hdl)
 	}
 }
 
-void DXUploadContext::submit_work(uint32_t sig_val)
+void DXUploadContext::submit_work(uint64_t sig_val)
 {
 	auto cmdl = m_cmdls[m_curr_frame_idx].Get();
 

@@ -1,5 +1,6 @@
 #pragma once
 #include "DXBufferAllocation.h"
+#include <set>
 
 /*
 
@@ -21,6 +22,7 @@ private:
 	D3D12_HEAP_TYPE m_heap_type;
 
 	// keps track internally to make d3d12 resource destruction explicit
+	std::set<uint64_t> m_existing_allocs;
 	std::unordered_map<uint64_t, DXBufferAllocation> m_allocs;
 
 

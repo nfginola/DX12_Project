@@ -31,7 +31,7 @@ public:
 
 
 	// Dispatches all submitted work and signals at the end
-	void submit_work(uint32_t sig_val);
+	void submit_work(uint64_t sig_val);
 
 	// The passed in queue will wait for the signal from the async copy
 	void wait_for_async_copy(ID3D12CommandQueue* queue);
