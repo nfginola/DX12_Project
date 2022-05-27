@@ -15,9 +15,9 @@ DXBufferManager::DXBufferManager(Microsoft::WRL::ComPtr<ID3D12Device> dev, uint3
 		m_constant_persistent_bufs.resize(max_fif);
 		auto pool_infos =
 		{
-			DXBufferPoolAllocator::PoolInfo(1, 256, 100),
-			DXBufferPoolAllocator::PoolInfo(1, 512, 100),
-			DXBufferPoolAllocator::PoolInfo(1, 1024, 10000),
+			DXBufferPoolAllocator::PoolInfo(1, 256, 5000),
+			DXBufferPoolAllocator::PoolInfo(1, 512, 5000),
+			DXBufferPoolAllocator::PoolInfo(1, 1024, 30000),
 		};
 		//m_constant_persistent_buf = std::make_unique<DXBufferPoolAllocator>(dev, pool_infos, D3D12_HEAP_TYPE_DEFAULT);
 		for (uint32_t i = 0; i < max_fif; ++i)
@@ -28,9 +28,9 @@ DXBufferManager::DXBufferManager(Microsoft::WRL::ComPtr<ID3D12Device> dev, uint3
 	{
 		auto pool_infos =
 		{
-			DXBufferPoolAllocator::PoolInfo(1, 256, 100),
-			DXBufferPoolAllocator::PoolInfo(1, 512, 50),
-			DXBufferPoolAllocator::PoolInfo(1, 1024, 10000),
+			DXBufferPoolAllocator::PoolInfo(1, 256, 5000),
+			DXBufferPoolAllocator::PoolInfo(1, 512, 5000),
+			DXBufferPoolAllocator::PoolInfo(1, 1024, 30000),
 		};
 		auto pool_for_ring = std::make_unique<DXBufferPoolAllocator>(dev, pool_infos, D3D12_HEAP_TYPE_UPLOAD);
 		m_constant_ring_buf = std::make_unique<DXBufferRingPoolAllocator>(std::move(pool_for_ring));
@@ -86,7 +86,14 @@ void DXBufferManager::destroy_buffer(BufferHandle hdl)
 	}
 	else
 	{
-
+		if (res->usage_gpu == UsageIntentGPU::eWrite)
+		{
+			if (res->is_rt_structure)
+			{
+				m_committed_def_ator->deallocate(std::move(res->alloc));
+				m_handles.free_handle(res->handle);
+			}
+		}
 	}
 }
 
@@ -353,6 +360,8 @@ DXBufferManager::InternalBufferResource* DXBufferManager::create_non_constant(co
 	const auto& usage_cpu = desc.usage_cpu;
 	const auto& usage_gpu = desc.usage_gpu;
 	uint32_t requested_size = desc.element_count * desc.element_size;
+
+	resource->is_rt_structure = desc.is_rt_structure;
 
 	// GPU write (UAV)
 	if (desc.usage_gpu == UsageIntentGPU::eWrite)

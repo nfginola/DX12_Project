@@ -48,6 +48,48 @@ extern "C" { __declspec(dllexport) extern const char* D3D12SDKPath = u8"..\\..\\
 #include "Camera/FPCController.h"
 #include "Camera/FPPCamera.h"
 
+#include <numeric>
+
+
+
+int cpu_bogus_work_amount = 1;
+#pragma optimize( "", off )
+struct TempMems
+{
+	std::array<uint64_t*, 10> mems;
+	uint32_t size = 1024;
+
+	TempMems()
+	{
+		for (int i = 0; i < mems.size(); ++i)
+			mems[i] = (uint64_t*)std::malloc(size);
+	}
+
+	~TempMems()
+	{
+		for (int i = 0; i < mems.size(); ++i)
+			std::free(mems[i]);
+	}
+
+	void do_work()
+	{
+		for (uint64_t i = 1; i < mems.size(); ++i)
+		{
+			for (int x = 0; x < size; ++x)
+			{
+				mems[i][x] = i;
+			}
+		}
+	}
+};
+
+TempMems* s_mems = nullptr;
+void bogus_cpu_work()
+{
+	for (int i = 0; i < cpu_bogus_work_amount; ++i)
+		s_mems->do_work();
+}
+#pragma optimize( "", on )
 
 
 static bool g_app_running = false;
@@ -56,8 +98,16 @@ GUIContext* g_gui_ctx = nullptr;
 
 LRESULT window_procedure(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
+
+// Uncomment defines to use Multiple BLAS (one BLAS per submesh) instead of a single BLAS with a Geometry per submesh
+//#define MULTIPLE_BLAS
+
+
 int main()
 {
+	// https://docs.microsoft.com/en-us/visualstudio/debugger/finding-memory-leaks-using-the-crt-library?view=vs-2022
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+
 	g_app_running = true;
 #if defined(_DEBUGWITHOUTVALIDATIONLAYER)
 	constexpr auto debug_on = false;
@@ -68,16 +118,22 @@ int main()
 #endif
 	const UINT CLIENT_WIDTH = 1600;
 	const UINT CLIENT_HEIGHT = 900;
+	const UINT MAX_FIF = 3;
+
+
 
 	// Initialize WIC
 	HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 	if (FAILED(hr))
 		assert(false);
 
-	// https://docs.microsoft.com/en-us/visualstudio/debugger/finding-memory-leaks-using-the-crt-library?view=vs-2022
-	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+
 	try
 	{
+
+		s_mems = new TempMems();
+
+
 		// initialize window
 		auto win_proc = [](HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) -> LRESULT { return window_procedure(hwnd, uMsg, wParam, lParam); };
 		auto win = std::make_unique<Window>(GetModuleHandle(NULL), win_proc, CLIENT_WIDTH, CLIENT_HEIGHT);
@@ -88,6 +144,7 @@ int main()
 		DXContext::Settings ctx_set{};
 		ctx_set.debug_on = debug_on;
 		ctx_set.hwnd = win->get_hwnd();
+		ctx_set.max_FIF = MAX_FIF;
 		auto gfx_ctx = std::make_shared<DXContext>(ctx_set);
 
 		// grab associated swapchain
@@ -138,7 +195,7 @@ int main()
 		DXUploadContext up_ctx(dev, &buf_mgr, max_FIF, &gpu_pf_copy);
 		DXTextureManager tex_mgr(dev, dq);
 		DXBindlessManager bindless_mgr(dev, std::move(bindless_part), &buf_mgr, &tex_mgr);
-		MeshManager mesh_mgr(dev, &buf_mgr);
+		MeshManager mesh_mgr(dev, &buf_mgr, MAX_FIF);
 		ModelManager model_mgr(&mesh_mgr, &tex_mgr, &bindless_mgr);
 
 		struct PerFrameResource
@@ -164,9 +221,28 @@ int main()
 			res.dq_cmdl->Close();
 		}
 
+		// Used for inserting queries between signal
+		std::array<std::array<cptr<ID3D12CommandAllocator>, 2>, MAX_FIF> wait_alloc;
+		std::array<std::array<cptr<ID3D12GraphicsCommandList>, 2>, MAX_FIF> wait_cmdl;
+
+		for (int i = 0; i < MAX_FIF; ++i)
+		{
+			constexpr auto q_type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+			ThrowIfFailed(dev->CreateCommandAllocator(q_type, IID_PPV_ARGS(wait_alloc[i][0].GetAddressOf())), DET_ERR("Failed to create cmd ator"));
+			ThrowIfFailed(dev->CreateCommandList(0, q_type, wait_alloc[i][0].Get(), nullptr, IID_PPV_ARGS(wait_cmdl[i][0].GetAddressOf())), DET_ERR("Failed to create direct cmd list"));
+			wait_cmdl[i][0]->Close();
+
+			ThrowIfFailed(dev->CreateCommandAllocator(q_type, IID_PPV_ARGS(wait_alloc[i][1].GetAddressOf())), DET_ERR("Failed to create cmd ator"));
+			ThrowIfFailed(dev->CreateCommandList(0, q_type, wait_alloc[i][1].Get(), nullptr, IID_PPV_ARGS(wait_cmdl[i][1].GetAddressOf())), DET_ERR("Failed to create direct cmd list"));
+			wait_cmdl[i][1]->Close();
+		}
+
+
+
+
 		// setup backbuffer render targets
-		auto rtv_alloc = cpu_rtv_dheap.allocate(max_FIF);
-		for (auto i = 0; i < max_FIF; ++i)
+		auto rtv_alloc = cpu_rtv_dheap.allocate(gfx_sc->get_settings().out_num_surfaces);		// --> depends on num of bbs
+		for (auto i = 0; i < rtv_alloc.num_descriptors(); ++i)
 		{
 			auto hdl = rtv_alloc.cpu_handle(i);
 			dev->CreateRenderTargetView(gfx_sc->get_backbuffer(i), nullptr, hdl);
@@ -227,14 +303,21 @@ int main()
 		bool instanced = false;
 		bool instanced_grid = false;
 		bool vsync = false;
+		bool do_bogus_cpu_work = false;
+		bool reload_rt = false;
+		float scale = 0.07;
 		g_gui_ctx->add_persistent_ui("test", [&]()
 			{
-				ImGui::Begin("HelloBox");
+				ImGui::Begin("Settings");
 				ImGui::Checkbox("Show Profiler Data", &show_pf);
 				ImGui::Checkbox("Copy Bogus Data", &copy_bogus_data);
 				ImGui::Checkbox("Instanced", &instanced);
 				ImGui::Checkbox("Instanced Grid", &instanced_grid);
 				ImGui::Checkbox("Vsync", &vsync);
+				ImGui::Checkbox("Do Bogus CPU work", &do_bogus_cpu_work);
+				ImGui::SliderInt("Work", &cpu_bogus_work_amount, 1, 1000);
+				ImGui::SliderFloat("Scale", &scale, 0.01f, 0.3f);
+				reload_rt = ImGui::Button("Rebuild RT");
 				ImGui::End();
 			});
 
@@ -382,7 +465,7 @@ int main()
 			persistent_bufs.push_back(buf_mgr.create_buffer(pbdesc));
 		}
 
-		void* some_data = std::calloc(payload_size, 1);
+		void* some_data = std::malloc(payload_size, 1);
 
 
 		// Make cbuffer for shader settings
@@ -403,7 +486,7 @@ int main()
 
 		g_gui_ctx->add_persistent_ui("shader settings", [&]()
 			{
-				ImGui::Begin("HelloBox");
+				ImGui::Begin("Settings");
 				ImGui::SliderInt("Nor Map", &settings.normal_map_on, 0, 1);
 				ImGui::SliderInt("RT On", &settings.raytrace_on, 0, 1);
 				ImGui::SliderFloat3("Dir Light", (float*)&settings.dir_light, -1.f, 1.f);
@@ -411,20 +494,87 @@ int main()
 				ImGui::End();
 			});
 
-		mesh_mgr.create_RT_accel_structure({ { model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(0.07) } });
 
+		// create query buffer and readback buffer for pipelinestatistics
+		// D3D12_QUERY_DATA_PIPELINE_STATISTICS
+		cptr<ID3D12QueryHeap> pstat_qheap;
+		cptr<ID3D12Resource> pstat_readback;
+		{
+			//qheap
+			D3D12_QUERY_HEAP_DESC desc{};
+			desc.Type = D3D12_QUERY_HEAP_TYPE_PIPELINE_STATISTICS;
+			desc.Count = max_FIF;
+			auto hr = dev->CreateQueryHeap(&desc, IID_PPV_ARGS(pstat_qheap.GetAddressOf()));
+			if (FAILED(hr))
+				assert(false);
+
+			//buffer
+			D3D12_HEAP_PROPERTIES hp{};
+			hp.Type = D3D12_HEAP_TYPE_READBACK;
+			D3D12_RESOURCE_DESC rd{};
+			rd.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+			rd.Alignment = D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
+			rd.Width = max_FIF * sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS);
+			rd.Height = 1;
+			rd.DepthOrArraySize = 1;
+			rd.MipLevels = 1;
+			rd.Format = DXGI_FORMAT_UNKNOWN;
+			rd.SampleDesc.Count = 1;
+			rd.SampleDesc.Quality = 0;
+			rd.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;	// requirement for buffers
+			rd.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+			// Can be kept in copy dest state since we're always copying to it from ResolveQuery
+			hr = dev->CreateCommittedResource(
+				&hp, D3D12_HEAP_FLAG_NONE,
+				&rd, D3D12_RESOURCE_STATE_COPY_DEST, nullptr,
+				IID_PPV_ARGS(pstat_readback.GetAddressOf()));
+		}
+
+		// perf
+		const UINT max_frametimes = 300;
+		std::unordered_map<std::string, std::array<float, max_frametimes>> frametimes_map;
+	
 		double prev_dt = 0.0;
+		double accum_time = 0.0;
+		double curr_avg = 0.0;
+		g_gui_ctx->add_persistent_ui("FPS", [&]()
+			{
+				ImGui::Begin("Performance Statistics");
+				auto& prev_times = frametimes_map["cpu frame"];
+
+				// grab new avg every second
+				accum_time += prev_dt;
+				if (accum_time > 0.50)
+				{
+					curr_avg = std::accumulate(prev_times.begin(), prev_times.end(), 0) / (float)prev_times.size();
+					accum_time = 0.0;
+				}
+
+				ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 255, 255));
+				ImGui::Text(fmt::format("Avg. FPS: {:.0f}", 1.0 / (curr_avg / 1000.0)).c_str());
+				ImGui::PopStyleColor();
+				ImGui::End();
+			});
+
 		Stopwatch frame_stopwatch;
 		uint64_t frame_count = 0;
 		MSG msg{};
 		while (g_app_running)
 		{
+
+
+
 			cpu_pf.frame_begin();
 			frame_stopwatch.start();
 			cpu_pf.profile_begin("cpu frame");
 
 
-			++frame_count;
+			if (reload_rt || frame_count == 0)
+			{
+				mesh_mgr.create_RT_accel_structure({ { model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(scale) } });
+			}
+
 			win->pump_messages();
 			if (!g_app_running)		// Early exit if WMs picked up by this frames pump messages
 				break;
@@ -432,17 +582,22 @@ int main()
 			g_input->frame_begin();
 
 			auto surface_idx = gfx_sc->get_curr_draw_surface();
-			auto& frame_res = per_frame_res[surface_idx];
+			auto frame_idx = frame_count % MAX_FIF;
+
+			auto& frame_res = per_frame_res[frame_idx];
 			auto curr_bb = gfx_sc->get_backbuffer(surface_idx);
 			auto dq_ator = frame_res.dq_ator.Get();
 			auto dq_cmdl = frame_res.dq_cmdl.Get();
 
 
 			// CPU side updates
-
 			cam_ctrl->update(prev_dt);
-
-
+			cpu_pf.profile_begin("bogus cpu work");
+			if (do_bogus_cpu_work)
+			{
+				bogus_cpu_work();
+			}
+			cpu_pf.profile_end("bogus cpu work");
 
 			// Waiting for main Graphics frame in flight
 			cpu_pf.profile_begin("waiting on prev frame in flight");
@@ -451,9 +606,9 @@ int main()
 
 			// use copy queue
 #ifdef NDEBUG
-			gpu_pf_copy.frame_begin(surface_idx);
+			gpu_pf_copy.frame_begin(frame_idx);
 #endif
-			up_ctx.frame_begin(surface_idx);
+			up_ctx.frame_begin(frame_idx);
 
 			// buffer copy work on async copy
 			InterOp_CameraData cam_dat{};
@@ -468,20 +623,36 @@ int main()
 			if (copy_bogus_data)
 			{
 				for (const auto& buf : persistent_bufs)
-				{
 					up_ctx.upload_data(some_data, payload_size, buf);
-				}
 			}
 
+#ifdef NDEBUG
 			// print copy queue times
 			{
-				std::cout << "GPU Copy:\n";
+				//std::cout << "GPU Copy:\n";
 				const auto& profiles = gpu_pf_copy.get_profiles();
-				for (const auto& [_, profile] : profiles)
+				for (const auto& pair : profiles)
 				{
-					std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
+					const auto& profile = pair.second;
+					//std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
+
+					auto& prev_times = frametimes_map[profile.name];
+					for (int i = 0; i < prev_times.size() - 1; ++i)
+						prev_times[i] = prev_times[i + 1];
+					prev_times[prev_times.size() - 1] = profile.sec_elapsed * 1000.f;		// in ms
+					float avg = std::accumulate(prev_times.begin(), prev_times.end(), 0) / (float)prev_times.size();
+
+					g_gui_ctx->add_consumable_ui([=]()
+						{
+							ImGui::Begin("Performance Statistics");
+							ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
+							ImGui::PlotLines(fmt::format("[{}]: {:.2f} ms // Avg. '{}'", "GPU", avg, profile.name.c_str()).c_str(), prev_times.data(), prev_times.size(), 0, "");
+							ImGui::PopStyleColor();
+							ImGui::End();
+						});
 				}
 			}
+#endif
 
 			// submit buffered work
 			up_ctx.submit_work(gfx_ctx->get_next_fence_value());
@@ -493,73 +664,132 @@ int main()
 			dq_ator->Reset();
 			dq_cmdl->Reset(dq_ator, nullptr);
 
-			gpu_pf.frame_begin(surface_idx);
+			wait_alloc[frame_idx][0]->Reset();
+			wait_cmdl[frame_idx][0]->Reset(wait_alloc[frame_idx][0].Get(), nullptr);
+			wait_alloc[frame_idx][1]->Reset();
+			wait_cmdl[frame_idx][1]->Reset(wait_alloc[frame_idx][1].Get(), nullptr);
+
+			gpu_pf.frame_begin(frame_idx);
 			g_gui_ctx->frame_begin();
-			gpu_dheap.frame_begin(surface_idx);
-			buf_mgr.frame_begin(surface_idx);
+			gpu_dheap.frame_begin(frame_idx);
+			buf_mgr.frame_begin(frame_idx);
+			mesh_mgr.frame_begin(frame_idx);
 
-			bindless_mgr.frame_begin(surface_idx);
+			bindless_mgr.frame_begin(frame_idx);
 
 
-			ID3D12GraphicsCommandList5* dxr_cmdl;
-			auto hr = dq_cmdl->QueryInterface(IID_PPV_ARGS(&dxr_cmdl));
+			cptr<ID3D12GraphicsCommandList5> dxr_cmdl;
+			auto hr = dq_cmdl->QueryInterface(IID_PPV_ARGS(dxr_cmdl.GetAddressOf()));
 			assert(SUCCEEDED(hr));
-			if (frame_count == 1)
+			if (reload_rt || frame_count == 0)
 			{
-				mesh_mgr.build_RT_accel_structure(dxr_cmdl);
+				std::cout << "RT Rebuilt\n";
+
+				// flush, for simplicity, before rebuilding
+				for (const auto& frame_res : per_frame_res)
+					frame_res.sync.wait();
+
+				mesh_mgr.build_RT_accel_structure(dxr_cmdl.Get());
 			}
 
 			if (show_pf)
 			{
 				// query profiler results
 				{
-					std::cout << "GPU:\n";
+					//std::cout << "GPU:\n";
 					const auto& profiles = gpu_pf.get_profiles();
-					for (const auto& [_, profile] : profiles)
+					for (const auto& pair : profiles)
 					{
-						std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
+						const auto& profile = pair.second;
+						//std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
+
+						auto& prev_times = frametimes_map[profile.name];
+						for (int i = 0; i < prev_times.size() - 1; ++i)
+							prev_times[i] = prev_times[i + 1];
+						prev_times[prev_times.size() - 1] = profile.sec_elapsed * 1000.f;		// in ms
+						float avg = std::accumulate(prev_times.begin(), prev_times.end(), 0) / (float)prev_times.size();
+
+						g_gui_ctx->add_consumable_ui([=]()
+							{
+								ImGui::Begin("Performance Statistics");
+								ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(0, 255, 0, 255));
+								ImGui::PlotLines(fmt::format("[{}]: {:.2f} ms // Avg. '{}'", "GPU", avg, profile.name.c_str()).c_str(), prev_times.data(), prev_times.size(), 0, "");
+								ImGui::PopStyleColor();
+								ImGui::End();
+							});
 					}
 				}
-
-
-
-				std::cout << "\n";
 
 				{
-					std::cout << "CPU:\n";
+					//std::cout << "CPU:\n";
 					const auto& cpu_profiles = cpu_pf.get_profiles();
-					for (const auto& [_, profile] : cpu_profiles)
+					for (const auto& pair : cpu_profiles)
 					{
-						std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
+						const auto& profile = pair.second;
+						//std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
+
+						//std::cout << "(" << profile.name << "):\t elapsed in ms: " << profile.sec_elapsed * 1000.0 << "\n";
+
+						auto& prev_times = frametimes_map[profile.name];
+						for (int i = 0; i < prev_times.size() - 1; ++i)
+							prev_times[i] = prev_times[i + 1];
+						prev_times[prev_times.size() - 1] = profile.sec_elapsed * 1000.f;		// in ms
+						float avg = std::accumulate(prev_times.begin(), prev_times.end(), 0) / (float)prev_times.size();
+
+						g_gui_ctx->add_consumable_ui([=]()
+							{
+								ImGui::Begin("Performance Statistics");
+								ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 255, 0, 255));
+								ImGui::PlotLines(fmt::format("[{}]: {:.2f} ms // Avg. '{}'", "CPU", avg, profile.name.c_str()).c_str(), prev_times.data(), prev_times.size(), 0, "");
+								ImGui::PopStyleColor();
+								ImGui::End();
+							});
 					}
 				}
 
-				std::cout << "========================================\n";
+				// query pipeline statistics
+				{
+					D3D12_QUERY_DATA_PIPELINE_STATISTICS* readback_data = nullptr;
+					D3D12_RANGE read_range{
+						frame_idx * sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS),
+						frame_idx * sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS) + sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS) };
+					hr = pstat_readback->Map(0, &read_range, (void**)&readback_data);
+					assert(SUCCEEDED(hr));
+
+					const auto curr_pstat = readback_data[frame_idx];	
+
+					D3D12_RANGE no_write{};
+					pstat_readback->Unmap(0, &no_write);
+
+					ImGui::Begin("Pipeline Statistics");
+					ImGui::Text(fmt::format("IA Vertices: {:3L}", curr_pstat.IAVertices).c_str());
+					ImGui::Text(fmt::format("IA Primitives: {:3L}", curr_pstat.IAPrimitives).c_str());
+					ImGui::Text(fmt::format("VS Invocations: {:3L}", curr_pstat.VSInvocations).c_str());
+					ImGui::Text(fmt::format("PS Invocations: {:3L}", curr_pstat.PSInvocations).c_str());
+					ImGui::Text(fmt::format("Prims. sent: {:3L}", curr_pstat.CInvocations).c_str());
+					ImGui::Text(fmt::format("Prims. rendered: {:3L}", curr_pstat.CPrimitives).c_str());
+					ImGui::End();
+				}
 			}
 
 
 			PIXBeginEvent(dq_cmdl, PIX_COLOR(0, 200, 200), "Direct Queue Main");
 
-			gpu_pf.profile_begin(dq_cmdl, dq, "frame");
+			gpu_pf.profile_begin(dq_cmdl, dq, "gpu frame");
 
 			// transition
-			gpu_pf.profile_begin(dq_cmdl, dq, "transition #1");
 			auto barr_to_rt = CD3DX12_RESOURCE_BARRIER::Transition(curr_bb, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 			dq_cmdl->ResourceBarrier(1, &barr_to_rt);
-			gpu_pf.profile_end(dq_cmdl, "transition #1");
 
 			// clear
-			gpu_pf.profile_begin(dq_cmdl, dq, "clear");
 			auto rtv_hdl = CD3DX12_CPU_DESCRIPTOR_HANDLE(rtv_alloc.cpu_handle())
-				.Offset(surface_idx, rtv_alloc.descriptor_size());
+				.Offset(surface_idx, rtv_alloc.descriptor_size());						// this is tied to surface count, which is not neccessarily the same as max FIF
 			FLOAT clear_color[4] = { 0.5f, 0.2f, 0.2f, 1.f };
 			dq_cmdl->ClearRenderTargetView(rtv_hdl, clear_color, 1, &main_scissor);
 
 			// clear depth
-			auto curr_dsv = dsv_alloc.cpu_handle(surface_idx);
+			auto curr_dsv = dsv_alloc.cpu_handle(frame_idx);
 			dq_cmdl->ClearDepthStencilView(curr_dsv, D3D12_CLEAR_FLAG_DEPTH, 1.f, 0, 0, nullptr);
-
-			gpu_pf.profile_end(dq_cmdl, "clear");
 
 			// set draw target
 			dq_cmdl->OMSetRenderTargets(1, &rtv_hdl, false, &curr_dsv);
@@ -575,13 +805,26 @@ int main()
 			dq_cmdl->SetDescriptorHeaps(_countof(dheaps), dheaps);
 
 			// GPU-GPU sync: blocks this frames submission until this frames copies are done
-			cpu_pf.profile_begin("waiting for async copy");
-			up_ctx.wait_for_async_copy(dq);
-			cpu_pf.profile_end("waiting for async copy");
+			{
+				// uses 2 cmdls to insert Query before and after Queue wait command on DQ!
+				gpu_pf.profile_begin(wait_cmdl[frame_idx][0].Get(), dq, "waiting for async copy");
+				wait_cmdl[frame_idx][0]->Close();
+				ID3D12CommandList* temp[] = { wait_cmdl[frame_idx][0].Get() };
+				dq->ExecuteCommandLists(_countof(temp), temp);
+
+				up_ctx.wait_for_async_copy(dq);
+
+				gpu_pf.profile_end(wait_cmdl[frame_idx][1].Get(), "waiting for async copy");
+				wait_cmdl[frame_idx][1]->Close();
+				temp[0] = wait_cmdl[frame_idx][1].Get();
+				dq->ExecuteCommandLists(_countof(temp), temp);
+			}
 
 
 			// main draw
-			gpu_pf.profile_begin(dq_cmdl, dq, "main draw setup");
+			gpu_pf.profile_begin(dq_cmdl, dq, "main draw");
+			dq_cmdl->BeginQuery(pstat_qheap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS, frame_idx);
+
 			dq_cmdl->RSSetViewports(1, &main_vp);
 			dq_cmdl->RSSetScissorRects(1, &main_scissor);
 			dq_cmdl->SetGraphicsRootSignature(rsig.Get());
@@ -598,10 +841,6 @@ int main()
 
 
 			dq_cmdl->SetPipelineState(pipe.Get());
-			gpu_pf.profile_end(dq_cmdl, "main draw setup");
-
-			gpu_pf.profile_begin(dq_cmdl, dq, "main draw");
-
 
 			// draw geometry
 			{
@@ -628,7 +867,7 @@ int main()
 						for (int x = -dim; x < dim; ++x)
 						{
 							// per object
-							auto wm = DirectX::SimpleMath::Matrix::CreateScale(0.07) * DirectX::SimpleMath::Matrix::CreateTranslation(x * 350.f, 0.f, i * 200.f);
+							auto wm = DirectX::SimpleMath::Matrix::CreateScale(scale) * DirectX::SimpleMath::Matrix::CreateTranslation(x * 350.f, 0.f, i * 200.f);
 							up_ctx.upload_data(&wm, sizeof(wm), dyn_cb);
 							buf_mgr.bind_as_direct_arg(dq_cmdl, dyn_cb, params["per_object"], RootArgDest::eGraphics);
 							for (int i = 0; i < sponza_mesh->parts.size(); ++i)
@@ -643,7 +882,7 @@ int main()
 								dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], bindless_mgr.access_index(mat.resource), 0);
 								// declare geometry part and draw
 								dq_cmdl->SetGraphicsRoot32BitConstant(params["vert_offset"], part.vertex_start, 0);
-								dq_cmdl->DrawIndexedInstanced(part.index_count, instanced ? 10 : 1, part.index_start, 0, 0);
+								dq_cmdl->DrawIndexedInstanced(part.index_count, instanced ? 3 : 1, part.index_start, 0, 0);
 
 								prev_pipe = mat.pso.Get();
 							}
@@ -653,7 +892,7 @@ int main()
 				else
 				{
 					// per object
-					auto wm = DirectX::SimpleMath::Matrix::CreateScale(0.07);
+					auto wm = DirectX::SimpleMath::Matrix::CreateScale(scale);
 					up_ctx.upload_data(&wm, sizeof(wm), dyn_cb);
 					buf_mgr.bind_as_direct_arg(dq_cmdl, dyn_cb, params["per_object"], RootArgDest::eGraphics);
 					for (int i = 0; i < sponza_mesh->parts.size(); ++i)
@@ -677,18 +916,23 @@ int main()
 
 			}
 
+			dq_cmdl->EndQuery(pstat_qheap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS, frame_idx);
+			dq_cmdl->ResolveQueryData(pstat_qheap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS,
+				frame_idx,		// start idx
+				1,					// num queries to resolve
+				pstat_readback.Get(),					// target 
+				frame_idx * sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS));	// offset (in bytes) from target 
+
 			gpu_pf.profile_end(dq_cmdl, "main draw");
 
 			// render imgui data
 			g_gui_ctx->render(dq_cmdl);
 
-			// transition
-			gpu_pf.profile_begin(dq_cmdl, dq, "transition #2");
+			// transition;
 			auto barr_to_present = CD3DX12_RESOURCE_BARRIER::Transition(curr_bb, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 			dq_cmdl->ResourceBarrier(1, &barr_to_present);
-			gpu_pf.profile_end(dq_cmdl, "transition #2");
 
-			gpu_pf.profile_end(dq_cmdl, "frame");
+			gpu_pf.profile_end(dq_cmdl, "gpu frame");
 
 			// done with profiling
 			gpu_pf.frame_end(dq_cmdl);
@@ -721,12 +965,17 @@ int main()
 			cpu_pf.profile_end("cpu frame");
 			cpu_pf.frame_end();
 
+			++frame_count;
+
+
 		}
 
 		// wait for all FIFs before exiting
 		for (const auto& frame_res : per_frame_res)
 			frame_res.sync.wait();
 
+
+		delete s_mems;
 		delete g_input;
 		delete g_gui_ctx;
 
@@ -735,12 +984,16 @@ int main()
 
 		g_input = nullptr;
 		g_gui_ctx = nullptr;
+
+		s_mems = nullptr;
 	}
 	catch (std::runtime_error& e)
 	{
 		std::cerr << e.what() << std::endl;
 	}
 	_CrtDumpMemoryLeaks();
+
+
 
 	return 0;
 }

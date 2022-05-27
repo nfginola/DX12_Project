@@ -17,6 +17,7 @@ struct BufferHandle
 {
 public:
 	BufferHandle() = default;
+	bool valid() const { return handle != 0; }
 private:
 	BufferHandle(uint64_t handle_) : handle(handle_) {}
 	friend class DXBufferManager;
@@ -77,6 +78,7 @@ private:
 		UsageIntentGPU usage_gpu = UsageIntentGPU::eInvalid;
 		uint64_t total_requested_size = 0;
 		uint32_t frame_idx_allocation = 0;
+		bool is_rt_structure = false;
 
 		uint64_t handle = 0;
 		void destroy() { alloc.~alloc(); }
@@ -97,68 +99,8 @@ private:
 	uint32_t m_curr_frame_idx = 0;
 
 	bool m_first_frame = true;
-	/*
-		For buffers with persistent locations,
-		we should create a View for them according to the usage specified by the user
-
-		Persistent Buffers work well with Descriptors, since they are not frequently updated (so they 
-
-		We should be able to batch resources to contiguously store in a CPU descriptor heap;
-
-		TexHdl amb
-		TexHdl diff
-		TexHdl spec
-
-		DescHdl d_hdl = desc_mgr.allocate({ amb, diff, spec })		--> Group is required to be of same GPU access (e.g all SRVs)
-
-		BufHdl b1
-		BufHdl b2
-		BufHdl b3
-
-		DescHdl d_hdl2 = desc.mgr.allocate({ b1, b2, b3 })		--> Same as above (e.g they all must either be SRV or CBV)
-		--> Table with 3
-
-		--> If transient buffer/texture given --> Assert
 
 
-		Perhaps this should be an external thing that the app needs to do manually:
-			Meaning app has to:
-				1) Create resource(s)
-				2) Create descriptors for the resource(s) manually through the manager
-					--> This gives flexibility to placement of resources in the CPU visible descriptor heap!
-					--> If we automate this, it has to be tied with resource creation, which is arbitrary,
-						thus it is impossible to be flexible and smart with the descriptor management on the CPU only heap!
-
-
-		BindlessDescriptorManager should MAKE USE OF a DescriptorManager --> This is a specialized case
-		- Holds the most recent version of the resources
-		- Tracks changes with details (knows how the GPU version is outdated and can copy appropriately only the part that changes)
-		- Holds persistent Constant Buffers for each material
-			- When a descriptor (table) is unloaded, the constant buffer is also unloaded
-				- Therefore, that descriptor will not be accessible on subsequent frames after this removal.
-
-
-		--> If we want descriptor data --> Go to descriptor managers
-		--> If we want immediate binds --> Grab immediate resource info from BufferHandle / TextureHandle
-
-		
-		[  Static,      Dynamic (ring buffered)  ]
-
-		Static:
-		[  50 Reserved (e.g ImGUI),  1000 (100 CBVs, 850 SRVs, 50 UAVs),     Dynamic Descriptors   ]
-
-
-
-
-
-
-
-		
-
-	
-	
-	
-	*/
 
 	std::unique_ptr<DXBufferRingPoolAllocator> m_constant_ring_buf;
 

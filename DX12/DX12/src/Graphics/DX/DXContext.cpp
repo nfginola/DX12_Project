@@ -11,8 +11,6 @@ void append_debug_info_to_title(HWND& hwnd, bool debug_on);
 
 DXContext::DXContext(DXContext::Settings& settings)
 {
-	constexpr uint64_t MAX_FIF = 3;
-
 	validate_settings(settings);
 	append_debug_info_to_title(settings.hwnd, settings.debug_on);
 
@@ -56,7 +54,7 @@ DXContext::DXContext(DXContext::Settings& settings)
 	// create swapchain
 	DXSwapChain::Settings sc_settings{};
 	sc_settings.hwnd = settings.hwnd;
-	sc_settings.max_FIF = MAX_FIF;
+	sc_settings.max_FIF = settings.max_FIF;
 	sc_settings.associated_queue = m_direct_queue;
 	m_sc = std::make_unique<DXSwapChain>(sc_settings, fac6.Get());
 	
@@ -65,8 +63,10 @@ DXContext::DXContext(DXContext::Settings& settings)
 // Needed for smart ptr forward decls.
 DXContext::~DXContext()
 {
-
-
+	//ID3D12DebugDevice* debug_dev = NULL;
+	//m_dev->QueryInterface(&debug_dev);
+	//m_dev->Release();
+	//debug_dev->ReportLiveDeviceObjects(D3D12_RLDO_DETAIL | D3D12_RLDO_IGNORE_INTERNAL);
 }
 
 const DXContext::HandleSizes& DXContext::get_hdl_sizes()
@@ -235,7 +235,8 @@ DXContext::FinalDebug::~FinalDebug()
 	{
 		// https://docs.microsoft.com/en-us/windows/win32/direct3ddxgi/dxgi-debug-id
 		// Need to link to dxguid.lib for DXGI_DEBUG_ALL
-		auto hr = dxgi_debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_FLAGS(DXGI_DEBUG_RLO_SUMMARY | DXGI_DEBUG_RLO_IGNORE_INTERNAL));
+		auto hr = dxgi_debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_FLAGS(DXGI_DEBUG_RLO_ALL | DXGI_DEBUG_RLO_IGNORE_INTERNAL));
+		//auto hr = dxgi_debug->ReportLiveObjects(DXGI_DEBUG_ALL, DXGI_DEBUG_RLO_FLAGS(DXGI_DEBUG_RLO_SUMMARY | DXGI_DEBUG_RLO_IGNORE_INTERNAL));
 
 		if (FAILED(hr))
 			assert(false);

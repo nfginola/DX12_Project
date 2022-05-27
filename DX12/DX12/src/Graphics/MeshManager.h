@@ -57,7 +57,7 @@ struct RTMeshDesc
 class MeshManager
 {
 public:
-	MeshManager(cptr<ID3D12Device> dev, DXBufferManager* buf_mgr);
+	MeshManager(cptr<ID3D12Device> dev, DXBufferManager* buf_mgr, uint32_t max_FIF);
 	~MeshManager() = default;
 
 	MeshHandle create_mesh(const MeshDesc& desc);
@@ -69,15 +69,24 @@ public:
 	void build_RT_accel_structure(ID3D12GraphicsCommandList5* cmdl);
 	const RTAccelStructure* get_RT_accel_structure();
 
+	void frame_begin(uint32_t frame_idx);
 private:
 	cptr<ID3D12Device5> m_dxr_dev;
 	HandlePool<Mesh> m_handles;
 
 	DXBufferManager* m_buf_mgr = nullptr;
-	RTAccelStructure m_rt_bufs{};
 
-	std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> geom_descs;
-	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC blas_d = {};
-	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC tlas_d = {};
+	// active rt bufs
+	RTAccelStructure m_rt_bufs;
+
+	uint64_t m_frames_until_del = 0;
+	RTAccelStructure m_old_rt_bufs;		// old to be deleted
+
+	// temp for building
+	std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> m_geom_descs;
+	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC m_blas_d = {};
+	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC m_tlas_d = {};
+
+	uint32_t m_max_FIF;
 };
 

@@ -4,6 +4,7 @@
 #define _CRTDBG_MAP_ALLOC
 #endif
 
+
 #include <wrl/client.h>		// ComPtr
 template <typename T>
 using cptr = Microsoft::WRL::ComPtr<T>;

@@ -10,11 +10,13 @@ DXSwapChain::DXSwapChain(DXSwapChain::Settings& settings, IDXGIFactory4* fac) :
 {
 	validate_settings(settings);
 	
+	m_settings.out_num_surfaces = settings.max_FIF + 1;		// num backbuffers is set to MAX FIF + 1
+
 	// create swapchain
 	DXGI_SWAP_CHAIN_DESC1 scDesc{};
 	scDesc.Width = (UINT)settings.width;
 	scDesc.Height = (UINT)settings.height;
-	scDesc.BufferCount = settings.max_FIF;
+	scDesc.BufferCount = m_settings.out_num_surfaces;
 	scDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 	scDesc.SampleDesc.Count = 1;
 	scDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
@@ -39,7 +41,7 @@ DXSwapChain::DXSwapChain(DXSwapChain::Settings& settings, IDXGIFactory4* fac) :
 	sc.As(&m_sc3);
 	
 	// Grab backbuffers
-	m_backbuffers.resize(settings.max_FIF);
+	m_backbuffers.resize(m_settings.out_num_surfaces);
 	for (auto i = 0; i < m_backbuffers.size(); ++i)
 		ThrowIfFailed(m_sc3->GetBuffer(i, IID_PPV_ARGS(m_backbuffers[i].GetAddressOf())), DET_ERR("Failed to get back buffer"));
 

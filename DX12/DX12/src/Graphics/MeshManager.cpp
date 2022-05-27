@@ -1,9 +1,11 @@
 #include "pch.h"
 #include "MeshManager.h"
 
-MeshManager::MeshManager(cptr<ID3D12Device> dev, DXBufferManager* buf_mgr) :
-	m_buf_mgr(buf_mgr)
+MeshManager::MeshManager(cptr<ID3D12Device> dev, DXBufferManager* buf_mgr, uint32_t max_FIF) :
+	m_buf_mgr(buf_mgr),
+	m_max_FIF(max_FIF)
 {
+
 	auto hr = dev.As(&m_dxr_dev);
 	if (FAILED(hr))
 		assert(false);
@@ -108,8 +110,15 @@ void MeshManager::create_RT_accel_structure(const std::vector<RTMeshDesc>& descs
 			geom_desc.Triangles.VertexBuffer.StartAddress = vb->gpu_adr() + part.vertex_start * vb->element_size();	// vertex offset
 			geom_desc.Triangles.VertexBuffer.StrideInBytes = vb->element_size();
 
-			geom_descs.push_back(geom_desc);
+			m_geom_descs.push_back(geom_desc);
 		}
+	}
+
+	// schedule for deletion
+	if (m_rt_bufs.tlas.valid())
+	{
+		m_old_rt_bufs = m_rt_bufs;
+		m_frames_until_del = m_max_FIF;
 	}
 
 	// Fill BLAS and TLAS input declarations
@@ -119,14 +128,14 @@ void MeshManager::create_RT_accel_structure(const std::vector<RTMeshDesc>& descs
 	{
 		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAGS flags = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_BUILD_FLAG_PREFER_FAST_TRACE;
 
-		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& bl_in = blas_d.Inputs;
+		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& bl_in = m_blas_d.Inputs;
 		bl_in.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
 		bl_in.Flags = flags;
-		bl_in.NumDescs = (UINT)geom_descs.size();
+		bl_in.NumDescs = (UINT)m_geom_descs.size();
 		bl_in.Type = D3D12_RAYTRACING_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL;
-		bl_in.pGeometryDescs = geom_descs.data();
+		bl_in.pGeometryDescs = m_geom_descs.data();
 
-		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& tl_in = tlas_d.Inputs;
+		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_INPUTS& tl_in = m_tlas_d.Inputs;
 		tl_in.DescsLayout = D3D12_ELEMENTS_LAYOUT_ARRAY;
 		tl_in.Flags = flags;
 		tl_in.NumDescs = 1;					
@@ -139,7 +148,7 @@ void MeshManager::create_RT_accel_structure(const std::vector<RTMeshDesc>& descs
 		assert(bl_preb_info.ResultDataMaxSizeInBytes > 0);
 		assert(tl_preb_info.ResultDataMaxSizeInBytes > 0);
 	}
-
+	
 	// grab buffers
 	{
 		// grab a scratch buffer
@@ -179,8 +188,8 @@ void MeshManager::create_RT_accel_structure(const std::vector<RTMeshDesc>& descs
 		auto tlas = m_buf_mgr->get_buffer_alloc(m_rt_bufs.tlas);
 
 		// finish BLAS desc
-		blas_d.ScratchAccelerationStructureData = scratch->gpu_adr();
-		blas_d.DestAccelerationStructureData = blas->gpu_adr();
+		m_blas_d.ScratchAccelerationStructureData = scratch->gpu_adr();
+		m_blas_d.DestAccelerationStructureData = blas->gpu_adr();
 
 		// make instance buffer
 		D3D12_RAYTRACING_INSTANCE_DESC instance_d{};
@@ -210,12 +219,10 @@ void MeshManager::create_RT_accel_structure(const std::vector<RTMeshDesc>& descs
 		auto instances = m_buf_mgr->get_buffer_alloc(m_rt_bufs.instances);
 
 		// finish TLAS desc
-		tlas_d.DestAccelerationStructureData = tlas->gpu_adr();
-		tlas_d.ScratchAccelerationStructureData = scratch->gpu_adr();
-		tlas_d.Inputs.InstanceDescs = instances->gpu_adr();
+		m_tlas_d.DestAccelerationStructureData = tlas->gpu_adr();
+		m_tlas_d.ScratchAccelerationStructureData = scratch->gpu_adr();
+		m_tlas_d.Inputs.InstanceDescs = instances->gpu_adr();
 	}
-
-
 
 
 }
@@ -231,15 +238,31 @@ void MeshManager::build_RT_accel_structure(ID3D12GraphicsCommandList5* cmdl)
 	//auto extra_barr = CD3DX12_RESOURCE_BARRIER::Transition(scratch->base_buffer(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 	//cmdl->ResourceBarrier(1, &extra_barr);
 
-	cmdl->BuildRaytracingAccelerationStructure(&blas_d, 0, nullptr);
+	cmdl->BuildRaytracingAccelerationStructure(&m_blas_d, 0, nullptr);
 	auto barr = CD3DX12_RESOURCE_BARRIER::UAV(blas->base_buffer());
 	cmdl->ResourceBarrier(1, &barr);
-	cmdl->BuildRaytracingAccelerationStructure(&tlas_d, 0, nullptr);
+	cmdl->BuildRaytracingAccelerationStructure(&m_tlas_d, 0, nullptr);
 	barr = CD3DX12_RESOURCE_BARRIER::UAV(tlas->base_buffer());
 	cmdl->ResourceBarrier(1, &barr);
+
 }
 
 const RTAccelStructure* MeshManager::get_RT_accel_structure()
 {
 	return &m_rt_bufs;
+}
+
+void MeshManager::frame_begin(uint32_t frame_idx)
+{
+	if (m_frames_until_del > 0)
+	{
+		--m_frames_until_del;
+		if (m_frames_until_del == 0)
+		{
+			m_buf_mgr->destroy_buffer(m_old_rt_bufs.scratch);
+			m_buf_mgr->destroy_buffer(m_old_rt_bufs.tlas);
+			m_buf_mgr->destroy_buffer(m_old_rt_bufs.blas);
+			m_buf_mgr->destroy_buffer(m_old_rt_bufs.instances);
+		}
+	}
 }

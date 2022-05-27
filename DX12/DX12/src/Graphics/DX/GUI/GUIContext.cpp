@@ -58,6 +58,13 @@ void GUIContext::render(ID3D12GraphicsCommandList* cmdl)
 	for (const auto& [name, func] : m_persistent_ui_callbacks)
 		func();
 
+	while (!m_consumable_ui.empty())
+	{
+		auto func = m_consumable_ui.front();
+		func();
+		m_consumable_ui.pop();
+	}
+
 	ImGui::Render();
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), cmdl);
 }
@@ -83,6 +90,11 @@ void GUIContext::add_persistent_ui(const std::string& name, const std::function<
 void GUIContext::remove_persistent_ui(const std::string& name)
 {
 	m_persistent_ui_callbacks.erase(name);
+}
+
+void GUIContext::add_consumable_ui(const std::function<void()> callback)
+{
+	m_consumable_ui.push(callback);
 }
 
 // Forward declare message handler from imgui_impl_win32.cpp

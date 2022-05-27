@@ -6,6 +6,7 @@
 #include <d3d12.h>
 #include <functional>
 #include <unordered_map>
+#include <queue>
 
 class GUIContext
 {
@@ -26,11 +27,14 @@ public:
 	void add_persistent_ui(const std::string& name, const std::function<void()> callback);
 	void remove_persistent_ui(const std::string& name);
 
+	void add_consumable_ui(const std::function<void()> callback);
+
 	bool win_proc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 
 private:
 	std::unordered_map<std::string, std::function<void()>> m_persistent_ui_callbacks;
+	std::queue<std::function<void()>> m_consumable_ui;
 
 };
 

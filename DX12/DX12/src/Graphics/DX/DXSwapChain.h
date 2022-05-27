@@ -11,6 +11,7 @@ public:
 	{
 		HWND hwnd;
 		uint8_t max_FIF = 3;
+		uint8_t out_num_surfaces = 0;
 		cptr<ID3D12CommandQueue> associated_queue;
 
 		// 0 is valid: It will grab client dimensions from associated window automatically

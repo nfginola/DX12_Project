@@ -11,6 +11,7 @@ public:
 	{
 		HWND hwnd = nullptr;
 		bool debug_on = false;
+		UINT max_FIF = 3;
 	};
 
 	// Device-based constants
