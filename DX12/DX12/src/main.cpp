@@ -293,14 +293,13 @@ int main()
 		auto main_vp = CD3DX12_VIEWPORT(0.f, 0.f, CLIENT_WIDTH, CLIENT_HEIGHT, D3D12_MIN_DEPTH, D3D12_MAX_DEPTH);
 		auto main_scissor = CD3DX12_RECT(0, 0, CLIENT_WIDTH, CLIENT_HEIGHT);
 
-		// setup test UI
+		// setup setting UI
 		bool show_pf = true;
 		bool copy_bogus_data = false;
 		bool instanced = false;
 		bool instanced_grid = false;
 		bool vsync = false;
 		bool do_bogus_cpu_work = false;
-		bool reload_rt = false;
 		float scale = 0.07f;
 		g_gui_ctx->add_persistent_ui("test", [&]()
 			{
@@ -313,9 +312,28 @@ int main()
 				ImGui::Checkbox("Do Bogus CPU work", &do_bogus_cpu_work);
 				ImGui::SliderInt("Work", &cpu_bogus_work_amount, 1, 1000);
 				ImGui::SliderFloat("Scale", &scale, 0.01f, 0.3f);
-				reload_rt = ImGui::Button("Rebuild RT");
+					ImGui::End();
+			});
+
+		// setup RT UI
+		//bool reload_rt = false;
+		bool reload_rt_per_submesh = false;
+		bool reload_rt_per_model = false;
+		bool reload_rt_variable = false;
+		int submesh_per_blas = 1;
+		g_gui_ctx->add_persistent_ui("RT", [&]()
+			{
+				ImGui::Begin("RT Settings");
+				reload_rt_per_model = ImGui::Button("Rebuild: 1 BLAS Per Model");
+				reload_rt_per_submesh = ImGui::Button("Rebuild: 1 BLAS Per Submesh");
+				reload_rt_variable = ImGui::Button("Rebuild: Variable Submesh Per BLAS");
+				ImGui::SliderInt("Submesh Per BLAS", &submesh_per_blas, 1, 100);
+
 				ImGui::End();
 			});
+
+
+
 
 
 		// setup pipeline
@@ -596,13 +614,13 @@ int main()
 			frame_res.sync.wait();
 			cpu_pf.profile_end("waiting on prev frame in flight");
 
-
-			if (reload_rt || frame_count == 0)
-			{
-				//mesh_mgr.create_RT_accel_structure({ { model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(scale) } });
-				//mesh_mgr.create_RT_accel_structure_v2({ { model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(scale) } });
-				mesh_mgr.create_RT_accel_structure_v3({ { model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(scale) } });
-			}
+			// default is BLAS per model
+			if (reload_rt_per_model || frame_count == 0)
+				mesh_mgr.create_RT_accel_structure_v3({ { model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(scale) } }, MeshManager::RTBuildSetting::eBLASPerModel);
+			else if (reload_rt_per_submesh)
+				mesh_mgr.create_RT_accel_structure_v3({ { model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(scale) } }, MeshManager::RTBuildSetting::eBLASPerSubmesh);
+			else if (reload_rt_variable)
+				mesh_mgr.create_RT_accel_structure_v3({ { model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(scale) } }, MeshManager::RTBuildSetting::eBLASVariableSubmesh, submesh_per_blas);
 
 
 			// use copy queue
@@ -680,7 +698,7 @@ int main()
 			cptr<ID3D12GraphicsCommandList5> dxr_cmdl;
 			auto hr = dq_cmdl->QueryInterface(IID_PPV_ARGS(dxr_cmdl.GetAddressOf()));
 			assert(SUCCEEDED(hr));
-			if (reload_rt || frame_count == 0)
+			if (reload_rt_per_model || reload_rt_per_submesh || reload_rt_variable || frame_count == 0)
 			{
 				std::cout << "RT Rebuilt\n";
 

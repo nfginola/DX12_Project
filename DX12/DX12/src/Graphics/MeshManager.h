@@ -32,7 +32,7 @@ struct MeshDesc
 
 struct RTAccelStructure
 {
-	BufferHandle blas, tlas, scratch, instances;
+	BufferHandle tlas;
 
 	uint64_t handle = 0;
 	void destroy() { };
@@ -57,6 +57,22 @@ struct RTMeshDesc
 class MeshManager
 {
 public:
+	enum class RTBuildSetting
+	{
+		eBLASPerSubmesh,
+		eBLASPerModel,
+		eBLASVariableSubmesh
+	};
+
+	struct RTSceneData
+	{
+		int tlas_count;
+		int blas_count;
+		int submesh_per_blas;
+		int total_verts;
+	};
+
+public:
 	MeshManager(cptr<ID3D12Device> dev, DXBufferManager* buf_mgr, uint32_t max_FIF);
 	~MeshManager() = default;
 
@@ -64,19 +80,12 @@ public:
 	void destroy_mesh(MeshHandle handle);
 	const Mesh* get_mesh(MeshHandle handle);
 
-	// Single BLAS element
-	void create_RT_accel_structure(const std::vector<RTMeshDesc>& geometries);
-
-	// Variable rate BLAS elements
-	void create_RT_accel_structure_v2(const std::vector<RTMeshDesc>& geometries);
-
-
-	void create_RT_accel_structure_v3(const std::vector<RTMeshDesc>& geometries);
-
-
-
+	// submesh per BLAS only used if eBLASVariableSubmesh is on
+	void create_RT_accel_structure_v3(const std::vector<RTMeshDesc>& geometries, RTBuildSetting setting = RTBuildSetting::eBLASPerModel, UINT submesh_per_BLAS = 0);
 	void build_RT_accel_structure(ID3D12GraphicsCommandList5* cmdl);
 	const RTAccelStructure* get_RT_accel_structure();
+
+
 
 	void frame_begin(uint32_t frame_idx);
 private:
@@ -85,22 +94,14 @@ private:
 
 	DXBufferManager* m_buf_mgr = nullptr;
 
-	// active rt bufs
-	RTAccelStructure m_rt_bufs;
 
 	uint64_t m_frames_until_del = 0;
-	RTAccelStructure m_old_rt_bufs;		// old to be deleted
-
-	// temp for building
-	std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> m_geom_descs;
-	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC m_blas_d = {};
-	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC m_tlas_d = {};
 
 	uint32_t m_max_FIF;
 
 
-	
-	bool using_v2 = true;
+	RTAccelStructure m_rt_bufs;
+	RTSceneData scene_data;
 
 	// V2
 	struct BLASElement
@@ -116,13 +117,34 @@ private:
 		~BLASElement() = default;
 	};
 
-	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC m_tlas_desc;
 
-	std::vector<D3D12_RAYTRACING_INSTANCE_DESC> m_instance_d;
-	std::vector<std::unique_ptr<BLASElement>> m_blas_elements;
+	struct TLASElement
+	{
+		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC tlas_desc;
 
-	BufferHandle m_single_tlas;
-	BufferHandle m_single_scratch;
-	BufferHandle m_single_instance;
+		std::vector<D3D12_RAYTRACING_INSTANCE_DESC> instance_d;
+		std::vector<std::unique_ptr<BLASElement>> blas_elements;
+
+		BufferHandle single_tlas;
+		BufferHandle single_scratch;			// Used for TLAS only
+		BufferHandle single_instance;
+
+		void clear_resources(DXBufferManager* mgr)
+		{
+			mgr->destroy_buffer(single_tlas);
+			mgr->destroy_buffer(single_scratch);
+			mgr->destroy_buffer(single_instance);
+
+			for (auto& blas_el : blas_elements)
+			{
+				mgr->destroy_buffer(blas_el->blas_buffer);
+				mgr->destroy_buffer(blas_el->scratch_buffer);
+			}
+		}
+
+	};
+
+	std::unique_ptr<TLASElement> m_tlas_element;
+	std::unique_ptr<TLASElement> m_tlas_to_delete;
 };
 

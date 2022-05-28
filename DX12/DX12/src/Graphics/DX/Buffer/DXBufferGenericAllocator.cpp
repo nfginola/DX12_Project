@@ -69,9 +69,9 @@ void DXBufferGenericAllocator::deallocate(DXBufferAllocation&& alloc)
 	if (it == m_existing_allocs.cend())
 		assert(false);
 
-	auto refs_left = alloc.reset();
-	for (int i = 0; i < refs_left; ++i)
-		alloc.reset();
+	//auto refs_left = alloc.reset();
+	//for (int i = 0; i < refs_left; ++i)
+	//	alloc.reset();
 
 	// erase from internal tracker
 	m_allocs.erase(alloc.gpu_adr());
