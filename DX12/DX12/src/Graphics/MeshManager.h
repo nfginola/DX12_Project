@@ -66,10 +66,16 @@ public:
 
 	struct RTSceneData
 	{
-		int tlas_count;
-		int blas_count;
-		int submesh_per_blas;
-		int total_verts;
+		int tlas_count = 0;
+		std::vector<std::string> geometries_per_blas;		// immediately store string for view (imgui)
+		int total_verts = 0;
+
+		void clear()
+		{
+			tlas_count = 0;
+			total_verts = 0;
+			geometries_per_blas.clear();
+		}
 	};
 
 public:
@@ -84,7 +90,7 @@ public:
 	void create_RT_accel_structure_v3(const std::vector<RTMeshDesc>& geometries, RTBuildSetting setting = RTBuildSetting::eBLASPerModel, UINT submesh_per_BLAS = 0);
 	void build_RT_accel_structure(ID3D12GraphicsCommandList5* cmdl);
 	const RTAccelStructure* get_RT_accel_structure();
-
+	const RTSceneData* get_RT_scene_data();
 
 
 	void frame_begin(uint32_t frame_idx);
@@ -101,7 +107,7 @@ private:
 
 
 	RTAccelStructure m_rt_bufs;
-	RTSceneData scene_data;
+	RTSceneData m_rt_scene;
 
 	// V2
 	struct BLASElement

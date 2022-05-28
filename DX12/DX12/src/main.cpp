@@ -56,8 +56,8 @@ int cpu_bogus_work_amount = 1;
 #pragma optimize( "", off )
 struct TempMems
 {
-	std::array<uint64_t*, 10> mems;
-	uint32_t size = 1024;
+	std::array<uint64_t*, 50> mems;
+	uint32_t size = 4096;
 
 	TempMems()
 	{
@@ -75,10 +75,7 @@ struct TempMems
 	{
 		for (uint64_t i = 1; i < mems.size(); ++i)
 		{
-			for (uint32_t x = 0; x < size; ++x)
-			{
-				mems[i][x] = i;
-			}
+			std::memcpy(mems[i - 1], mems[i], size);
 		}
 	}
 };
@@ -310,7 +307,7 @@ int main()
 				ImGui::Checkbox("Instanced Grid", &instanced_grid);
 				ImGui::Checkbox("Vsync", &vsync);
 				ImGui::Checkbox("Do Bogus CPU work", &do_bogus_cpu_work);
-				ImGui::SliderInt("Work", &cpu_bogus_work_amount, 1, 1000);
+				ImGui::SliderInt("Work", &cpu_bogus_work_amount, 1, 3000);
 				ImGui::SliderFloat("Scale", &scale, 0.01f, 0.3f);
 					ImGui::End();
 			});
@@ -328,6 +325,27 @@ int main()
 				reload_rt_per_submesh = ImGui::Button("Rebuild: 1 BLAS Per Submesh");
 				reload_rt_variable = ImGui::Button("Rebuild: Variable Submesh Per BLAS");
 				ImGui::SliderInt("Submesh Per BLAS", &submesh_per_blas, 1, 100);
+
+				ImGui::End();
+			});
+
+		auto rt_scene = mesh_mgr.get_RT_scene_data();
+		std::vector<const char*> dropdown_elements;
+		// setup RT scene UI
+		g_gui_ctx->add_persistent_ui("RT Scene", [&]()
+			{
+				ImGui::Begin("RT Scene");
+
+				ImGui::Text(fmt::format("Num TLAS: {}", rt_scene->tlas_count).c_str());
+				ImGui::Text(fmt::format("Verts: {}", rt_scene->total_verts).c_str());
+
+
+				// store as const char
+				dropdown_elements.clear();
+				for (auto& geom_count : rt_scene->geometries_per_blas)
+					dropdown_elements.push_back(geom_count.c_str());
+				int curr = 0;
+				ImGui::ListBox("Geometry/BLAS", &curr, dropdown_elements.data(), rt_scene->geometries_per_blas.size(), 15);
 
 				ImGui::End();
 			});
