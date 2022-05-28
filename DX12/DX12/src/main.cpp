@@ -599,7 +599,9 @@ int main()
 
 			if (reload_rt || frame_count == 0)
 			{
-				mesh_mgr.create_RT_accel_structure({ { model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(scale) } });
+				//mesh_mgr.create_RT_accel_structure({ { model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(scale) } });
+				//mesh_mgr.create_RT_accel_structure_v2({ { model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(scale) } });
+				mesh_mgr.create_RT_accel_structure_v3({ { model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(scale) } });
 			}
 
 
@@ -657,14 +659,9 @@ int main()
 			// submit buffered work
 			up_ctx.submit_work(gfx_ctx->get_next_fence_value());
 
-
-
-
 			// Reset
 			dq_ator->Reset();
 			dq_cmdl->Reset(dq_ator, nullptr);
-
-
 
 			wait_alloc[frame_idx][0]->Reset();
 			wait_cmdl[frame_idx][0]->Reset(wait_alloc[frame_idx][0].Get(), nullptr);

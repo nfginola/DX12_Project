@@ -64,8 +64,17 @@ public:
 	void destroy_mesh(MeshHandle handle);
 	const Mesh* get_mesh(MeshHandle handle);
 
-	// Each mesh is mapped to one BLAS element
+	// Single BLAS element
 	void create_RT_accel_structure(const std::vector<RTMeshDesc>& geometries);
+
+	// Variable rate BLAS elements
+	void create_RT_accel_structure_v2(const std::vector<RTMeshDesc>& geometries);
+
+
+	void create_RT_accel_structure_v3(const std::vector<RTMeshDesc>& geometries);
+
+
+
 	void build_RT_accel_structure(ID3D12GraphicsCommandList5* cmdl);
 	const RTAccelStructure* get_RT_accel_structure();
 
@@ -88,5 +97,32 @@ private:
 	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC m_tlas_d = {};
 
 	uint32_t m_max_FIF;
+
+
+	
+	bool using_v2 = true;
+
+	// V2
+	struct BLASElement
+	{
+		std::vector<D3D12_RAYTRACING_GEOMETRY_DESC> geoms{};
+		BufferHandle blas_buffer;
+		BufferHandle scratch_buffer;
+		D3D12_RAYTRACING_ACCELERATION_STRUCTURE_PREBUILD_INFO preb_info{};
+		D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC blas_desc{};
+		D3D12_RAYTRACING_INSTANCE_DESC instance_desc{};
+		DirectX::SimpleMath::Matrix wm;		// assuming single instance for BLAS
+
+		~BLASElement() = default;
+	};
+
+	D3D12_BUILD_RAYTRACING_ACCELERATION_STRUCTURE_DESC m_tlas_desc;
+
+	std::vector<D3D12_RAYTRACING_INSTANCE_DESC> m_instance_d;
+	std::vector<std::unique_ptr<BLASElement>> m_blas_elements;
+
+	BufferHandle m_single_tlas;
+	BufferHandle m_single_scratch;
+	BufferHandle m_single_instance;
 };
 
