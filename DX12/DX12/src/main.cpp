@@ -298,6 +298,9 @@ int main()
 		float scale = 0.07f;
 		int instance_count = 3;
 		bool nanosuit_on = false;
+		bool profile_buf_alloc = false;
+		bool is_sub_alloc = true;
+		int alloc_work = 25;
 		g_gui_ctx->add_persistent_ui("test", [&]()
 			{
 				ImGui::Begin("Settings");
@@ -311,6 +314,10 @@ int main()
 				ImGui::SliderInt("Work", &cpu_bogus_work_amount, 1, 3000);
 				ImGui::SliderFloat("Scale", &scale, 0.01f, 0.3f);
 				ImGui::Checkbox("Render Nanosuit", &nanosuit_on);
+				ImGui::Checkbox("Profile Buffer Allocation", &profile_buf_alloc);
+				ImGui::Checkbox("[X] Sub-alloc // [ ] Committed ", &is_sub_alloc);
+				ImGui::SliderInt("Alloc Work", &alloc_work, 1, 500);
+
 				ImGui::End();
 			});
 
@@ -601,7 +608,8 @@ int main()
 		MSG msg{};
 		while (g_app_running)
 		{
-	
+
+
 
 
 			cpu_pf.frame_begin();
@@ -613,6 +621,51 @@ int main()
 			win->pump_messages();
 			if (!g_app_running)		// Early exit if WMs picked up by this frames pump messages
 				break;
+
+			// suballocation profiling
+			if (profile_buf_alloc)
+			{
+				cpu_pf.profile_begin("buf allocation");
+
+				if (is_sub_alloc)
+				{
+					for (int i = 0; i < alloc_work; ++i)
+					{
+						// allocate persistent suballocated memory
+						DXBufferDesc settings_cbd{};
+						settings_cbd.element_count = 1;
+						settings_cbd.element_size = 512;
+						settings_cbd.flag = BufferFlag::eConstant;
+						settings_cbd.usage_cpu = UsageIntentCPU::eUpdateSometimes;
+						settings_cbd.usage_gpu = UsageIntentGPU::eReadOncePerFrame;
+						auto bogus_buf = buf_mgr.create_buffer(settings_cbd);
+
+						buf_mgr.destroy_buffer(bogus_buf);
+					}
+				}
+				else
+				{
+
+					for (int i = 0; i < alloc_work; ++i)
+					{
+						DXBufferDesc scratch_d{};
+						scratch_d.element_count = 1;
+						scratch_d.element_size = 512;
+						scratch_d.flag = BufferFlag::eNonConstant;
+						scratch_d.usage_cpu = UsageIntentCPU::eUpdateNever;
+						scratch_d.usage_gpu = UsageIntentGPU::eWrite;
+						auto bogus_buf = buf_mgr.create_buffer(scratch_d);		// normal UAV
+
+						buf_mgr.destroy_buffer(bogus_buf);
+					}
+				}
+
+				cpu_pf.profile_end("buf allocation");
+			}
+
+
+
+
 
 			g_input->frame_begin();
 

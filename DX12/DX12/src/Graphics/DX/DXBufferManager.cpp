@@ -457,6 +457,12 @@ void DXBufferManager::destroy_constant(InternalBufferResource* res)
 		m_constant_persistent_bufs[res->frame_idx_allocation]->deallocate(std::move(res->alloc));
 		m_handles.free_handle(res->handle);
 	}
+	else if (res->usage_cpu == UsageIntentCPU::eUpdateSometimes)
+	{
+		//m_constant_persistent_buf->deallocate(std::move(res->alloc));
+		m_constant_persistent_bufs[res->frame_idx_allocation]->deallocate(std::move(res->alloc));
+		m_handles.free_handle(res->handle);
+	}
 	else
 		assert(false);
 }
