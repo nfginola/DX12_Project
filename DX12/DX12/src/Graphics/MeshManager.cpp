@@ -257,14 +257,14 @@ void MeshManager::create_RT_accel_structure_v3(const std::vector<RTMeshDesc>& de
 
 		D3D12_RAYTRACING_INSTANCE_DESC instance_d{};
 		// scaling
-		instance_d.Transform[0][0] = descs[0].world_mat(0, 0);
-		instance_d.Transform[1][1] = descs[0].world_mat(1, 1);
-		instance_d.Transform[2][2] = descs[0].world_mat(2, 2);
+		instance_d.Transform[0][0] = blas_el->wm(0, 0);
+		instance_d.Transform[1][1] = blas_el->wm(1, 1);
+		instance_d.Transform[2][2] = blas_el->wm(2, 2);
 
 		// translation
-		instance_d.Transform[0][3] = descs[0].world_mat(3, 0);
-		instance_d.Transform[1][3] = descs[0].world_mat(3, 1);
-		instance_d.Transform[2][3] = descs[0].world_mat(3, 2);
+		instance_d.Transform[0][3] = blas_el->wm(3, 0);
+		instance_d.Transform[1][3] = blas_el->wm(3, 1);
+		instance_d.Transform[2][3] = blas_el->wm(3, 2);
 
 		instance_d.InstanceMask = 0xFF;
 		instance_d.AccelerationStructure = blas->gpu_adr();

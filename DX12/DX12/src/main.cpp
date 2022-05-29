@@ -114,8 +114,6 @@ int main()
 	const UINT CLIENT_HEIGHT = 900;
 	const UINT MAX_FIF = 3;
 
-
-
 	// Initialize WIC
 	HRESULT hr = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
 	if (FAILED(hr))
@@ -298,18 +296,22 @@ int main()
 		bool vsync = false;
 		bool do_bogus_cpu_work = false;
 		float scale = 0.07f;
+		int instance_count = 3;
+		bool nanosuit_on = false;
 		g_gui_ctx->add_persistent_ui("test", [&]()
 			{
 				ImGui::Begin("Settings");
 				ImGui::Checkbox("Show Profiler Data", &show_pf);
 				ImGui::Checkbox("Copy Bogus Data", &copy_bogus_data);
 				ImGui::Checkbox("Instanced", &instanced);
+				ImGui::SliderInt("Instance Count", &instance_count, 1, 15);
 				ImGui::Checkbox("Instanced Grid", &instanced_grid);
 				ImGui::Checkbox("Vsync", &vsync);
 				ImGui::Checkbox("Do Bogus CPU work", &do_bogus_cpu_work);
 				ImGui::SliderInt("Work", &cpu_bogus_work_amount, 1, 3000);
 				ImGui::SliderFloat("Scale", &scale, 0.01f, 0.3f);
-					ImGui::End();
+				ImGui::Checkbox("Render Nanosuit", &nanosuit_on);
+				ImGui::End();
 			});
 
 		// setup RT UI
@@ -448,9 +450,14 @@ int main()
 		// load sponza
 		ModelDesc modeld{};
 		modeld.rel_path = "models/Sponza_gltf/glTF/Sponza.gltf";
-
 		modeld.pso = pipe;		// 'material'
 		auto sponza_model = model_mgr.load_model(modeld);
+
+		// load nanosuit
+		ModelDesc nanosuitd{};
+		nanosuitd.rel_path = "models/nanosuit/nanosuit.obj";
+		nanosuitd.pso = pipe;
+		auto nanosuit_model = model_mgr.load_model(nanosuitd);
 
 
 		// camera (persistent, on default heap)
@@ -632,13 +639,31 @@ int main()
 			frame_res.sync.wait();
 			cpu_pf.profile_end("waiting on prev frame in flight");
 
+
+			// rebuild data
+			std::vector<RTMeshDesc> descs;
+			if (reload_rt_per_model || reload_rt_per_submesh || reload_rt_variable || frame_count == 0)
+			{
+				descs.push_back({ model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(scale) });
+				//descs.push_back({ model_mgr.get_model(nanosuit_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(10.f) });
+
+				if (nanosuit_on)
+				{
+					for (int i = -40; i < 40; i += 8)
+					{
+						auto wm = DirectX::SimpleMath::Matrix::CreateScale(0.7f) * DirectX::SimpleMath::Matrix::CreateTranslation({ (float)i, 0.f, 0.f });
+						descs.push_back({ model_mgr.get_model(nanosuit_model)->mesh, wm });
+					}
+				}
+			}
+
 			// default is BLAS per model
 			if (reload_rt_per_model || frame_count == 0)
-				mesh_mgr.create_RT_accel_structure_v3({ { model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(scale) } }, MeshManager::RTBuildSetting::eBLASPerModel);
+				mesh_mgr.create_RT_accel_structure_v3(descs, MeshManager::RTBuildSetting::eBLASPerModel);
 			else if (reload_rt_per_submesh)
-				mesh_mgr.create_RT_accel_structure_v3({ { model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(scale) } }, MeshManager::RTBuildSetting::eBLASPerSubmesh);
+				mesh_mgr.create_RT_accel_structure_v3(descs, MeshManager::RTBuildSetting::eBLASPerSubmesh);
 			else if (reload_rt_variable)
-				mesh_mgr.create_RT_accel_structure_v3({ { model_mgr.get_model(sponza_model)->mesh, DirectX::SimpleMath::Matrix::CreateScale(scale) } }, MeshManager::RTBuildSetting::eBLASVariableSubmesh, submesh_per_blas);
+				mesh_mgr.create_RT_accel_structure_v3(descs, MeshManager::RTBuildSetting::eBLASVariableSubmesh, submesh_per_blas);
 
 
 			// use copy queue
@@ -720,9 +745,8 @@ int main()
 			{
 				std::cout << "RT Rebuilt\n";
 
-				// flush, for simplicity, before rebuilding
-				for (const auto& frame_res : per_frame_res)
-					frame_res.sync.wait();
+				//for (const auto& frame_res : per_frame_res)
+				//	frame_res.sync.wait();
 
 				mesh_mgr.build_RT_accel_structure(dxr_cmdl.Get());
 			}
@@ -859,6 +883,7 @@ int main()
 
 			// main draw
 			gpu_pf.profile_begin(dq_cmdl, dq, "main draw");
+			cpu_pf.profile_begin("main draw");
 			dq_cmdl->BeginQuery(pstat_qheap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS, (uint32_t)frame_idx);
 
 			dq_cmdl->RSSetViewports(1, &main_vp);
@@ -878,7 +903,7 @@ int main()
 
 			dq_cmdl->SetPipelineState(pipe.Get());
 
-			// draw geometry
+			// draw geometry (sponza)
 			{
 				const auto& model = model_mgr.get_model(sponza_model);
 				const auto& mats = model->mats;
@@ -918,7 +943,7 @@ int main()
 								dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], (uint32_t)bindless_mgr.access_index(mat.resource), 0);
 								// declare geometry part and draw
 								dq_cmdl->SetGraphicsRoot32BitConstant(params["vert_offset"], part.vertex_start, 0);
-								dq_cmdl->DrawIndexedInstanced(part.index_count, instanced ? 3 : 1, part.index_start, 0, 0);
+								dq_cmdl->DrawIndexedInstanced(part.index_count, instanced ? instance_count : 1, part.index_start, 0, 0);
 
 								prev_pipe = mat.pso.Get();
 							}
@@ -948,9 +973,57 @@ int main()
 						prev_pipe = mat.pso.Get();
 					}
 				}
+			}
+
+			// draw nanosuit
+			if (nanosuit_on)
+			{
+				const auto& model = model_mgr.get_model(nanosuit_model);
+				const auto& mats = model->mats;
+
+				auto mesh = mesh_mgr.get_mesh(model->mesh);
+				auto ibv = buf_mgr.get_ibv(mesh->ib);
+
+				buf_mgr.bind_as_direct_arg(dq_cmdl, mesh->vbs[0], params["my_pos"], RootArgDest::eGraphics);
+				buf_mgr.bind_as_direct_arg(dq_cmdl, mesh->vbs[1], params["my_uv"], RootArgDest::eGraphics);
+				buf_mgr.bind_as_direct_arg(dq_cmdl, mesh->vbs[2], params["my_normal"], RootArgDest::eGraphics);
+				buf_mgr.bind_as_direct_arg(dq_cmdl, mesh->vbs[3], params["my_tangent"], RootArgDest::eGraphics);
+				buf_mgr.bind_as_direct_arg(dq_cmdl, mesh->vbs[4], params["my_bitangent"], RootArgDest::eGraphics);
+				dq_cmdl->IASetIndexBuffer(&ibv);
+				assert(mesh->parts.size() == mats.size());
+				ID3D12PipelineState* prev_pipe = nullptr;
+
+				// per object
+				for (int i = -40; i < 40; i += 8)
+				{
+					auto wm = DirectX::SimpleMath::Matrix::CreateScale(0.7f) * DirectX::SimpleMath::Matrix::CreateTranslation({(float)i, 0.f, 0.f});
+					up_ctx.upload_data(&wm, sizeof(wm), dyn_cb);
+					buf_mgr.bind_as_direct_arg(dq_cmdl, dyn_cb, params["per_object"], RootArgDest::eGraphics);
+					for (int i = 0; i < mesh->parts.size(); ++i)
+					{
+						const auto& part = mesh->parts[i];
+						const auto& mat = mats[i];
+
+						if (mat.pso.Get() != prev_pipe)
+							dq_cmdl->SetPipelineState(mat.pso.Get());
+
+						// set material arg
+						dq_cmdl->SetGraphicsRoot32BitConstant(params["bindless_index"], (uint32_t)bindless_mgr.access_index(mat.resource), 0);
+						// declare geometry part and draw
+						dq_cmdl->SetGraphicsRoot32BitConstant(params["vert_offset"], part.vertex_start, 0);
+
+						dq_cmdl->DrawIndexedInstanced(part.index_count, 1, part.index_start, 0, 0);
+
+						prev_pipe = mat.pso.Get();
+					}
+				}
+
+
+
 
 
 			}
+
 
 			dq_cmdl->EndQuery(pstat_qheap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS, (uint32_t)frame_idx);
 			dq_cmdl->ResolveQueryData(pstat_qheap.Get(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS,
@@ -960,6 +1033,7 @@ int main()
 				frame_idx * sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS));	// offset (in bytes) from target 
 
 			gpu_pf.profile_end(dq_cmdl, "main draw");
+			cpu_pf.profile_end("main draw");
 
 			// render imgui data
 			g_gui_ctx->render(dq_cmdl);
