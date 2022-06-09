@@ -17,4 +17,4 @@ First project in DX12
 
 __Gallery__:  
 Scene  
-![Alt text](gallery/gallery.jpg?raw=true "Screenshot")  
+![Alt text](Gallery/gallery.jpg?raw=true "Screenshot")  
