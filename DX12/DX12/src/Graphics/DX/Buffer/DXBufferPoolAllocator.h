@@ -19,11 +19,13 @@ public:
 
 
 public:
+	DXBufferAllocation allocate(uint64_t requested_size);
+	void deallocate(DXBufferAllocation&& alloc);
+
+
 	DXBufferPoolAllocator(Microsoft::WRL::ComPtr<ID3D12Device> dev, std::initializer_list<DXBufferPoolAllocator::PoolInfo> pool_infos_list, D3D12_HEAP_TYPE heap_type);
 	~DXBufferPoolAllocator() = default;
 
-	DXBufferAllocation allocate(uint64_t requested_size);
-	void deallocate(DXBufferAllocation&& alloc);
 
 	// Sets state of the underlying buffer
 	void set_state(D3D12_RESOURCE_STATES new_state, ID3D12GraphicsCommandList* cmdl);

@@ -208,7 +208,6 @@ void DXBufferManager::frame_begin(uint32_t frame_idx)
 	// resources are freed back to the ring buffer on a per-frame basis
 	m_constant_ring_buf->frame_begin(frame_idx);
 
-
 	// deallocate
 	if (!m_first_frame)
 	{
